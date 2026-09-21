@@ -1,7 +1,7 @@
-# TLCN Lakehouse Docker Stack
+﻿# Lakehouse Docker Stack
 
 Stack local de dung lakehouse voi MinIO, Spark, Apache Iceberg, Nessie,
-Trino, Airflow va Superset.
+Trino, Airflow va Metabase.
 
 ## Version matrix
 
@@ -13,21 +13,25 @@ Trino, Airflow va Superset.
 | Nessie | `ghcr.io/projectnessie/nessie:0.108.4` |
 | Trino | `trinodb/trino:483` |
 | Airflow | `apache/airflow:3.3.1-python3.12` |
-| Superset | `apache/superset:6.0.0` |
+| Metabase | `metabase/metabase:v0.63.17` |
 | Postgres | `postgres:16-alpine` |
 
 Spark 4.2.0 da co release, nhung Iceberg 1.11.0 hien cung cap runtime jar
 chinh thuc cho Spark 4.1/4.0/3.5. Vi vay stack pin Spark 4.1.3 de tranh
 lech dependency.
 
+Metabase dung official Starburst connection de ket noi Trino. Starburst driver
+trong Metabase cung ho tro Trino, nen BI layer se query Iceberg thong qua Trino
+catalog `iceberg`.
+
 ## Start
 
 ```powershell
-docker compose up -d --build
+docker compose up -d --build --remove-orphans
 ```
 
 Lan dau build Airflow se cai Java, PySpark va Airflow providers nen co the mat
-vai phut.
+vai phut. Metabase khong can build rieng vi dung image official.
 
 ## UI va endpoint
 
@@ -40,8 +44,37 @@ vai phut.
 | Spark Worker UI | http://localhost:8083 | n/a |
 | Trino | http://localhost:8082 | user `trino` |
 | Airflow | http://localhost:8080 | `airflow` / `airflow` |
-| Superset | http://localhost:8088 | `admin` / `admin` |
+| Metabase | http://localhost:3000 | setup lan dau tren UI |
 | Postgres | `localhost:5433` | per-service users |
+
+## Metabase
+
+Metabase dung Postgres lam application database:
+
+```text
+postgres://metabase:metabase@postgres:5432/metabase
+```
+
+Lan dau vao http://localhost:3000, tao admin user trong UI. Sau do them database
+ket noi Trino nhu sau:
+
+```text
+Database type: Starburst
+Display name: Trino Iceberg
+Host: trino
+Port: 8080
+Catalog: iceberg
+Schema: de trong hoac nhap demo neu chi muon browse schema demo
+Username: trino
+Password: de trong
+SSL: off
+```
+
+Neu UI co muc connection string, co the dung:
+
+```text
+jdbc:trino://trino:8080/iceberg
+```
 
 ## Smoke test bang Spark SQL
 
@@ -65,22 +98,11 @@ ghi vao `nessie.demo.airflow_events`.
 
 ```text
 airflow/          Airflow DAGs, plugins va logs
-config/           Runtime config cho Spark, Trino, Superset
+config/           Runtime config cho Spark va Trino
 infra/docker/     Dockerfiles va image requirements
 infra/postgres/   Postgres bootstrap scripts
 scripts/spark/    PySpark jobs dung cho Airflow hoac chay truc tiep
 ```
-
-## Superset
-
-Superset init se thu tao database connection `Trino Iceberg` toi:
-
-```text
-trino://trino@trino:8080/iceberg
-```
-
-Neu command import connection thay doi theo phien ban Superset, tao connection
-thu cong trong UI bang URI tren.
 
 ## Stop/reset
 
@@ -101,4 +123,5 @@ docker compose down -v
 - Nessie Iceberg REST: https://projectnessie.org/guides/iceberg-rest/
 - Trino Iceberg/REST catalog: https://trino.io/docs/current/object-storage/metastores.html
 - Airflow Docker Compose: https://airflow.apache.org/docs/apache-airflow/stable/howto/docker-compose/index.html
-- Superset Docker builds: https://superset.apache.org/admin-docs/installation/docker-builds/
+- Metabase Docker: https://www.metabase.com/docs/latest/installation-and-operation/running-metabase-on-docker
+- Metabase Starburst/Trino connection: https://github.com/metabase/metabase/blob/master/docs/databases/connections/starburst.md
