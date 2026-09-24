@@ -4,10 +4,10 @@ x-airflow-build: &airflow-build
   context: .
   dockerfile: infra/docker/airflow/Dockerfile
   args:
-    AIRFLOW_IMAGE: ${AIRFLOW_IMAGE:-apache/airflow:3.3.1-python3.12}
+    AIRFLOW_IMAGE: ${AIRFLOW_IMAGE:-apache/airflow:3.3.1-python3.10}
 
 x-airflow-common: &airflow-common
-  image: lakehouse-airflow:3.3.1-python3.12
+  image: lakehouse-airflow:3.3.1-python3.10
   user: "${AIRFLOW_UID:-50000}:0"
   environment: &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
@@ -148,6 +148,7 @@ services:
       - nessie.catalog.service.s3.default-options.region=us-east-1
       - nessie.catalog.service.s3.default-options.path-style-access=true
       - nessie.catalog.service.s3.default-options.endpoint=http://minio:9000/
+      - nessie.catalog.service.s3.default-options.request-signing-enabled=false
       - nessie.catalog.service.s3.default-options.access-key=urn:nessie-secret:quarkus:nessie.catalog.secrets.access-key
       - nessie.catalog.secrets.access-key.name=${MINIO_ROOT_USER:-minioadmin}
       - nessie.catalog.secrets.access-key.secret=${MINIO_ROOT_PASSWORD:-minioadmin}
