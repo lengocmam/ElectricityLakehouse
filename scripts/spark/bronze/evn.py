@@ -1,21 +1,13 @@
 import re
-import ssl
 import time
 from datetime import date, datetime, timezone
 from urllib.parse import urljoin
 
 import requests
-import urllib3
 from lxml import html
-from requests.adapters import HTTPAdapter
-from urllib3.util.ssl_ import create_urllib3_context
 
-from pyspark.sql.types import (
-    StructType,
-    StructField,
-    StringType,
-)
-
+from bronze.bronze_utils import write_raw_bronze
+from bronze.http_client import create_legacy_tls_session
 from utils.spark import create_spark_session
 
 
@@ -53,33 +45,8 @@ CONTENT_DATE_RE = re.compile(
 )
 
 
-class EvnTlsAdapter(HTTPAdapter):
-
-    def init_poolmanager(self, *args, **kwargs):
-        context = create_urllib3_context(
-            ciphers="DEFAULT:@SECLEVEL=1"
-        )
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
-
-        kwargs["ssl_context"] = context
-
-        return super().init_poolmanager(
-            *args,
-            **kwargs
-        )
-
-
 def create_evn_session() -> requests.Session:
-    urllib3.disable_warnings(
-        urllib3.exceptions.InsecureRequestWarning
-    )
-
-    session = requests.Session()
-    session.mount(BASE_URL, EvnTlsAdapter())
-    session.verify = False
-
-    return session
+    return create_legacy_tls_session(BASE_URL)
 
 
 def parse_date(day: str, month: str, year: str) -> date | None:
@@ -328,77 +295,13 @@ def write_bronze(
     records: list[dict],
     ingest_date: str,
 ):
-    if not records:
-        raise RuntimeError(
-            "No records were successfully crawled."
-        )
-
-    schema = StructType([
-        StructField("bronze_key", StringType(), False),
-        StructField("source_name", StringType(), False),
-        StructField("source_url", StringType(), False),
-        StructField("source_data_date", StringType(), True),
-        StructField("batch_id", StringType(), False),
-        StructField("ingestion_timestamp", StringType(), False),
-        StructField("ingest_date", StringType(), False),
-        StructField("raw", StringType(), False),
-    ])
-
-    df = spark.createDataFrame(
+    write_raw_bronze(
+        spark,
         records,
-        schema=schema
-    )
-
-    print(
-        f"Successfully crawled: {len(records)} records"
-    )
-    print(f"Ingest date: {ingest_date}")
-
-    # --------------------------------------------------
-    # STEP 0: Ensure Bronze namespace exists
-    # --------------------------------------------------
-
-    print(
-        f"STEP 0: creating namespace if needed: {NAMESPACE}"
-    )
-
-    spark.sql(
-        f"CREATE NAMESPACE IF NOT EXISTS {NAMESPACE}"
-    )
-
-    print("STEP 0: namespace ready")
-
-    # --------------------------------------------------
-    # STEP 1: Check table
-    # --------------------------------------------------
-
-    print("STEP 1: before tableExists")
-
-    if spark.catalog.tableExists(TABLE_NAME):
-
-        print("STEP 2: table exists")
-        print("STEP 3: before overwritePartitions")
-
-        df.writeTo(TABLE_NAME).overwritePartitions()
-
-        print("STEP 4: overwrite completed")
-
-    else:
-
-        print("STEP 2: table does not exist")
-        print("STEP 3: before create")
-
-        (
-            df.writeTo(TABLE_NAME)
-            .using("iceberg")
-            .partitionedBy("ingest_date")
-            .create()
-        )
-
-        print("STEP 4: create completed")
-
-    print(
-        "Bronze ingestion completed successfully."
+        TABLE_NAME,
+        ingest_date,
+        namespace=NAMESPACE,
+        fail_on_empty=True,
     )
 
 

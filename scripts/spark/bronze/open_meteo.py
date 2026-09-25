@@ -1,11 +1,13 @@
 import sys
 from datetime import date, datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
+import random
 from zoneinfo import ZoneInfo
 import time
 
 import requests
 
-from pyspark.sql.types import StructType, StructField, StringType
+from bronze.bronze_utils import write_raw_bronze
 from utils.spark import create_spark_session
 
 
@@ -14,10 +16,18 @@ BASE_URL = "https://archive-api.open-meteo.com/v1/archive"
 SOURCE_NAME = "open-meteo"
 NAMESPACE = "nessie.bronze"
 TABLE_NAME = "nessie.bronze.open_meteo"
+OPEN_METEO_DATE_COLUMNS = (
+    "source_data_start_date",
+    "source_data_end_date",
+)
 
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 
-START_DATE_DEFAULT = date(2026, 9, 20)
+START_DATE_DEFAULT = date(2026, 9, 18)
+REQUEST_WINDOW_DAYS = 7
+MAX_RETRIES = 5
+INITIAL_BACKOFF_SECONDS = 2
+DEFAULT_429_WAIT_SECONDS = 60
 
 # ============================================================
 # 63 TỈNH/THÀNH PHỐ - TỌA ĐỘ ĐẠI DIỆN
@@ -166,12 +176,36 @@ def create_open_meteo_session() -> requests.Session:
     session.headers.update(HEADERS)
     return session
 
+
+def get_retry_after_seconds(response: requests.Response) -> float | None:
+    retry_after = response.headers.get("Retry-After")
+
+    if not retry_after:
+        return None
+
+    try:
+        return max(float(retry_after), 0)
+    except ValueError:
+        try:
+            retry_at = parsedate_to_datetime(retry_after)
+
+            if retry_at.tzinfo is None:
+                retry_at = retry_at.replace(tzinfo=timezone.utc)
+
+            return max(
+                (retry_at - datetime.now(timezone.utc)).total_seconds(),
+                0,
+            )
+        except (TypeError, ValueError):
+            return None
+
 # ============================================================
 # SINGLE REQUEST
 # ============================================================
 
 def fetch_open_meteo(
-    source_data_date: date,
+    window_start_date: date,
+    window_end_date: date,
     ingestion_timestamp: datetime,
     ingest_date: str,
     batch_id: str,
@@ -179,13 +213,14 @@ def fetch_open_meteo(
     session: requests.Session,
 ) -> tuple[dict | None, tuple[date, str] | None]:
 
-    source_data_date_str = source_data_date.isoformat()
+    window_start_date_str = window_start_date.isoformat()
+    window_end_date_str = window_end_date.isoformat()
 
     params = {
         "latitude": LATITUDES,
         "longitude": LONGITUDES,
-        "start_date": source_data_date_str,
-        "end_date": source_data_date_str,
+        "start_date": window_start_date_str,
+        "end_date": window_end_date_str,
         "hourly": ",".join(HOURLY_VARIABLES),
         "daily": ",".join(DAILY_VARIABLES),
         "timezone": "Asia/Ho_Chi_Minh",
@@ -193,12 +228,9 @@ def fetch_open_meteo(
 
     print(
         f"Crawling Open-Meteo: "
-        f"data_date={source_data_date_str}, "
+        f"window={window_start_date_str} to {window_end_date_str}, "
         f"locations={len(LOCATIONS)}"
     )
-
-    MAX_RETRIES = 5
-    INITIAL_BACKOFF = 2
 
     for attempt in range(MAX_RETRIES):
 
@@ -210,11 +242,29 @@ def fetch_open_meteo(
             )
 
             if response.status_code == 429:
-                error_message = response.text
-                return None, (
-                    source_data_date,
-                    f"HTTP 429: {error_message}",
+                error_message = f"HTTP 429: {response.text}"
+
+                if attempt == MAX_RETRIES - 1:
+                    return None, (window_start_date, error_message)
+
+                retry_after_seconds = get_retry_after_seconds(response)
+                wait_seconds = (
+                    retry_after_seconds
+                    if retry_after_seconds is not None
+                    else DEFAULT_429_WAIT_SECONDS * (2 ** attempt)
                 )
+                wait_seconds += random.uniform(0, 1)
+
+                print(
+                    f"-> [RETRY] Rate limited: "
+                    f"window={window_start_date_str} to {window_end_date_str}, "
+                    f"retry={attempt + 1}/{MAX_RETRIES}, "
+                    f"sleep={wait_seconds:.1f}s, "
+                    f"error={error_message}"
+                )
+
+                time.sleep(wait_seconds)
+                continue
 
             response.raise_for_status()
 
@@ -232,7 +282,8 @@ def fetch_open_meteo(
                 "bronze_key": f"{batch_id}_{task_index:06d}",
                 "source_name": SOURCE_NAME,
                 "source_url": response.url,
-                "source_data_date": source_data_date_str,
+                "source_data_start_date": window_start_date_str,
+                "source_data_end_date": window_end_date_str,
                 "batch_id": batch_id,
                 "ingestion_timestamp": (
                     ingestion_timestamp.isoformat()
@@ -250,15 +301,15 @@ def fetch_open_meteo(
 
             if attempt == MAX_RETRIES - 1:
                 return None, (
-                    source_data_date,
+                    window_start_date,
                     str(exc),
                 )
 
-            wait_seconds = INITIAL_BACKOFF * (2 ** attempt)
+            wait_seconds = INITIAL_BACKOFF_SECONDS * (2 ** attempt)
 
             print(
                 f"-> [RETRY] Request failed: "
-                f"data_date={source_data_date_str}, "
+                f"window={window_start_date_str} to {window_end_date_str}, "
                 f"retry={attempt + 1}/{MAX_RETRIES}, "
                 f"sleep={wait_seconds}s, "
                 f"error={exc}"
@@ -267,7 +318,7 @@ def fetch_open_meteo(
             time.sleep(wait_seconds)
 
     return None, (
-        source_data_date,
+        window_start_date,
         "Max retries exceeded",
     )
 
@@ -291,7 +342,9 @@ def crawl_open_meteo_dates(
         end_date - start_date
     ).days + 1
 
-    total_requests = total_dates
+    total_requests = (
+        total_dates + REQUEST_WINDOW_DAYS - 1
+    ) // REQUEST_WINDOW_DAYS
 
     print(
         f"Total dates: {total_dates}"
@@ -311,21 +364,28 @@ def crawl_open_meteo_dates(
 
     try:
 
-        current_date = start_date
+        window_start_date = start_date
 
-        while current_date <= end_date:
+        while window_start_date <= end_date:
 
-            print(
-                f"\n===== DATE: "
-                f"{current_date.isoformat()} ====="
+            window_end_date = min(
+                window_start_date + timedelta(
+                    days=REQUEST_WINDOW_DAYS - 1
+                ),
+                end_date,
             )
 
-            task_index = (
-                current_date - start_date
-            ).days + 1
+            print(
+                f"\n===== WINDOW: "
+                f"{window_start_date.isoformat()} "
+                f"to {window_end_date.isoformat()} ====="
+            )
+
+            task_index = completed_requests + 1
 
             record, error = fetch_open_meteo(
-                source_data_date=current_date,
+                window_start_date=window_start_date,
+                window_end_date=window_end_date,
                 ingestion_timestamp=ingestion_timestamp,
                 ingest_date=ingest_date,
                 batch_id=batch_id,
@@ -340,6 +400,7 @@ def crawl_open_meteo_dates(
 
             if error is not None:
                 failed_dates.append(error)
+                break
 
             print(
                 f"Progress: "
@@ -347,7 +408,7 @@ def crawl_open_meteo_dates(
                 f"{total_requests}"
             )
 
-            current_date += timedelta(days=1)
+            window_start_date = window_end_date + timedelta(days=1)
 
     finally:
         session.close()
@@ -363,76 +424,47 @@ def crawl_open_meteo_dates(
 # WRITE BRONZE
 # ============================================================
 
+def ensure_open_meteo_date_columns(spark) -> None:
+    if not spark.catalog.tableExists(TABLE_NAME):
+        return
+
+    existing_columns = {
+        field.name
+        for field in spark.table(TABLE_NAME).schema.fields
+    }
+    missing_columns = [
+        column
+        for column in OPEN_METEO_DATE_COLUMNS
+        if column not in existing_columns
+    ]
+
+    if missing_columns:
+        columns_sql = ", ".join(
+            f"{column} STRING"
+            for column in missing_columns
+        )
+        spark.sql(
+            f"ALTER TABLE {TABLE_NAME} "
+            f"ADD COLUMNS ({columns_sql})"
+        )
+
 def write_bronze(
     spark,
     records: list[dict],
     ingest_date: str,
 ) -> None:
+    ensure_open_meteo_date_columns(spark)
 
-    if not records:
-        print("No records to write.")
-        return
-
-    schema = StructType(
-        [
-            StructField("bronze_key", StringType(), False),
-            StructField("source_name", StringType(), False),
-            StructField("source_url", StringType(), False),
-            StructField("source_data_date", StringType(), True),
-            StructField("batch_id", StringType(), False),
-            StructField("ingestion_timestamp", StringType(), False),
-            StructField("ingest_date", StringType(), False),
-            StructField("raw", StringType(), False),
-        ]
-    )
-
-    df = spark.createDataFrame(
+    if write_raw_bronze(
+        spark,
         records,
-        schema=schema,
-    )
-
-    print(f"Records to write: {len(records)}")
-    print(f"Ingest date: {ingest_date}")
-
-    print(f"Creating namespace if needed: {NAMESPACE}")
-
-    spark.sql(
-        f"CREATE NAMESPACE IF NOT EXISTS {NAMESPACE}"
-    )
-
-    if spark.catalog.tableExists(TABLE_NAME):
-
-        print("Table exists, overwriting partitions...")
-
-        df.writeTo(TABLE_NAME).overwritePartitions()
-
-    else:
-
-        print(
-            "Table does not exist, "
-            "creating and writing..."
-        )
-
-        (
-            df.writeTo(TABLE_NAME)
-            .using("iceberg")
-            .partitionedBy("ingest_date")
-            .create()
-        )
-        print("Table created successfully.")
-
-    print("\n=== VERIFY TABLE ===")
-
-    spark.sql(
-        "SHOW TABLES IN nessie.bronze"
-    ).show(truncate=False)
-
-    print("====================\n")
-
-    print(
-        "Open-Meteo Bronze ingestion "
-        "completed successfully."
-    )
+        TABLE_NAME,
+        ingest_date,
+        namespace=NAMESPACE,
+    ):
+        print("\n=== VERIFY TABLE ===")
+        spark.sql("SHOW TABLES IN nessie.bronze").show(truncate=False)
+        print("====================\n")
 
 
 # ============================================================
@@ -504,6 +536,11 @@ def main() -> None:
 
         print(
             "===================================\n"
+        )
+
+        raise RuntimeError(
+            f"Open-Meteo ingestion failed for "
+            f"{len(failed_dates)} request window(s)."
         )
 
     spark = None

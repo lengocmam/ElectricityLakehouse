@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 import requests
 import urllib3
 
-from pyspark.sql.types import StructType, StructField, StringType
+from bronze.bronze_utils import write_raw_bronze
 from utils.spark import create_spark_session
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -126,37 +126,13 @@ def crawl_nsmo_dates(
 
 
 def write_bronze(spark, records: list[dict], ingest_date: str) -> None:
-    if not records:
-        print("No records to write.")
-        return
-
-    schema = StructType([
-        StructField("bronze_key", StringType(), False),
-        StructField("source_name", StringType(), False),
-        StructField("source_url", StringType(), False),
-        StructField("source_data_date", StringType(), True),
-        StructField("batch_id", StringType(), False),
-        StructField("ingestion_timestamp", StringType(), False),
-        StructField("ingest_date", StringType(), False),
-        StructField("raw", StringType(), False),
-    ])
-
-    df = spark.createDataFrame(records, schema=schema)
-    
-    print(f"Records to write: {len(records)}")
-    print(f"Ingest date: {ingest_date}")
-
-    print(f"Creating namespace if needed: {NAMESPACE}")
-    spark.sql(f"CREATE NAMESPACE IF NOT EXISTS {NAMESPACE}")
-
-    if spark.catalog.tableExists(TABLE_NAME):
-        print("Table exists, overwriting partitions...")
-        df.writeTo(TABLE_NAME).overwritePartitions()
-    else:
-        print("Table does not exist, creating and writing...")
-        df.writeTo(TABLE_NAME).using("iceberg").partitionedBy("ingest_date").create()
-
-    print("Bronze ingestion completed successfully.")
+    write_raw_bronze(
+        spark,
+        records,
+        TABLE_NAME,
+        ingest_date,
+        namespace=NAMESPACE,
+    )
 
 
 def main() -> None:
