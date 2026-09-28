@@ -23,83 +23,48 @@ OPEN_METEO_DATE_COLUMNS = (
 
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 
-START_DATE_DEFAULT = date(2026, 9, 18)
-REQUEST_WINDOW_DAYS = 7
+START_DATE_DEFAULT = date(2023, 5, 28)
+REQUEST_WINDOW_DAYS = 14
 MAX_RETRIES = 5
 INITIAL_BACKOFF_SECONDS = 2
 DEFAULT_429_WAIT_SECONDS = 60
 
-# ============================================================
-# 63 TỈNH/THÀNH PHỐ - TỌA ĐỘ ĐẠI DIỆN
-# ============================================================
-
 LOCATIONS = [
     {"location_name": "Ha Noi", "latitude": 21.0278, "longitude": 105.8342},
-    {"location_name": "Hai Phong", "latitude": 20.8449, "longitude": 106.6881},
-    {"location_name": "Quang Ninh", "latitude": 21.0064, "longitude": 107.2925},
-    {"location_name": "Bac Giang", "latitude": 21.2731, "longitude": 106.1946},
-    {"location_name": "Bac Ninh", "latitude": 21.1861, "longitude": 106.0763},
-    {"location_name": "Hai Duong", "latitude": 20.9373, "longitude": 106.3146},
-    {"location_name": "Hung Yen", "latitude": 20.6464, "longitude": 106.0511},
-    {"location_name": "Thai Binh", "latitude": 20.4463, "longitude": 106.3366},
-    {"location_name": "Nam Dinh", "latitude": 20.4388, "longitude": 106.1621},
-    {"location_name": "Ha Nam", "latitude": 20.5835, "longitude": 105.9230},
-    {"location_name": "Ninh Binh", "latitude": 20.2506, "longitude": 105.9745},
-    {"location_name": "Vinh Phuc", "latitude": 21.3609, "longitude": 105.5474},
-    {"location_name": "Phu Tho", "latitude": 21.3227, "longitude": 105.4020},
-    {"location_name": "Bac Kan", "latitude": 22.1470, "longitude": 105.8348},
     {"location_name": "Cao Bang", "latitude": 22.6666, "longitude": 106.2639},
-    {"location_name": "Lang Son", "latitude": 21.8537, "longitude": 106.7610},
-    {"location_name": "Thai Nguyen", "latitude": 21.5944, "longitude": 105.8482},
     {"location_name": "Tuyen Quang", "latitude": 21.8233, "longitude": 105.2140},
-    {"location_name": "Ha Giang", "latitude": 22.8233, "longitude": 104.9836},
-    {"location_name": "Yen Bai", "latitude": 21.7168, "longitude": 104.8986},
-    {"location_name": "Lao Cai", "latitude": 22.4856, "longitude": 103.9707},
     {"location_name": "Dien Bien", "latitude": 21.3860, "longitude": 103.0230},
     {"location_name": "Lai Chau", "latitude": 22.3964, "longitude": 103.4582},
     {"location_name": "Son La", "latitude": 21.3256, "longitude": 103.9188},
-    {"location_name": "Hoa Binh", "latitude": 20.8172, "longitude": 105.3376},
-
+    {"location_name": "Lao Cai", "latitude": 21.7168, "longitude": 104.8986},
+    {"location_name": "Thai Nguyen", "latitude": 21.5944, "longitude": 105.8482},
+    {"location_name": "Lang Son", "latitude": 21.8537, "longitude": 106.7610},
+    {"location_name": "Quang Ninh", "latitude": 21.0064, "longitude": 107.2925},
+    {"location_name": "Bac Ninh", "latitude": 21.2731, "longitude": 106.1946},
+    {"location_name": "Phu Tho", "latitude": 21.3227, "longitude": 105.4020},
+    {"location_name": "Hung Yen", "latitude": 20.6464, "longitude": 106.0511},
+    {"location_name": "Hai Phong", "latitude": 20.8449, "longitude": 106.6881},
+    {"location_name": "Ninh Binh", "latitude": 20.2506, "longitude": 105.9745},
     {"location_name": "Thanh Hoa", "latitude": 19.8067, "longitude": 105.7852},
     {"location_name": "Nghe An", "latitude": 18.6796, "longitude": 105.6813},
     {"location_name": "Ha Tinh", "latitude": 18.3559, "longitude": 105.8877},
-    {"location_name": "Quang Binh", "latitude": 17.4677, "longitude": 106.6220},
-    {"location_name": "Quang Tri", "latitude": 16.7943, "longitude": 107.0458},
-    {"location_name": "Thua Thien Hue", "latitude": 16.4637, "longitude": 107.5909},
+
+    {"location_name": "Quang Tri", "latitude": 17.4677, "longitude": 106.6220},
+    {"location_name": "Hue", "latitude": 16.4637, "longitude": 107.5909},
     {"location_name": "Da Nang", "latitude": 16.0544, "longitude": 108.2022},
-    {"location_name": "Quang Nam", "latitude": 15.5394, "longitude": 108.0191},
     {"location_name": "Quang Ngai", "latitude": 15.1214, "longitude": 108.8044},
-    {"location_name": "Binh Dinh", "latitude": 13.7820, "longitude": 109.2196},
-    {"location_name": "Phu Yen", "latitude": 13.0882, "longitude": 109.0929},
+    {"location_name": "Gia Lai", "latitude": 13.7820, "longitude": 109.2196},
     {"location_name": "Khanh Hoa", "latitude": 12.2388, "longitude": 109.1967},
-    {"location_name": "Ninh Thuan", "latitude": 11.5753, "longitude": 108.9899},
-    {"location_name": "Binh Thuan", "latitude": 10.9805, "longitude": 108.2615},
-
-    {"location_name": "Kon Tum", "latitude": 14.3545, "longitude": 108.0076},
-    {"location_name": "Gia Lai", "latitude": 13.9716, "longitude": 108.0151},
-    {"location_name": "Dak Lak", "latitude": 12.6667, "longitude": 108.0500},
-    {"location_name": "Dak Nong", "latitude": 12.0042, "longitude": 107.6907},
     {"location_name": "Lam Dong", "latitude": 11.9404, "longitude": 108.4583},
+    {"location_name": "Dak Lak", "latitude": 12.6667, "longitude": 108.0500},
 
-    {"location_name": "Binh Phuoc", "latitude": 11.7512, "longitude": 106.7235},
-    {"location_name": "Tay Ninh", "latitude": 11.3352, "longitude": 106.1099},
-    {"location_name": "Binh Duong", "latitude": 11.3254, "longitude": 106.4770},
     {"location_name": "Dong Nai", "latitude": 10.9453, "longitude": 106.8243},
-    {"location_name": "Ba Ria - Vung Tau", "latitude": 10.4114, "longitude": 107.1362},
     {"location_name": "Ho Chi Minh City", "latitude": 10.8231, "longitude": 106.6297},
-
-    {"location_name": "Long An", "latitude": 10.6956, "longitude": 106.2431},
-    {"location_name": "Tien Giang", "latitude": 10.4493, "longitude": 106.3420},
-    {"location_name": "Ben Tre", "latitude": 10.2434, "longitude": 106.3756},
-    {"location_name": "Tra Vinh", "latitude": 9.8127, "longitude": 106.2993},
-    {"location_name": "Vinh Long", "latitude": 10.2537, "longitude": 105.9722},
-    {"location_name": "Dong Thap", "latitude": 10.4938, "longitude": 105.6882},
-    {"location_name": "An Giang", "latitude": 10.5216, "longitude": 105.1259},
-    {"location_name": "Kien Giang", "latitude": 9.8249, "longitude": 105.1259},
+    {"location_name": "Tay Ninh", "latitude": 10.6956, "longitude": 106.2431},
     {"location_name": "Can Tho", "latitude": 10.0452, "longitude": 105.7469},
-    {"location_name": "Hau Giang", "latitude": 9.7579, "longitude": 105.6413},
-    {"location_name": "Soc Trang", "latitude": 9.6025, "longitude": 105.9739},
-    {"location_name": "Bac Lieu", "latitude": 9.2940, "longitude": 105.7278},
+    {"location_name": "Vinh Long", "latitude": 10.2537, "longitude": 105.9722},
+    {"location_name": "Dong Thap", "latitude": 10.4493, "longitude": 106.3420},
+    {"location_name": "An Giang", "latitude": 10.0125, "longitude": 105.0809},
     {"location_name": "Ca Mau", "latitude": 9.1527, "longitude": 105.1961},
 ]
 
@@ -113,24 +78,15 @@ LONGITUDES = ",".join(
     for location in LOCATIONS
 )
 
-
-# ============================================================
-# OPEN-METEO VARIABLES
-# ============================================================
-
 HOURLY_VARIABLES = [
     "temperature_2m",
     "apparent_temperature",
     "relative_humidity_2m",
-    "dew_point_2m",
-    "wet_bulb_temperature_2m",
     "precipitation",
-    "rain",
-    "weather_code",
     "cloud_cover",
     "shortwave_radiation",
     "wind_speed_10m",
-    "wind_gusts_10m",
+    "weather_code",
 ]
 
 DAILY_VARIABLES = [
@@ -138,28 +94,13 @@ DAILY_VARIABLES = [
     "temperature_2m_mean",
     "temperature_2m_max",
     "temperature_2m_min",
-    "apparent_temperature_mean",
-    "apparent_temperature_max",
-    "apparent_temperature_min",
-    "daylight_duration",
-    "sunshine_duration",
     "precipitation_sum",
-    "rain_sum",
     "precipitation_hours",
-    "wind_speed_10m_max",
-    "wind_gusts_10m_max",
-    "shortwave_radiation_sum",
+    "sunshine_duration",
     "cloud_cover_mean",
-    "dew_point_2m_mean",
-    "relative_humidity_2m_mean",
-    "wind_speed_10m_mean",
-    "wet_bulb_temperature_2m_mean",
+    "shortwave_radiation_sum",
+    "wind_speed_10m_max",
 ]
-
-
-# ============================================================
-# SESSION
-# ============================================================
 
 HEADERS = {
     "User-Agent": (
@@ -198,10 +139,7 @@ def get_retry_after_seconds(response: requests.Response) -> float | None:
             )
         except (TypeError, ValueError):
             return None
-
-# ============================================================
-# SINGLE REQUEST
-# ============================================================
+        
 
 def fetch_open_meteo(
     window_start_date: date,
@@ -321,11 +259,7 @@ def fetch_open_meteo(
         window_start_date,
         "Max retries exceeded",
     )
-
-
-# ============================================================
-# CRAWLER - CONCURRENT
-# ============================================================
+    
 
 def crawl_open_meteo_dates(
     start_date: date,
@@ -420,10 +354,6 @@ def crawl_open_meteo_dates(
     return records, failed_dates
 
 
-# ============================================================
-# WRITE BRONZE
-# ============================================================
-
 def ensure_open_meteo_date_columns(spark) -> None:
     if not spark.catalog.tableExists(TABLE_NAME):
         return
@@ -448,6 +378,7 @@ def ensure_open_meteo_date_columns(spark) -> None:
             f"ADD COLUMNS ({columns_sql})"
         )
 
+
 def write_bronze(
     spark,
     records: list[dict],
@@ -466,10 +397,6 @@ def write_bronze(
         spark.sql("SHOW TABLES IN nessie.bronze").show(truncate=False)
         print("====================\n")
 
-
-# ============================================================
-# MAIN
-# ============================================================
 
 def main() -> None:
 
