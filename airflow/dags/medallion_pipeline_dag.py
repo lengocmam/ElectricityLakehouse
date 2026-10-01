@@ -115,7 +115,7 @@ with DAG(
             packages=ICEBERG_PACKAGES,
             env_vars=SPARK_ENV,
             **SPARK_RESOURCES,
-            execution_timeout=timedelta(minutes=45),
+            execution_timeout=timedelta(hours=2),
             verbose=True,
         )
 

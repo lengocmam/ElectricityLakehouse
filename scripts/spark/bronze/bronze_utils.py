@@ -1,6 +1,11 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StringType, StructField, StructType
 
+from datetime import date
+
+from bronze.watermark import update_watermark
+
+
 
 BRONZE_RAW_SCHEMA = StructType([
     StructField("bronze_key", StringType(), False),
@@ -21,9 +26,11 @@ def write_raw_bronze(
     records: list[dict],
     table_name: str,
     ingest_date: str,
+    last_successful_data_date: date,
     *,
     namespace: str | None = None,
     fail_on_empty: bool = False,
+    dataset_name: str
 ) -> bool:
     if not records:
         if fail_on_empty:
@@ -45,6 +52,10 @@ def write_raw_bronze(
     else:
         print("Table does not exist, creating and writing...")
         df.writeTo(table_name).using("iceberg").partitionedBy("ingest_date").create()
+        
+    update_watermark(dataset_name=dataset_name, data_date=last_successful_data_date)
 
     print("Bronze ingestion completed successfully.")
     return True
+    
+    

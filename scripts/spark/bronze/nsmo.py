@@ -7,6 +7,7 @@ import requests
 import urllib3
 
 from bronze.bronze_utils import write_raw_bronze
+from bronze.watermark import get_watermark
 from utils.spark import create_spark_session
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -53,9 +54,7 @@ def crawl_nsmo_dates(
     index = 1
 
     while current_date <= end_date:
-        # API của NSMO yêu cầu format dd/MM/yyyy
         day_str_api = current_date.strftime("%d/%m/%Y")
-        # Metadata Lakehouse yêu cầu format YYYY-MM-DD
         source_data_date = current_date.isoformat()
         
         print(f"Crawling NSMO snapshot for data_date={source_data_date} (API param: {day_str_api})")
@@ -103,6 +102,8 @@ def crawl_nsmo_dates(
                 "source_name": SOURCE_NAME,
                 "source_url": response.url,
                 "source_data_date": source_data_date,
+                "source_data_start_date": None,
+                "source_data_end_date": None,
                 "batch_id": batch_id,
                 "ingestion_timestamp": ingestion_timestamp.isoformat(),
                 "ingest_date": ingest_date,
@@ -125,13 +126,20 @@ def crawl_nsmo_dates(
     return records, failed_dates
 
 
-def write_bronze(spark, records: list[dict], ingest_date: str) -> None:
+def write_bronze(
+    spark,
+    records: list[dict],
+    ingest_date: str,
+    last_successful_data_date: date,
+) -> None:
     write_raw_bronze(
         spark,
         records,
         TABLE_NAME,
         ingest_date,
+        last_successful_data_date,
         namespace=NAMESPACE,
+        dataset_name=SOURCE_NAME,
     )
 
 
@@ -146,9 +154,14 @@ def main() -> None:
     print(f"batch_id: {batch_id}")
     print(f"ingest_date: {ingest_date}")
 
-    # Mặc định crawl toàn bộ từ 2023-01-01 đến ngày hiện tại (không dùng incremental watermark)
-    start_date = START_DATE_DEFAULT
-    end_date = datetime.now(VN_TZ).date()
+    last_successful_data_date = get_watermark(SOURCE_NAME)
+
+    if last_successful_data_date:
+        start_date = last_successful_data_date + timedelta(days=1)
+    else:
+        start_date = START_DATE_DEFAULT
+
+    end_date = datetime.now(VN_TZ).date() - timedelta(days=1)
 
     print(f"Dataset date range: {start_date.isoformat()} to {end_date.isoformat()}")
 
@@ -175,7 +188,13 @@ def main() -> None:
     spark = None
     try:
         spark = create_spark_session("ingest_nsmo")
-        write_bronze(spark, records, ingest_date)
+        if records:
+            write_bronze(
+                spark,
+                records,
+                ingest_date,
+                last_successful_data_date=end_date,
+            )
     finally:
         if spark is not None:
             spark.stop()

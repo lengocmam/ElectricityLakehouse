@@ -4,6 +4,7 @@ from zoneinfo import ZoneInfo
 
 import requests
 from bronze.bronze_utils import write_raw_bronze
+from bronze.watermark import get_watermark
 from bronze.http_client import create_legacy_tls_session
 from utils.spark import create_spark_session
 
@@ -117,8 +118,16 @@ def write_bronze(
     spark,
     records: list[dict],
     ingest_date: str,
+    last_successful_data_date: date,
 ) -> None:
-    write_raw_bronze(spark, records, TABLE_NAME, ingest_date)
+    write_raw_bronze(
+        spark=spark,
+        records=records,
+        table_name=TABLE_NAME,
+        ingest_date=ingest_date,
+        last_successful_data_date=last_successful_data_date,
+        dataset_name=SOURCE_NAME,
+    )
 
 
 def main() -> None:
@@ -139,19 +148,11 @@ def main() -> None:
         spark.sql(f"CREATE NAMESPACE IF NOT EXISTS {NAMESPACE}")
         
         start_date = START_DATE_DEFAULT
-        
-        # Kiểm tra bảng đã tồn tại để thiết lập ngày bắt đầu (tái sử dụng Metadata/Watermark từ bảng gốc)
-        if spark.catalog.tableExists(TABLE_NAME):
-            try:
-                # Lấy ngày lớn nhất đã crawl thành công từ table thay vì framework watermark ngoài
-                max_date_row = spark.sql(f"SELECT MAX(source_data_date) FROM {TABLE_NAME}").collect()
-                max_date_str = max_date_row[0][0] if max_date_row else None
-                if max_date_str:
-                    max_date = date.fromisoformat(max_date_str)
-                    # Bắt đầu từ ngày sau ngày cuối cùng đã có
-                    start_date = max_date + timedelta(days=1)
-            except Exception as e:
-                print(f"Warning: Could not fetch max date from table, defaulting to {START_DATE_DEFAULT.isoformat()}: {e}")
+
+        last_successful_data_date = get_watermark(SOURCE_NAME)
+
+        if last_successful_data_date:
+            start_date = last_successful_data_date + timedelta(days=1)
 
         # END_DATE là ngày hôm trước của ngày hiện tại ở Việt Nam (do chốt data lúc 23:00)
         end_date = datetime.now(VN_TZ).date() - timedelta(days=1)
@@ -178,6 +179,7 @@ def main() -> None:
                 spark=spark,
                 records=records,
                 ingest_date=ingest_date,
+                last_successful_data_date=end_date,
             )
 
     finally:

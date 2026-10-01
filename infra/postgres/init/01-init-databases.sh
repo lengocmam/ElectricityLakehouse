@@ -41,3 +41,18 @@ EOSQL
 create_user_database airflow "${AIRFLOW_DB_USER:-airflow}" "${AIRFLOW_DB_PASSWORD:-airflow}"
 create_user_database metabase "${METABASE_DB_USER:-metabase}" "${METABASE_DB_PASSWORD:-metabase}"
 create_user_database nessie "${NESSIE_DB_USER:-nessie}" "${NESSIE_DB_PASSWORD:-nessie}"
+create_user_database lakehouse_control "${LAKEHOUSE_CONTROL_DB_USER:-lakehouse_control}" "${LAKEHOUSE_CONTROL_DB_PASSWORD:-lakehouse_control}"
+
+psql_cmd --dbname "lakehouse_control" <<-EOSQL
+
+CREATE TABLE IF NOT EXISTS pipeline_watermark (
+    dataset_name VARCHAR(100) PRIMARY KEY,
+    last_successful_data_date DATE,
+    last_successful_run_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+GRANT SELECT, INSERT, UPDATE, DELETE
+ON TABLE pipeline_watermark
+TO lakehouse_control;
+
+EOSQL

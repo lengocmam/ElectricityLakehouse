@@ -25,6 +25,12 @@ x-airflow-common: &airflow-common
     AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
     AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
     AWS_REGION: us-east-1
+
+    WATERMARK_DB_HOST: postgres
+    WATERMARK_DB_PORT: "5432"
+    WATERMARK_DB_NAME: lakehouse_control
+    WATERMARK_DB_USER: ${LAKEHOUSE_CONTROL_DB_USER:-lakehouse_control}
+    WATERMARK_DB_PASSWORD: ${LAKEHOUSE_CONTROL_DB_PASSWORD:-lakehouse_control}
   volumes:
     - ./airflow/dags:/opt/airflow/dags
     - ./airflow/logs:/opt/airflow/logs
@@ -63,6 +69,8 @@ services:
       METABASE_DB_PASSWORD: ${METABASE_DB_PASSWORD:-metabase}
       NESSIE_DB_USER: ${NESSIE_DB_USER:-nessie}
       NESSIE_DB_PASSWORD: ${NESSIE_DB_PASSWORD:-nessie}
+      LAKEHOUSE_CONTROL_DB_USER: ${LAKEHOUSE_CONTROL_DB_USER:-lakehouse_control}
+      LAKEHOUSE_CONTROL_DB_PASSWORD: ${LAKEHOUSE_CONTROL_DB_PASSWORD:-lakehouse_control}
     ports:
       - "5433:5432"
     volumes:
