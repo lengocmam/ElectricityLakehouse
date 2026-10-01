@@ -145,6 +145,9 @@ def extract_source_data_date(url: str, tree) -> date | None:
 def crawl_listing_pages(
     session: requests.Session,
     watermark: date | None,
+    run_mode: str,
+    start_date: date | None = None,
+    end_date: date | None = None,
 ) -> set[str]:
     links = set()
     page = 1
@@ -163,8 +166,8 @@ def crawl_listing_pages(
 
         tree = html.fromstring(response.content)
         page_links = set()
-
-        reached_watermark = False
+        page_article_count = 0
+        reached_boundary = False
 
         for a_tag in tree.xpath(
             '//div[@id="ContentPlaceHolder1_ctl00_row2_container_col1"]'
@@ -172,48 +175,111 @@ def crawl_listing_pages(
         ):
             url = a_tag.get("href")
 
-            if not url or not url.startswith(TARGET_PREFIX):
+            if not url:
                 continue
 
             full_url = urljoin(BASE_URL, url)
+
+            if not full_url.startswith(
+                BASE_URL + TARGET_PREFIX
+            ):
+                continue
 
             source_data_date = extract_source_data_date_from_url(
                 full_url
             )
 
-            # Gặp bài cũ -> dừng pagination
-            if (
-                watermark is not None
-                and source_data_date is not None
-                and source_data_date <= watermark
-            ):
-                print(
-                    f"Reached watermark at page {page}: "
-                    f"{source_data_date} <= {watermark}"
-                )
-                reached_watermark = True
-                break
+            if source_data_date is None:
+                continue
 
-            page_links.add(full_url)
+            page_article_count += 1
 
-        print(f"Found {len(page_links)} new links")
+            if run_mode == "incremental":
+
+                if (
+                    watermark is not None
+                    and source_data_date <= watermark
+                ):
+                    print(
+                        f"Reached watermark at page {page}: "
+                        f"{source_data_date} <= {watermark}"
+                    )
+                    reached_boundary = True
+                    break
+
+                page_links.add(full_url)
+
+            else:
+                # Bài cũ hơn start_date
+                # => đã đi quá phạm vi backfill
+                if source_data_date < start_date:
+                    print(
+                        f"Reached backfill start date at page {page}: "
+                        f"{source_data_date} < {start_date}"
+                    )
+                    reached_boundary = True
+                    break
+
+                # Bài nằm trong khoảng backfill
+                if source_data_date <= end_date:
+                    page_links.add(full_url)
+
+                # source_data_date > end_date:
+                # bài quá mới, bỏ qua nhưng vẫn tiếp tục pagination
+
+        print(
+            f"Found {len(page_links)} matching links "
+            f"on page {page}"
+        )
 
         links.update(page_links)
 
-        # Đã chạm watermark -> không cần page tiếp
-        if reached_watermark:
-            print("Reached watermark. Stop pagination.")
+        # Đã chạm watermark hoặc start_date
+        if reached_boundary:
+            if run_mode == "incremental":
+                print("Reached watermark. Stop pagination.")
+            else:
+                print(
+                    "Reached backfill start date. "
+                    "Stop pagination."
+                )
             break
 
-        # Không có link nào -> hết pagination
-        if not page_links:
+        # BACKFILL:
+        # Có article trên page nhưng chưa tới end_date
+        # => tiếp tục sang page tiếp theo.
+        if (
+            run_mode == "backfill"
+            and page_article_count > 0
+            and not page_links
+        ):
+            print(
+                f"No links in backfill range on page {page}. "
+                "Continue pagination."
+            )
+            page += 1
+            time.sleep(0.5)
+            continue
+
+        # Không tìm thấy article nào trên page
+        if page_article_count == 0:
             if page == 1:
                 raise RuntimeError(
                     "No article links found on the first page. "
                     "The EVN HTML structure or XPath may have changed."
                 )
 
-            print("No new links. Stop pagination.")
+            print(
+                "No article links found. "
+                "Stop pagination."
+            )
+            break
+
+        # Page có article nhưng không có link phù hợp.
+        # Với incremental trường hợp này thường nghĩa là
+        # đã tới cuối vùng dữ liệu cần lấy.
+        if not page_links:
+            print("No matching links. Stop pagination.")
             break
 
         page += 1
@@ -229,6 +295,9 @@ def crawl_articles(
     ingest_date: str,
     batch_id: str,
     watermark: date | None,
+    run_mode: str,
+    start_date: date | None = None,
+    end_date: date | None = None,
 ) -> list[dict]:
 
     records = []
@@ -267,15 +336,26 @@ def crawl_articles(
                 )
                 continue
 
-            if (
-                watermark is not None
-                and source_data_date <= watermark
-            ):
-                print(
-                    f"Skip old article: "
-                    f"{source_data_date} <= {watermark}"
-                )
-                continue
+            if run_mode == "incremental":
+                if (
+                    watermark is not None
+                    and source_data_date <= watermark
+                ):
+                    print(
+                        f"Skip old article: "
+                        f"{source_data_date} <= {watermark}"
+                    )
+                    continue
+
+            else:
+                if not (
+                    start_date <= source_data_date <= end_date
+                ):
+                    print(
+                        f"Skip article outside backfill range: "
+                        f"{source_data_date}"
+                    )
+                    continue
 
             records.append(
                 {
@@ -309,7 +389,8 @@ def write_bronze(
     spark,
     records: list[dict],
     ingest_date: str,
-    last_successful_data_date: date,
+    last_successful_data_date: date | None,
+    update_watermark_after_write: bool,
 ):
     write_raw_bronze(
         spark,
@@ -320,10 +401,50 @@ def write_bronze(
         namespace=NAMESPACE,
         fail_on_empty=True,
         dataset_name="evn",
+        update_watermark_after_write=update_watermark_after_write,
     )
 
 
-def main():
+def main(
+    run_mode: str = "incremental",
+    start_date: str | None = None,
+    end_date: str | None = None,
+):
+    if run_mode not in {"incremental", "backfill"}:
+        raise ValueError(
+            f"Unsupported run mode: {run_mode}"
+        )
+
+    if run_mode == "backfill":
+        if start_date is None or end_date is None:
+            raise ValueError(
+                "Backfill requires both start_date and end_date."
+            )
+
+        crawl_start_date = date.fromisoformat(start_date)
+        crawl_end_date = date.fromisoformat(end_date)
+
+        if crawl_start_date > crawl_end_date:
+            raise ValueError(
+                "start_date must be less than or equal to end_date."
+            )
+
+        watermark = None
+
+        print("Run mode: backfill")
+        print(
+            f"Backfill date range: "
+            f"{crawl_start_date} to {crawl_end_date}"
+        )
+
+    else:
+        watermark = get_watermark("evn")
+
+        print("Run mode: incremental")
+        print(f"Previous watermark: {watermark}")
+
+        crawl_start_date = None
+        crawl_end_date = None
 
     ingestion_timestamp = datetime.now(timezone.utc)
 
@@ -336,16 +457,16 @@ def main():
     batch_id = ingestion_timestamp.strftime(
         "%Y%m%d%H%M%S"
     )
-    
-    watermark = get_watermark("evn")
-
-    print(
-        f"Previous watermark: {watermark}"
-    )
 
     session = create_evn_session()
 
-    links = crawl_listing_pages(session, watermark)
+    links = crawl_listing_pages(
+        session=session,
+        watermark=watermark,
+        run_mode=run_mode,
+        start_date=crawl_start_date,
+        end_date=crawl_end_date,
+    )
 
     print(
         f"Total unique links: {len(links)}"
@@ -363,10 +484,13 @@ def main():
         ingest_date=ingest_date,
         batch_id=batch_id,
         watermark=watermark,
+        run_mode=run_mode,
+        start_date=crawl_start_date,
+        end_date=crawl_end_date,
     )
 
     if not records:
-        print("No new EVN data found. Nothing to write.")
+        print("No EVN data found for the requested range. Nothing to write.")
         return
 
     successful_dates = [
@@ -383,7 +507,7 @@ def main():
     last_successful_data_date = max(successful_dates)
 
     print(
-        f"Watermark candidate: "
+        f"Last successful source data date: "
         f"{last_successful_data_date.isoformat()}"
     )
 
@@ -399,7 +523,14 @@ def main():
             spark=spark,
             records=records,
             ingest_date=ingest_date,
-            last_successful_data_date=last_successful_data_date,
+            last_successful_data_date=(
+                last_successful_data_date
+                if run_mode == "incremental"
+                else None
+            ),
+            update_watermark_after_write=(
+                run_mode == "incremental"
+            ),
         )
 
     finally:

@@ -8,7 +8,7 @@ from bronze.open_meteo import main as ingest_open_meteo
 
 INGESTIONS = {
     "evn": ingest_evn,
-    "hydro": ingest_hydro,
+    "evn_hydro": ingest_hydro,
     "open_meteo": ingest_open_meteo,
     "nsmo": ingest_nsmo,
 }
@@ -16,10 +16,38 @@ INGESTIONS = {
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("dataset", choices=INGESTIONS)
+
+    parser.add_argument(
+        "dataset",
+        choices=INGESTIONS,
+    )
+
+    parser.add_argument(
+        "--run-mode",
+        choices=["incremental", "backfill"],
+        default="incremental",
+    )
+
+    parser.add_argument(
+        "--start-date",
+        default=None,
+    )
+
+    parser.add_argument(
+        "--end-date",
+        default=None,
+    )
+
     args = parser.parse_args()
 
-    INGESTIONS[args.dataset]()
+    if args.dataset in {"open_meteo", "evn", "evn_hydro", "nsmo"}:
+        INGESTIONS[args.dataset](
+            run_mode=args.run_mode,
+            start_date=args.start_date,
+            end_date=args.end_date,
+        )
+    else:
+        INGESTIONS[args.dataset]()
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@ from airflow import DAG
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
 from airflow.operators.empty import EmptyOperator
 from airflow.utils.task_group import TaskGroup
+from airflow.models.param import Param
 
 
 DEFAULT_ARGS = {
@@ -57,6 +58,23 @@ with DAG(
     start_date=datetime(2026, 9, 22),
     schedule="0 2 * * *",
     catchup=False,
+    params={
+        "run_mode": Param(
+            "incremental",
+            type="string",
+            enum=["incremental", "backfill"],
+        ),
+        "start_date": Param(
+            None,
+            type=["null", "string"],
+            description="Only required for backfill.",
+        ),
+        "end_date": Param(
+            None,
+            type=["null", "string"],
+            description="Only required for backfill.",
+        ),
+    },
     max_active_runs=1,
     max_active_tasks=2,
     dagrun_timeout=timedelta(hours=2),
@@ -69,22 +87,40 @@ with DAG(
 
         # bronze_evn = SparkSubmitOperator(
         #     task_id="ingest_evn",
-        #     application=f"{SPARK_APP_DIR}/bronze/evn.py",
+        #     application=f"{SPARK_APP_DIR}/bronze/ingest_bronze.py",
+        #     application_args=[
+        #         "evn",
+        #         "--run-mode",
+        #         "{{ params.run_mode }}",
+        #         "--start-date",
+        #         "{{ params.start_date }}",
+        #         "--end-date",
+        #         "{{ params.end_date }}",
+        #     ],
         #     conn_id="spark_default",
         #     name="bronze_evn",
         #     conf=SPARK_CONF,
         #     packages=ICEBERG_PACKAGES,
         #     env_vars=SPARK_ENV,
         #     **SPARK_RESOURCES,
-        #     execution_timeout=timedelta(minutes=45),
+        #     execution_timeout=timedelta(hours=2),
         #     verbose=True,
         # )
 
-        # bronze_hydro = SparkSubmitOperator(
-        #     task_id="ingest_hydro",
-        #     application=f"{SPARK_APP_DIR}/bronze/hydro.py",
+        # bronze_evn_hydro = SparkSubmitOperator(
+        #     task_id="ingest_evn_hydro",
+        #     application=f"{SPARK_APP_DIR}/bronze/ingest_bronze.py",
+        #     application_args=[
+        #         "evn_hydro",
+        #         "--run-mode",
+        #         "{{ params.run_mode }}",
+        #         "--start-date",
+        #         "{{ params.start_date }}",
+        #         "--end-date",
+        #         "{{ params.end_date }}",
+        #     ],
         #     conn_id="spark_default",
-        #     name="bronze_hydro",
+        #     name="bronze_evn_hydro",
         #     conf=SPARK_CONF,
         #     packages=ICEBERG_PACKAGES,
         #     env_vars=SPARK_ENV,
@@ -93,32 +129,50 @@ with DAG(
         #     verbose=True,
         # )
         
-        # bronze_hydro = SparkSubmitOperator(
-        #     task_id="ingest_nsmo",
-        #     application=f"{SPARK_APP_DIR}/bronze/nsmo.py",
-        #     conn_id="spark_default",
-        #     name="bronze_nsmo",
-        #     conf=SPARK_CONF,
-        #     packages=ICEBERG_PACKAGES,
-        #     env_vars=SPARK_ENV,
-        #     **SPARK_RESOURCES,
-        #     execution_timeout=timedelta(minutes=45),
-        #     verbose=True,
-        # )
-        
-        bronze_open_meteo = SparkSubmitOperator(
-            task_id="ingest_open_meteo",
-            application=f"{SPARK_APP_DIR}/bronze/open_meteo.py",
+        bronze_nsmo = SparkSubmitOperator(
+            task_id="ingest_nsmo",
+            application=f"{SPARK_APP_DIR}/bronze/ingest_bronze.py",
+            application_args=[
+                "nsmo",
+                "--run-mode",
+                "{{ params.run_mode }}",
+                "--start-date",
+                "{{ params.start_date }}",
+                "--end-date",
+                "{{ params.end_date }}",
+            ],
             conn_id="spark_default",
-            name="bronze_open_meteo",
+            name="bronze_nsmo",
             conf=SPARK_CONF,
             packages=ICEBERG_PACKAGES,
             env_vars=SPARK_ENV,
             **SPARK_RESOURCES,
-            execution_timeout=timedelta(hours=2),
+            execution_timeout=timedelta(minutes=45),
             verbose=True,
         )
+        
+        # bronze_open_meteo = SparkSubmitOperator(
+        #     task_id="ingest_open_meteo",
+        #     application=f"{SPARK_APP_DIR}/bronze/ingest_bronze.py",
+        #     application_args=[
+        #         "open_meteo",
+        #         "--run-mode",
+        #         "{{ params.run_mode }}",
+        #         "--start-date",
+        #         "{{ params.start_date }}",
+        #         "--end-date",
+        #         "{{ params.end_date }}",
+        #     ],
+        #     conn_id="spark_default",
+        #     name="bronze_open_meteo",
+        #     conf=SPARK_CONF,
+        #     packages=ICEBERG_PACKAGES,
+        #     env_vars=SPARK_ENV,
+        #     **SPARK_RESOURCES,
+        #     execution_timeout=timedelta(hours=2),
+        #     verbose=True,
+        # )
 
     end = EmptyOperator(task_id="end")
 
-    start >> bronze_open_meteo >> end
+    start >> bronze_nsmo >> end

@@ -113,6 +113,16 @@ HEADERS = {
 }
 
 
+def parse_date(value: str, argument_name: str) -> date:
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError(
+            f"{argument_name} must use YYYY-MM-DD format. "
+            f"Received: {value}"
+        ) from exc
+
+
 def create_open_meteo_session() -> requests.Session:
     session = requests.Session()
     session.headers.update(HEADERS)
@@ -449,7 +459,8 @@ def write_bronze(
     spark,
     records: list[dict],
     ingest_date: str,
-    last_successful_data_date: date,
+    last_successful_data_date: date | None,
+    update_watermark_after_write: bool,
 ) -> None:
     ensure_open_meteo_date_columns(spark)
 
@@ -461,6 +472,7 @@ def write_bronze(
         last_successful_data_date,
         namespace=NAMESPACE,
         dataset_name=SOURCE_NAME,
+        update_watermark_after_write=update_watermark_after_write,
     ):
         print("\n=== VERIFY TABLE ===")
         spark.sql("SHOW TABLES IN nessie.bronze").show(
@@ -469,7 +481,11 @@ def write_bronze(
         print("====================\n")
 
 
-def main() -> None:
+def main(
+    run_mode: str = "incremental",
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> None:
 
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(
@@ -494,39 +510,91 @@ def main() -> None:
     print(f"ingest_date: {ingest_date}")
     print(f"Locations per API request: {len(LOCATIONS)}")
 
-    watermark = get_watermark(SOURCE_NAME)
+    if run_mode not in {"incremental", "backfill"}:
+        raise ValueError(
+            f"Unsupported run_mode: {run_mode}"
+        )
 
-    print(f"Previous watermark: {watermark}")
+    if run_mode == "backfill":
 
-    if watermark is None:
-        start_date = START_DATE_DEFAULT
+        if start_date is None or end_date is None:
+            raise ValueError(
+                "Backfill requires both start_date and end_date."
+            )
+
+        crawl_start_date = parse_date(
+            start_date,
+            "start_date",
+        )
+
+        crawl_end_date = parse_date(
+            end_date,
+            "end_date",
+        )
+
+        if crawl_start_date > crawl_end_date:
+            raise ValueError(
+                "start_date must be less than or equal to end_date."
+            )
+
+        print(
+            f"Run mode: backfill"
+        )
+
+        print(
+            f"Backfill date range: "
+            f"{crawl_start_date.isoformat()} "
+            f"to "
+            f"{crawl_end_date.isoformat()}"
+        )
+
+        last_successful_data_date = None
+
     else:
-        start_date = watermark + timedelta(days=1)
 
-    end_date = (
-        datetime.now(VN_TZ).date()
-        - timedelta(days=1)
-    )
+        watermark = get_watermark(SOURCE_NAME)
 
-    print(
-        f"Dataset date range: "
-        f"{start_date.isoformat()} "
-        f"to {end_date.isoformat()}"
-    )
+        print(
+            f"Run mode: incremental"
+        )
 
-    if start_date > end_date:
+        print(
+            f"Previous watermark: {watermark}"
+        )
+
+        if watermark is None:
+            crawl_start_date = START_DATE_DEFAULT
+        else:
+            crawl_start_date = (
+                watermark + timedelta(days=1)
+            )
+
+        crawl_end_date = (
+            datetime.now(VN_TZ).date()
+            - timedelta(days=1)
+        )
+
+        print(
+            f"Dataset date range: "
+            f"{crawl_start_date.isoformat()} "
+            f"to "
+            f"{crawl_end_date.isoformat()}"
+        )
+
+    if crawl_start_date > crawl_end_date:
         print("No dates to crawl.")
         return
 
     records, failed_dates, last_successful_window_end_date = (
-    crawl_open_meteo_dates(
-        start_date=start_date,
-        end_date=end_date,
-        ingestion_timestamp=ingestion_timestamp,
-        ingest_date=ingest_date,
-        batch_id=batch_id,
+        crawl_open_meteo_dates(
+            start_date=crawl_start_date,
+            end_date=crawl_end_date,
+            ingestion_timestamp=ingestion_timestamp,
+            ingest_date=ingest_date,
+            batch_id=batch_id,
+        )
     )
-)
+
 
     if failed_dates:
         print(
@@ -573,6 +641,11 @@ def main() -> None:
             ingest_date=ingest_date,
             last_successful_data_date=(
                 last_successful_window_end_date
+                if run_mode == "incremental"
+                else None
+            ),
+            update_watermark_after_write=(
+                run_mode == "incremental"
             ),
         )
 

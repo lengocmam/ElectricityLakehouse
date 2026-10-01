@@ -96,6 +96,8 @@ def crawl_hydro_dates(
                 "source_name": SOURCE_NAME,
                 "source_url": response.url,
                 "source_data_date": current_date.isoformat(),
+                "source_data_start_date": None,
+                "source_data_end_date": None,
                 "batch_id": batch_id,
                 "ingestion_timestamp": ingestion_timestamp.isoformat(),
                 "ingest_date": ingest_date,
@@ -118,7 +120,8 @@ def write_bronze(
     spark,
     records: list[dict],
     ingest_date: str,
-    last_successful_data_date: date,
+    last_successful_data_date: date | None,
+    update_watermark_after_write: bool,
 ) -> None:
     write_raw_bronze(
         spark=spark,
@@ -127,11 +130,22 @@ def write_bronze(
         ingest_date=ingest_date,
         last_successful_data_date=last_successful_data_date,
         dataset_name=SOURCE_NAME,
+        update_watermark_after_write=update_watermark_after_write,
     )
 
 
-def main() -> None:
-    # Thời điểm thực thi ingestion (UTC) — dùng để tạo batch_id và ingest_date
+def main(
+    run_mode: str = "incremental",
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> None:
+
+    if run_mode not in {"incremental", "backfill"}:
+        raise ValueError(
+            f"Unsupported run mode: {run_mode}"
+        )
+
+    # Thời điểm thực thi ingestion (UTC)
     ingestion_timestamp = datetime.now(timezone.utc)
     ingest_date = ingestion_timestamp.date().isoformat()
     batch_id = ingestion_timestamp.strftime("%Y%m%d%H%M%S")
@@ -139,48 +153,108 @@ def main() -> None:
     print(f"batch_id: {batch_id}")
     print(f"ingest_date: {ingest_date}")
 
-    spark = None
-    try:
-        spark = create_spark_session("ingest_evn_hydro")
-        
-        # Đảm bảo namespace Bronze tồn tại
-        print(f"Creating namespace if needed: {NAMESPACE}")
-        spark.sql(f"CREATE NAMESPACE IF NOT EXISTS {NAMESPACE}")
-        
-        start_date = START_DATE_DEFAULT
+    if run_mode == "backfill":
 
-        last_successful_data_date = get_watermark(SOURCE_NAME)
+        if start_date is None or end_date is None:
+            raise ValueError(
+                "Backfill requires both start_date and end_date."
+            )
+
+        crawl_start_date = date.fromisoformat(start_date)
+        crawl_end_date = date.fromisoformat(end_date)
+
+        if crawl_start_date > crawl_end_date:
+            raise ValueError(
+                "start_date must be less than or equal to end_date."
+            )
+
+        print("Run mode: backfill")
+        print(
+            f"Backfill date range: "
+            f"{crawl_start_date} to {crawl_end_date}"
+        )
+
+    else:
+
+        last_successful_data_date = get_watermark(
+            SOURCE_NAME
+        )
 
         if last_successful_data_date:
-            start_date = last_successful_data_date + timedelta(days=1)
+            crawl_start_date = (
+                last_successful_data_date
+                + timedelta(days=1)
+            )
+        else:
+            crawl_start_date = START_DATE_DEFAULT
 
-        # END_DATE là ngày hôm trước của ngày hiện tại ở Việt Nam (do chốt data lúc 23:00)
-        end_date = datetime.now(VN_TZ).date() - timedelta(days=1)
+        # Hydro chốt dữ liệu lúc 23:00,
+        # nên chỉ lấy đến ngày hôm qua ở Việt Nam.
+        crawl_end_date = (
+            datetime.now(VN_TZ).date()
+            - timedelta(days=1)
+        )
 
-        print(f"Dataset date range: {start_date.isoformat()} to {end_date.isoformat()}")
+        print("Run mode: incremental")
+        print(
+            f"Previous watermark: "
+            f"{last_successful_data_date}"
+        )
+        print(
+            f"Dataset date range: "
+            f"{crawl_start_date} to {crawl_end_date}"
+        )
 
-        if start_date > end_date:
-            print("No new dates to crawl. Dataset is up to date.")
-            return
+    if crawl_start_date > crawl_end_date:
+        print("No new dates to crawl. Dataset is up to date.")
+        return
+
+    spark = None
+
+    try:
+        spark = create_spark_session(
+            "ingest_evn_hydro"
+        )
+
+        print(
+            f"Creating namespace if needed: {NAMESPACE}"
+        )
+
+        spark.sql(
+            f"CREATE NAMESPACE IF NOT EXISTS {NAMESPACE}"
+        )
 
         session = create_hydro_session()
 
         records = crawl_hydro_dates(
             session=session,
-            start_date=start_date,
-            end_date=end_date,
+            start_date=crawl_start_date,
+            end_date=crawl_end_date,
             ingestion_timestamp=ingestion_timestamp,
             ingest_date=ingest_date,
             batch_id=batch_id,
         )
 
-        if records:
-            write_bronze(
-                spark=spark,
-                records=records,
-                ingest_date=ingest_date,
-                last_successful_data_date=end_date,
+        if not records:
+            print(
+                "No Hydro data found for the requested range. "
+                "Nothing to write."
             )
+            return
+
+        write_bronze(
+            spark=spark,
+            records=records,
+            ingest_date=ingest_date,
+            last_successful_data_date=(
+                crawl_end_date
+                if run_mode == "incremental"
+                else None
+            ),
+            update_watermark_after_write=(
+                run_mode == "incremental"
+            ),
+        )
 
     finally:
         if spark is not None:

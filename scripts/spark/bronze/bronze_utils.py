@@ -6,7 +6,6 @@ from datetime import date
 from bronze.watermark import update_watermark
 
 
-
 BRONZE_RAW_SCHEMA = StructType([
     StructField("bronze_key", StringType(), False),
     StructField("source_name", StringType(), False),
@@ -26,11 +25,12 @@ def write_raw_bronze(
     records: list[dict],
     table_name: str,
     ingest_date: str,
-    last_successful_data_date: date,
+    last_successful_data_date: date | None,
     *,
     namespace: str | None = None,
     fail_on_empty: bool = False,
-    dataset_name: str
+    dataset_name: str,
+    update_watermark_after_write: bool = True,
 ) -> bool:
     if not records:
         if fail_on_empty:
@@ -53,9 +53,17 @@ def write_raw_bronze(
         print("Table does not exist, creating and writing...")
         df.writeTo(table_name).using("iceberg").partitionedBy("ingest_date").create()
         
-    update_watermark(dataset_name=dataset_name, data_date=last_successful_data_date)
+    if update_watermark_after_write:
+        if last_successful_data_date is None:
+            raise ValueError(
+                "last_successful_data_date is required "
+                "when update_watermark_after_write=True."
+            )
+
+        update_watermark(
+            dataset_name=dataset_name,
+            data_date=last_successful_data_date,
+        )
 
     print("Bronze ingestion completed successfully.")
     return True
-    
-    
