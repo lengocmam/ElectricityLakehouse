@@ -18,10 +18,12 @@ from pyspark.sql.functions import (
 
 
 def _html_text(column):
+    """Execute html text logic."""
     return trim(regexp_replace(regexp_replace(regexp_replace(column, "(?is)<[^>]+>", " "), "(?i)&nbsp;|&#160;", " "), "\\s+", " "))
 
 
 def _decimal(column):
+    """Execute decimal logic."""
     normalized = regexp_replace(trim(column), r"\s+", "")
     normalized = regexp_replace(normalized, ",", ".")
     is_number = normalized.rlike(r"^[-+]?[0-9]*\.?[0-9]+$")
@@ -38,7 +40,6 @@ def extract_evn_power(df: DataFrame) -> DataFrame:
     rows = regexp_extract_all(power_table, lit("(?is)<tr[^>]*>(.*?)</tr>"), 1)
     cells = transform(rows, lambda row: transform(regexp_extract_all(row, lit("(?is)<t[dh][^>]*>(.*?)</t[dh]>"), 1), _html_text))
     rows_with_power_values = F.filter(cells, lambda row: size(row) >= lit(3))
-    # Lọc bỏ dòng tiêu đề của bảng (thường chứa chữ Nguồn hoặc Hệ thống)
     data_rows = F.filter(
         rows_with_power_values,
         lambda row: lower(element_at(row, 1)) != lit("ngu\u1ed3n")

@@ -10,17 +10,17 @@ import requests
 from bronze.bronze_utils import write_raw_bronze
 from bronze.watermark import get_watermark
 from utils.spark import create_spark_session
+from utils.logging import create_logger
 
+
+logger = create_logger(__name__)
 
 BASE_URL = "https://archive-api.open-meteo.com/v1/archive"
 
 SOURCE_NAME = "open-meteo"
 NAMESPACE = "nessie.bronze"
 TABLE_NAME = "nessie.bronze.open_meteo"
-OPEN_METEO_DATE_COLUMNS = (
-    "source_data_start_date",
-    "source_data_end_date",
-)
+OPEN_METEO_DATE_COLUMNS = ("source_data_start_date", "source_data_end_date")
 
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 
@@ -69,15 +69,9 @@ LOCATIONS = [
     {"location_name": "Ca Mau", "latitude": 9.1527, "longitude": 105.1961},
 ]
 
-LATITUDES = ",".join(
-    str(location["latitude"])
-    for location in LOCATIONS
-)
+LATITUDES = ",".join(str(location["latitude"]) for location in LOCATIONS)
 
-LONGITUDES = ",".join(
-    str(location["longitude"])
-    for location in LOCATIONS
-)
+LONGITUDES = ",".join(str(location["longitude"]) for location in LOCATIONS)
 
 HOURLY_VARIABLES = [
     "temperature_2m",
@@ -114,6 +108,7 @@ HEADERS = {
 
 
 def parse_date(value: str, argument_name: str) -> date:
+    """Parse a date string into a date object."""
     try:
         return date.fromisoformat(value)
     except ValueError as exc:
@@ -124,12 +119,14 @@ def parse_date(value: str, argument_name: str) -> date:
 
 
 def create_open_meteo_session() -> requests.Session:
+    """Create and configure a requests session."""
     session = requests.Session()
     session.headers.update(HEADERS)
     return session
 
 
 def get_retry_after_seconds(response: requests.Response) -> float | None:
+    """Calculate the wait time for rate limiting."""
     retry_after = response.headers.get("Retry-After")
 
     if not retry_after:
@@ -144,10 +141,7 @@ def get_retry_after_seconds(response: requests.Response) -> float | None:
             if retry_at.tzinfo is None:
                 retry_at = retry_at.replace(tzinfo=timezone.utc)
 
-            return max(
-                (retry_at - datetime.now(timezone.utc)).total_seconds(),
-                0,
-            )
+            return max((retry_at - datetime.now(timezone.utc)).total_seconds(), 0)
         except (TypeError, ValueError):
             return None
         
@@ -161,7 +155,7 @@ def fetch_open_meteo(
     task_index: int,
     session: requests.Session,
 ) -> tuple[dict | None, tuple[date, str] | None]:
-
+    """Fetch raw weather data from the Open-Meteo API."""
     window_start_date_str = window_start_date.isoformat()
     window_end_date_str = window_end_date.isoformat()
 
@@ -175,78 +169,44 @@ def fetch_open_meteo(
         "timezone": "Asia/Ho_Chi_Minh",
     }
 
-    print(
-        f"Crawling Open-Meteo: "
-        f"window={window_start_date_str} to {window_end_date_str}, "
-        f"locations={len(LOCATIONS)}"
-    )
-
     minutely_attempt = 0
     general_attempt = 0
 
     while True:
         try:
-            response = session.get(
-                BASE_URL,
-                params=params,
-                timeout=120,
-            )
+            response = session.get(BASE_URL, params=params, timeout=120)
 
             if response.status_code == 429:
                 error_message = response.text
                 error_lower = error_message.lower()
 
-                # ==========================================
-                # DAILY LIMIT
-                # ==========================================
                 if "daily api request limit exceeded" in error_lower:
-                    print(
-                        f"-> [DAILY LIMIT] "
-                        f"window={window_start_date_str} to "
-                        f"{window_end_date_str}"
+                    logger.warning(
+                        f"Daily limit exceeded for window "
+                        f"{window_start_date_str} to {window_end_date_str}"
                     )
+                    return None, (window_start_date, error_message)
 
-                    return None, (
-                        window_start_date,
-                        error_message,
-                    )
-
-                # ==========================================
-                # HOURLY LIMIT
-                # ==========================================
                 if "hourly api request limit exceeded" in error_lower:
                     wait_seconds = 60 * 60
 
-                    print(
-                        f"-> [HOURLY LIMIT] "
-                        f"window={window_start_date_str} to "
-                        f"{window_end_date_str}, "
-                        f"sleep=1 hour"
+                    logger.warning(
+                        f"Hourly limit exceeded for window "
+                        f"{window_start_date_str} to {window_end_date_str}, "
+                        f"sleeping for 1 hour"
                     )
 
                     time.sleep(wait_seconds)
 
-                    print(
-                        "-> [HOURLY RETRY] "
-                        "Retrying the same window..."
-                    )
-
+                    logger.info("Retrying the same window after hourly limit")
                     continue
 
-                # ==========================================
-                # MINUTELY LIMIT
-                # ==========================================
                 minutely_attempt += 1
 
                 if minutely_attempt >= MAX_RETRIES:
-                    return None, (
-                        window_start_date,
-                        error_message,
-                    )
+                    return None, (window_start_date, error_message)
 
-                retry_after_seconds = get_retry_after_seconds(
-                    response
-                )
+                retry_after_seconds = get_retry_after_seconds(response)
 
                 wait_seconds = (
                     retry_after_seconds
@@ -257,12 +217,11 @@ def fetch_open_meteo(
 
                 wait_seconds += random.uniform(0, 1)
 
-                print(
-                    f"-> [RETRY] Minutely rate limit: "
-                    f"window={window_start_date_str} to "
-                    f"{window_end_date_str}, "
-                    f"retry={minutely_attempt}/{MAX_RETRIES}, "
-                    f"sleep={wait_seconds:.1f}s"
+                logger.warning(
+                    f"Minutely rate limit hit for window "
+                    f"{window_start_date_str} to {window_end_date_str}, "
+                    f"retry {minutely_attempt}/{MAX_RETRIES}, "
+                    f"sleeping {wait_seconds:.1f}s"
                 )
 
                 time.sleep(wait_seconds)
@@ -270,15 +229,10 @@ def fetch_open_meteo(
 
             response.raise_for_status()
 
-            content_type = response.headers.get(
-                "Content-Type",
-                "",
-            )
+            content_type = response.headers.get("Content-Type", "")
 
             if "application/json" not in content_type:
-                raise RuntimeError(
-                    f"Unexpected Content-Type: {content_type}"
-                )
+                raise RuntimeError(f"Unexpected Content-Type: {content_type}")
 
             record = {
                 "bronze_key": f"{batch_id}_{task_index:06d}",
@@ -287,40 +241,26 @@ def fetch_open_meteo(
                 "source_data_start_date": window_start_date_str,
                 "source_data_end_date": window_end_date_str,
                 "batch_id": batch_id,
-                "ingestion_timestamp": (
-                    ingestion_timestamp.isoformat()
-                ),
+                "ingestion_timestamp": (ingestion_timestamp.isoformat()),
                 "ingest_date": ingest_date,
                 "raw": response.text,
             }
 
             return record, None
 
-        except (
-            requests.RequestException,
-            RuntimeError,
-        ) as exc:
+        except (requests.RequestException, RuntimeError) as exc:
 
             general_attempt += 1
 
             if general_attempt >= MAX_RETRIES:
-                return None, (
-                    window_start_date,
-                    str(exc),
-                )
+                return None, (window_start_date, str(exc))
 
-            wait_seconds = (
-                INITIAL_BACKOFF_SECONDS
-                * (2 ** (general_attempt - 1))
-            )
+            wait_seconds = (INITIAL_BACKOFF_SECONDS * (2 ** (general_attempt - 1)))
 
-            print(
-                f"-> [RETRY] Request failed: "
-                f"window={window_start_date_str} to "
-                f"{window_end_date_str}, "
-                f"retry={general_attempt}/{MAX_RETRIES}, "
-                f"sleep={wait_seconds}s, "
-                f"error={exc}"
+            logger.error(
+                f"Request failed for window {window_start_date_str} to "
+                f"{window_end_date_str}, retry {general_attempt}/{MAX_RETRIES}, "
+                f"sleeping {wait_seconds}s, error: {exc}"
             )
 
             time.sleep(wait_seconds)
@@ -333,21 +273,18 @@ def crawl_open_meteo_dates(
     ingest_date: str,
     batch_id: str,
 ) -> tuple[list[dict], list[tuple[date, str]], date | None]:
-
+    """Crawl Open-Meteo data for a given date range."""
     records = []
     failed_dates = []
 
-    total_dates = (
-        end_date - start_date
-    ).days + 1
+    total_dates = (end_date - start_date).days + 1
 
-    total_requests = (
-        total_dates + REQUEST_WINDOW_DAYS - 1
-    ) // REQUEST_WINDOW_DAYS
+    total_requests = (total_dates + REQUEST_WINDOW_DAYS - 1) // REQUEST_WINDOW_DAYS
 
-    print(f"Total dates: {total_dates}")
-    print(f"Total API requests: {total_requests}")
-    print(f"Locations per request: {len(LOCATIONS)}")
+    logger.info(
+        f"Starting crawl for {total_dates} dates using {total_requests} requests "
+        f"and {len(LOCATIONS)} locations."
+    )
 
     session = create_open_meteo_session()
 
@@ -358,18 +295,9 @@ def crawl_open_meteo_dates(
         window_start_date = start_date
 
         while window_start_date <= end_date:
-
             window_end_date = min(
-                window_start_date + timedelta(
-                    days=REQUEST_WINDOW_DAYS - 1
-                ),
+                window_start_date + timedelta(days=REQUEST_WINDOW_DAYS - 1),
                 end_date,
-            )
-
-            print(
-                f"\n===== WINDOW: "
-                f"{window_start_date.isoformat()} "
-                f"to {window_end_date.isoformat()} ====="
             )
 
             task_index = completed_requests + 1
@@ -387,30 +315,19 @@ def crawl_open_meteo_dates(
             if record is not None:
                 records.append(record)
 
-                # Chỉ update sau khi window thành công
                 last_successful_window_end_date = window_end_date
 
                 completed_requests += 1
 
-                print(
-                    f"Progress: "
-                    f"{completed_requests}/"
-                    f"{total_requests}"
-                )
-
-                window_start_date = (
-                    window_end_date + timedelta(days=1)
-                )
+                window_start_date = (window_end_date + timedelta(days=1))
 
                 continue
 
-            # Window thất bại
             if error is not None:
                 failed_dates.append(error)
 
-                print(
-                    f"Stopping crawl at window: "
-                    f"{window_start_date.isoformat()} "
+                logger.error(
+                    f"Stopping crawl at window {window_start_date.isoformat()} "
                     f"to {window_end_date.isoformat()}"
                 )
 
@@ -419,36 +336,21 @@ def crawl_open_meteo_dates(
     finally:
         session.close()
 
-    records.sort(
-        key=lambda x: x["bronze_key"]
-    )
+    records.sort(key=lambda x: x["bronze_key"])
 
-    return (
-        records,
-        failed_dates,
-        last_successful_window_end_date,
-    )
+    return (records, failed_dates, last_successful_window_end_date)
 
 
 def ensure_open_meteo_date_columns(spark) -> None:
+    """Ensure that required date columns exist in the bronze table."""
     if not spark.catalog.tableExists(TABLE_NAME):
         return
 
-    existing_columns = {
-        field.name
-        for field in spark.table(TABLE_NAME).schema.fields
-    }
-    missing_columns = [
-        column
-        for column in OPEN_METEO_DATE_COLUMNS
-        if column not in existing_columns
-    ]
+    existing_columns = {field.name for field in spark.table(TABLE_NAME).schema.fields}
+    missing_columns = [column for column in OPEN_METEO_DATE_COLUMNS if column not in existing_columns]
 
     if missing_columns:
-        columns_sql = ", ".join(
-            f"{column} STRING"
-            for column in missing_columns
-        )
+        columns_sql = ", ".join(f"{column} STRING" for column in missing_columns)
         spark.sql(
             f"ALTER TABLE {TABLE_NAME} "
             f"ADD COLUMNS ({columns_sql})"
@@ -462,6 +364,7 @@ def write_bronze(
     last_successful_data_date: date | None,
     update_watermark_after_write: bool,
 ) -> None:
+    """Write raw data records into the target bronze table."""
     ensure_open_meteo_date_columns(spark)
 
     if write_raw_bronze(
@@ -474,11 +377,8 @@ def write_bronze(
         dataset_name=SOURCE_NAME,
         update_watermark_after_write=update_watermark_after_write,
     ):
-        print("\n=== VERIFY TABLE ===")
-        spark.sql("SHOW TABLES IN nessie.bronze").show(
-            truncate=False
-        )
-        print("====================\n")
+        logger.info("Verifying tables in nessie.bronze")
+        spark.sql("SHOW TABLES IN nessie.bronze").show(truncate=False)
 
 
 def main(
@@ -486,67 +386,33 @@ def main(
     start_date: str | None = None,
     end_date: str | None = None,
 ) -> None:
-
+    """Run the main extraction and load process for Open-Meteo data."""
     if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(
-            encoding="utf-8",
-            errors="replace",
-        )
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
     ingestion_timestamp = datetime.now(timezone.utc)
 
-    ingest_date = (
-        ingestion_timestamp
-        .astimezone(VN_TZ)
-        .date()
-        .isoformat()
-    )
+    ingest_date = ingestion_timestamp.astimezone(VN_TZ).date().isoformat()
 
-    batch_id = ingestion_timestamp.strftime(
-        "%Y%m%d%H%M%S"
-    )
+    batch_id = ingestion_timestamp.strftime("%Y%m%d%H%M%S")
 
-    print(f"batch_id: {batch_id}")
-    print(f"ingest_date: {ingest_date}")
-    print(f"Locations per API request: {len(LOCATIONS)}")
+    logger.info(f"Starting Open-Meteo crawl: batch_id={batch_id}, ingest_date={ingest_date}")
 
     if run_mode not in {"incremental", "backfill"}:
-        raise ValueError(
-            f"Unsupported run_mode: {run_mode}"
-        )
+        raise ValueError(f"Unsupported run_mode: {run_mode}")
 
     if run_mode == "backfill":
-
         if start_date is None or end_date is None:
-            raise ValueError(
-                "Backfill requires both start_date and end_date."
-            )
+            raise ValueError("Backfill requires both start_date and end_date.")
 
-        crawl_start_date = parse_date(
-            start_date,
-            "start_date",
-        )
+        crawl_start_date = parse_date(start_date, "start_date")
 
-        crawl_end_date = parse_date(
-            end_date,
-            "end_date",
-        )
+        crawl_end_date = parse_date(end_date, "end_date")
 
         if crawl_start_date > crawl_end_date:
-            raise ValueError(
-                "start_date must be less than or equal to end_date."
-            )
+            raise ValueError("start_date must be less than or equal to end_date.")
 
-        print(
-            f"Run mode: backfill"
-        )
-
-        print(
-            f"Backfill date range: "
-            f"{crawl_start_date.isoformat()} "
-            f"to "
-            f"{crawl_end_date.isoformat()}"
-        )
+        logger.info(f"Run mode: backfill, date range: {crawl_start_date.isoformat()} to {crawl_end_date.isoformat()}")
 
         last_successful_data_date = None
 
@@ -554,35 +420,19 @@ def main(
 
         watermark = get_watermark(SOURCE_NAME)
 
-        print(
-            f"Run mode: incremental"
-        )
-
-        print(
-            f"Previous watermark: {watermark}"
-        )
+        logger.info(f"Run mode: incremental, previous watermark: {watermark}")
 
         if watermark is None:
             crawl_start_date = START_DATE_DEFAULT
         else:
-            crawl_start_date = (
-                watermark + timedelta(days=1)
-            )
+            crawl_start_date = (watermark + timedelta(days=1))
 
-        crawl_end_date = (
-            datetime.now(VN_TZ).date()
-            - timedelta(days=1)
-        )
+        crawl_end_date = (datetime.now(VN_TZ).date() - timedelta(days=1))
 
-        print(
-            f"Dataset date range: "
-            f"{crawl_start_date.isoformat()} "
-            f"to "
-            f"{crawl_end_date.isoformat()}"
-        )
+        logger.info(f"Dataset date range: {crawl_start_date.isoformat()} to {crawl_end_date.isoformat()}")
 
     if crawl_start_date > crawl_end_date:
-        print("No dates to crawl.")
+        logger.info("No dates to crawl.")
         return
 
     records, failed_dates, last_successful_window_end_date = (
@@ -595,58 +445,30 @@ def main(
         )
     )
 
-
     if failed_dates:
-        print(
-            "\n=== SUMMARY OF FAILED REQUESTS ==="
-        )
-
         for failed_date, error_message in failed_dates:
-            print(
-                f"- {failed_date.isoformat()}: "
-                f"{error_message}"
-            )
-
-        print(
-            "===================================\n"
-        )
+            logger.error(f"Failed request on {failed_date.isoformat()}: {error_message}")
 
     if not records:
-        print(
-            "No successful Open-Meteo windows. "
-            "Nothing to write."
-        )
+        logger.warning("No successful Open-Meteo windows. Nothing to write.")
         return
 
     if last_successful_window_end_date is None:
-        raise RuntimeError(
-            "Records exist but no successful window end date was found."
-        )
+        raise RuntimeError("Records exist but no successful window end date was found.")
 
-    print(
-        f"Last successful window end date: "
-        f"{last_successful_window_end_date.isoformat()}"
-    )
+    logger.info(f"Last successful window end date: {last_successful_window_end_date.isoformat()}")
 
     spark = None
 
     try:
-        spark = create_spark_session(
-            "ingest_open_meteo"
-        )
+        spark = create_spark_session("ingest_open_meteo")
 
         write_bronze(
             spark=spark,
             records=records,
             ingest_date=ingest_date,
-            last_successful_data_date=(
-                last_successful_window_end_date
-                if run_mode == "incremental"
-                else None
-            ),
-            update_watermark_after_write=(
-                run_mode == "incremental"
-            ),
+            last_successful_data_date=(last_successful_window_end_date if run_mode == "incremental" else None),
+            update_watermark_after_write=(run_mode == "incremental"),
         )
 
     finally:

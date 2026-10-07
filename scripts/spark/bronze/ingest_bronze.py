@@ -15,37 +15,18 @@ INGESTIONS = {
 
 
 def main():
+    """Execute the bronze ingestion pipeline for a specific dataset."""
     parser = argparse.ArgumentParser()
 
-    parser.add_argument(
-        "dataset",
-        choices=INGESTIONS,
-    )
-
-    parser.add_argument(
-        "--run-mode",
-        choices=["incremental", "backfill"],
-        default="incremental",
-    )
-
-    parser.add_argument(
-        "--start-date",
-        default=None,
-    )
-
-    parser.add_argument(
-        "--end-date",
-        default=None,
-    )
+    parser.add_argument("dataset", choices=INGESTIONS)
+    parser.add_argument("--run-mode", choices=["incremental", "backfill"], default="incremental")
+    parser.add_argument("--start-date", default=None)
+    parser.add_argument("--end-date", default=None)
 
     args = parser.parse_args()
 
     if args.dataset in {"open_meteo", "evn", "evn_hydro", "nsmo"}:
-        INGESTIONS[args.dataset](
-            run_mode=args.run_mode,
-            start_date=args.start_date,
-            end_date=args.end_date,
-        )
+        INGESTIONS[args.dataset](run_mode=args.run_mode, start_date=args.start_date, end_date=args.end_date)
     else:
         INGESTIONS[args.dataset]()
 

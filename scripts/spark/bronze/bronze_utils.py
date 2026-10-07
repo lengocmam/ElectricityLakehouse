@@ -1,10 +1,10 @@
+from utils.logging import create_logger
+from datetime import date
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StringType, StructField, StructType
-
-from datetime import date
-
 from bronze.watermark import update_watermark
 
+logger = create_logger(__name__)
 
 BRONZE_RAW_SCHEMA = StructType([
     StructField("bronze_key", StringType(), False),
@@ -19,7 +19,6 @@ BRONZE_RAW_SCHEMA = StructType([
     StructField("raw", StringType(), False),
 ])
 
-
 def write_raw_bronze(
     spark: SparkSession,
     records: list[dict],
@@ -32,25 +31,24 @@ def write_raw_bronze(
     dataset_name: str,
     update_watermark_after_write: bool = True,
 ) -> bool:
+    """Write raw records to the Bronze Iceberg table and update watermark."""
     if not records:
         if fail_on_empty:
+            logger.error("No records were successfully crawled.")
             raise RuntimeError("No records were successfully crawled.")
-        print("No records to write.")
+        logger.info("No records to write to Bronze.")
         return False
 
     df = spark.createDataFrame(records, schema=BRONZE_RAW_SCHEMA)
-    print(f"Records to write: {len(records)}")
-    print(f"Ingest date: {ingest_date}")
 
     if namespace:
-        print(f"Creating namespace if needed: {namespace}")
         spark.sql(f"CREATE NAMESPACE IF NOT EXISTS {namespace}")
 
     if spark.catalog.tableExists(table_name):
-        print("Table exists, overwriting partitions...")
-        df.writeTo(table_name).overwritePartitions()
+        logger.info(f"Appending {len(records)} records to {table_name}.")
+        df.writeTo(table_name).append()
     else:
-        print("Table does not exist, creating and writing...")
+        logger.info(f"Creating {table_name} and writing {len(records)} records.")
         df.writeTo(table_name).using("iceberg").partitionedBy("ingest_date").create()
         
     if update_watermark_after_write:
@@ -60,10 +58,8 @@ def write_raw_bronze(
                 "when update_watermark_after_write=True."
             )
 
-        update_watermark(
-            dataset_name=dataset_name,
-            data_date=last_successful_data_date,
-        )
+        update_watermark(dataset_name=dataset_name, data_date=last_successful_data_date,)
+        logger.info(f"Watermark updated to {last_successful_data_date} for {dataset_name}.")
 
-    print("Bronze ingestion completed successfully.")
+    logger.info("Bronze ingestion completed successfully.")
     return True

@@ -5,6 +5,7 @@ from silver.silver_utils import add_dq, normalize_text
 
 
 def clean_hydro(df: DataFrame) -> tuple[DataFrame, DataFrame]:
+    """Execute clean hydro logic."""
     prepared = (
         df.withColumn(
             "plant_name",

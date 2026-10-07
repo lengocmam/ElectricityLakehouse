@@ -2,6 +2,7 @@ import re
 import time
 from datetime import date, datetime, timezone
 from urllib.parse import urljoin
+from utils.logging import create_logger
 
 import requests
 from lxml import html
@@ -11,6 +12,8 @@ from bronze.watermark import get_watermark
 from bronze.http_client import create_legacy_tls_session
 from utils.spark import create_spark_session
 
+
+logger = create_logger(__name__)
 
 BASE_URL = "https://www.evn.com.vn"
 
@@ -24,7 +27,6 @@ TARGET_PREFIX = (
     "Thong-tin-chung-ve-van-hanh-he-thong-dien-Quoc-gia-ngay-"
 )
 
-# Nessie catalog
 NAMESPACE = "nessie.bronze"
 TABLE_NAME = "nessie.bronze.evn"
 
@@ -47,22 +49,20 @@ CONTENT_DATE_RE = re.compile(
 
 
 def create_evn_session() -> requests.Session:
+    """Create and return a legacy TLS session for EVN."""
     return create_legacy_tls_session(BASE_URL)
 
 
 def parse_date(day: str, month: str, year: str) -> date | None:
+    """Parse day, month, and year into a date object."""
     try:
-        return date(
-            int(year),
-            int(month),
-            int(day)
-        )
+        return date(int(year), int(month), int(day))
     except ValueError:
         return None
 
 
 def extract_source_data_date_from_url(url: str) -> date | None:
-
+    """Extract source data date from a URL."""
     match = DATE_RE.search(url)
 
     if not match:
@@ -76,53 +76,30 @@ def extract_source_data_date_from_url(url: str) -> date | None:
     year = int(value[-4:])
     day_month = value[:-4]
 
-    # Format: DDMMYYYY
     if len(day_month) == 4:
         day = int(day_month[:2])
         month = int(day_month[2:])
 
-        return parse_date(
-            str(day),
-            str(month),
-            str(year)
-        )
+        return parse_date(str(day), str(month), str(year))
 
-    # Format: DMMYYYY or DDMYYYY
     if len(day_month) == 3:
 
-        # Try DD + M
-        result = parse_date(
-            day_month[:2],
-            day_month[2:],
-            str(year)
-        )
+        result = parse_date(day_month[:2], day_month[2:], str(year))
 
         if result:
             return result
 
-        # Try D + MM
-        return parse_date(
-            day_month[:1],
-            day_month[1:],
-            str(year)
-        )
+        return parse_date(day_month[:1], day_month[1:], str(year))
 
-    # Format: DMMYYYY
     if len(day_month) == 2:
-        return parse_date(
-            day_month[:1],
-            day_month[1:],
-            str(year)
-        )
+        return parse_date(day_month[:1], day_month[1:], str(year))
 
     return None
 
 
 def extract_source_data_date_from_content(tree) -> date | None:
-    title_text = (
-        tree.xpath("string(//h1)")
-        or tree.xpath("string(//title)")
-    )
+    """Extract source data date from HTML content."""
+    title_text = (tree.xpath("string(//h1)") or tree.xpath("string(//title)"))
 
     match = CONTENT_DATE_RE.search(title_text)
 
@@ -135,7 +112,7 @@ def extract_source_data_date_from_content(tree) -> date | None:
 
 
 def extract_source_data_date(url: str, tree) -> date | None:
-
+    """Extract source data date from either URL or HTML content."""
     return (
         extract_source_data_date_from_url(url)
         or extract_source_data_date_from_content(tree)
@@ -149,18 +126,13 @@ def crawl_listing_pages(
     start_date: date | None = None,
     end_date: date | None = None,
 ) -> set[str]:
+    """Crawl listing pages to collect article links."""
     links = set()
     page = 1
 
     while True:
-        print(f"Scanning page {page}")
 
-        response = session.get(
-            FIRST_URL,
-            params={"page": page},
-            headers=HEADERS,
-            timeout=20,
-        )
+        response = session.get(FIRST_URL, params={"page": page}, headers=HEADERS, timeout=20,)
 
         response.raise_for_status()
 
@@ -185,9 +157,7 @@ def crawl_listing_pages(
             ):
                 continue
 
-            source_data_date = extract_source_data_date_from_url(
-                full_url
-            )
+            source_data_date = extract_source_data_date_from_url(full_url)
 
             if source_data_date is None:
                 continue
@@ -196,11 +166,8 @@ def crawl_listing_pages(
 
             if run_mode == "incremental":
 
-                if (
-                    watermark is not None
-                    and source_data_date <= watermark
-                ):
-                    print(
+                if (watermark is not None and source_data_date <= watermark):
+                    logger.info(
                         f"Reached watermark at page {page}: "
                         f"{source_data_date} <= {watermark}"
                     )
@@ -210,58 +177,34 @@ def crawl_listing_pages(
                 page_links.add(full_url)
 
             else:
-                # Bài cũ hơn start_date
-                # => đã đi quá phạm vi backfill
                 if source_data_date < start_date:
-                    print(
+                    logger.info(
                         f"Reached backfill start date at page {page}: "
                         f"{source_data_date} < {start_date}"
                     )
                     reached_boundary = True
                     break
 
-                # Bài nằm trong khoảng backfill
                 if source_data_date <= end_date:
                     page_links.add(full_url)
 
-                # source_data_date > end_date:
-                # bài quá mới, bỏ qua nhưng vẫn tiếp tục pagination
-
-        print(
-            f"Found {len(page_links)} matching links "
-            f"on page {page}"
-        )
-
         links.update(page_links)
 
-        # Đã chạm watermark hoặc start_date
         if reached_boundary:
             if run_mode == "incremental":
-                print("Reached watermark. Stop pagination.")
+                logger.info("Reached watermark. Stop pagination.")
             else:
-                print(
+                logger.info(
                     "Reached backfill start date. "
                     "Stop pagination."
                 )
             break
 
-        # BACKFILL:
-        # Có article trên page nhưng chưa tới end_date
-        # => tiếp tục sang page tiếp theo.
-        if (
-            run_mode == "backfill"
-            and page_article_count > 0
-            and not page_links
-        ):
-            print(
-                f"No links in backfill range on page {page}. "
-                "Continue pagination."
-            )
+        if (run_mode == "backfill" and page_article_count > 0 and not page_links):
             page += 1
             time.sleep(0.5)
             continue
 
-        # Không tìm thấy article nào trên page
         if page_article_count == 0:
             if page == 1:
                 raise RuntimeError(
@@ -269,17 +212,14 @@ def crawl_listing_pages(
                     "The EVN HTML structure or XPath may have changed."
                 )
 
-            print(
+            logger.info(
                 "No article links found. "
                 "Stop pagination."
             )
             break
 
-        # Page có article nhưng không có link phù hợp.
-        # Với incremental trường hợp này thường nghĩa là
-        # đã tới cuối vùng dữ liệu cần lấy.
         if not page_links:
-            print("No matching links. Stop pagination.")
+            logger.info("No matching links. Stop pagination.")
             break
 
         page += 1
@@ -299,7 +239,7 @@ def crawl_articles(
     start_date: date | None = None,
     end_date: date | None = None,
 ) -> list[dict]:
-
+    """Crawl details of provided article links."""
     records = []
 
     for index, link in enumerate(
@@ -308,53 +248,27 @@ def crawl_articles(
     ):
 
         try:
-            print(
-                f"Crawling {index}/{len(links)}: {link}"
-            )
-
-            response = session.get(
-                link,
-                headers=HEADERS,
-                timeout=20
-            )
+            response = session.get(link, headers=HEADERS, timeout=20)
 
             response.raise_for_status()
 
-            detail_tree = html.fromstring(
-                response.content
-            )
+            detail_tree = html.fromstring(response.content)
 
-            source_data_date = extract_source_data_date(
-                link,
-                detail_tree
-            )
+            source_data_date = extract_source_data_date(link, detail_tree)
 
             if source_data_date is None:
-                print(
+                logger.warning(
                     f"Warning: could not extract "
                     f"source_data_date: {link}"
                 )
                 continue
 
             if run_mode == "incremental":
-                if (
-                    watermark is not None
-                    and source_data_date <= watermark
-                ):
-                    print(
-                        f"Skip old article: "
-                        f"{source_data_date} <= {watermark}"
-                    )
+                if (watermark is not None and source_data_date <= watermark):
                     continue
 
             else:
-                if not (
-                    start_date <= source_data_date <= end_date
-                ):
-                    print(
-                        f"Skip article outside backfill range: "
-                        f"{source_data_date}"
-                    )
+                if not (start_date <= source_data_date <= end_date):
                     continue
 
             records.append(
@@ -379,8 +293,7 @@ def crawl_articles(
             time.sleep(0.1)
 
         except requests.RequestException as error:
-            print(f"Failed: {link}")
-            print(error)
+            logger.error(f"Failed: {link} - {error}")
 
     return records
 
@@ -392,6 +305,7 @@ def write_bronze(
     last_successful_data_date: date | None,
     update_watermark_after_write: bool,
 ):
+    """Write records to the bronze layer."""
     write_raw_bronze(
         spark,
         records,
@@ -410,6 +324,7 @@ def main(
     start_date: str | None = None,
     end_date: str | None = None,
 ):
+    """Execute the main EVN crawling and ingestion process."""
     if run_mode not in {"incremental", "backfill"}:
         raise ValueError(
             f"Unsupported run mode: {run_mode}"
@@ -431,8 +346,8 @@ def main(
 
         watermark = None
 
-        print("Run mode: backfill")
-        print(
+        logger.info("Run mode: backfill")
+        logger.info(
             f"Backfill date range: "
             f"{crawl_start_date} to {crawl_end_date}"
         )
@@ -440,23 +355,17 @@ def main(
     else:
         watermark = get_watermark("evn")
 
-        print("Run mode: incremental")
-        print(f"Previous watermark: {watermark}")
+        logger.info("Run mode: incremental")
+        logger.info(f"Previous watermark: {watermark}")
 
         crawl_start_date = None
         crawl_end_date = None
 
     ingestion_timestamp = datetime.now(timezone.utc)
 
-    ingest_date = (
-        ingestion_timestamp
-        .date()
-        .isoformat()
-    )
+    ingest_date = (ingestion_timestamp.date().isoformat())
 
-    batch_id = ingestion_timestamp.strftime(
-        "%Y%m%d%H%M%S"
-    )
+    batch_id = ingestion_timestamp.strftime("%Y%m%d%H%M%S")
 
     session = create_evn_session()
 
@@ -468,14 +377,7 @@ def main(
         end_date=crawl_end_date,
     )
 
-    print(
-        f"Total unique links: {len(links)}"
-    )
-
-    print(
-        "Sample links:",
-        sorted(links)[:5]
-    )
+    logger.info(f"Total unique links: {len(links)}")
 
     records = crawl_articles(
         session=session,
@@ -490,7 +392,7 @@ def main(
     )
 
     if not records:
-        print("No EVN data found for the requested range. Nothing to write.")
+        logger.info("No EVN data found for the requested range. Nothing to write.")
         return
 
     successful_dates = [
@@ -500,13 +402,11 @@ def main(
     ]
 
     if not successful_dates:
-        raise RuntimeError(
-            "Records were crawled, but no valid source_data_date was found."
-        )
+        raise RuntimeError("Records were crawled, but no valid source_data_date was found.")
 
     last_successful_data_date = max(successful_dates)
 
-    print(
+    logger.info(
         f"Last successful source data date: "
         f"{last_successful_data_date.isoformat()}"
     )
@@ -514,10 +414,7 @@ def main(
     spark = None
 
     try:
-
-        spark = create_spark_session(
-            "ingest_evn"
-        )
+        spark = create_spark_session("ingest_evn")
 
         write_bronze(
             spark=spark,
@@ -528,13 +425,10 @@ def main(
                 if run_mode == "incremental"
                 else None
             ),
-            update_watermark_after_write=(
-                run_mode == "incremental"
-            ),
+            update_watermark_after_write=(run_mode == "incremental"),
         )
 
     finally:
-
         if spark is not None:
             spark.stop()
 

@@ -5,6 +5,7 @@ from silver.silver_utils import add_dq, normalize_text
 
 
 def clean_generation(df: DataFrame) -> tuple[DataFrame, DataFrame]:
+    """Execute clean generation logic."""
     prepared = df.withColumn("energy_source", normalize_text("energy_source"))
     return add_dq(
         prepared, key_name="evn_generation_key", key_columns=["data_date", "energy_source"],

@@ -10,6 +10,7 @@ def clean_load(
     start_date: str | None = None,
     end_date: str | None = None,
 ) -> tuple[DataFrame, DataFrame]:
+    """Execute clean load logic."""
     prepared = (
         df.withColumn("region", normalize_text(lower("region")))
         .withColumn("data_date", to_date("observation_timestamp"))

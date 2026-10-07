@@ -8,6 +8,7 @@ from urllib3.util.ssl_ import create_urllib3_context
 
 class LegacyTlsAdapter(HTTPAdapter):
     def init_poolmanager(self, *args, **kwargs):
+        """Initialize the connection pool manager with legacy TLS settings."""
         context = create_urllib3_context(ciphers="DEFAULT:@SECLEVEL=1")
         context.check_hostname = False
         context.verify_mode = ssl.CERT_NONE
@@ -16,6 +17,7 @@ class LegacyTlsAdapter(HTTPAdapter):
 
 
 def create_legacy_tls_session(url_prefix: str) -> requests.Session:
+    """Create a requests session configured with legacy TLS for older servers."""
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     session = requests.Session()
     session.mount(url_prefix, LegacyTlsAdapter())

@@ -14,6 +14,7 @@ from pyspark.sql.functions import (
 
 
 def _html_text(column):
+    """Execute html text logic."""
     return trim(regexp_replace(regexp_replace(regexp_replace(column, "(?is)<[^>]+>", " "), "(?i)&nbsp;|&#160;", " "), "\\s+", " "))
 
 
@@ -24,6 +25,7 @@ def _nullable_decimal(column):
 
 
 def _nullable_int(column):
+    """Execute nullable int logic."""
     return nullif(trim(column), lit("")).cast("int")
 
 

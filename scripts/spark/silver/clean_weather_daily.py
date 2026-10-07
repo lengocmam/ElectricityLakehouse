@@ -5,6 +5,7 @@ from silver.silver_utils import add_dq, normalize_text
 
 
 def clean_weather_daily(df: DataFrame) -> tuple[DataFrame, DataFrame]:
+    """Execute clean weather daily logic."""
     prepared = df.withColumn("timezone", normalize_text("timezone"))
     ranges = [
         ((col("latitude") < -90) | (col("latitude") > 90), "LATITUDE_INVALID"),

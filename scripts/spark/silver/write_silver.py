@@ -1,7 +1,10 @@
 import argparse
 
 from utils.spark import create_spark_session
+from utils.logging import create_logger
 from silver import silver_pipeline
+
+logger = create_logger(__name__)
 
 DATASETS = {
     "power": ("nessie.bronze.evn", silver_pipeline.power),
@@ -13,7 +16,8 @@ DATASETS = {
 }
 
 def write_silver_tables(spark, dataset_name, bronze_table, pipeline_func):
-    print(f"Processing {dataset_name}...")
+    """Execute write silver tables logic."""
+    logger.info(f"Processing {dataset_name}...")
     
     spark.sql("CREATE NAMESPACE IF NOT EXISTS nessie.silver")
     
@@ -23,11 +27,9 @@ def write_silver_tables(spark, dataset_name, bronze_table, pipeline_func):
     valid_table = f"nessie.silver.{dataset_name}"
     reject_table = f"nessie.silver.{dataset_name}_reject"
     
-    # Sort to avoid Iceberg FanoutWriter OutOfMemoryError
     valid_df = valid_df.repartition("data_date").sortWithinPartitions("data_date")
     reject_df = reject_df.repartition("data_date").sortWithinPartitions("data_date")
     
-    # Write valid records
     if spark.catalog.tableExists(valid_table):
         valid_df.writeTo(valid_table) \
             .option("fanout-enabled", "false") \
@@ -41,9 +43,8 @@ def write_silver_tables(spark, dataset_name, bronze_table, pipeline_func):
             .partitionedBy("data_date") \
             .using("iceberg") \
             .create()
-    print(f"  -> Wrote {valid_df.count()} records to {valid_table}")
+    logger.info(f"  -> Wrote {valid_df.count()} records to {valid_table}")
     
-    # Write rejected records
     if spark.catalog.tableExists(reject_table):
         reject_df.writeTo(reject_table) \
             .option("fanout-enabled", "false") \
@@ -57,7 +58,7 @@ def write_silver_tables(spark, dataset_name, bronze_table, pipeline_func):
             .partitionedBy("data_date") \
             .using("iceberg") \
             .create()
-    print(f"  -> Wrote {reject_df.count()} records to {reject_table}")
+    logger.info(f"  -> Wrote {reject_df.count()} records to {reject_table}")
 
 def main():
     parser = argparse.ArgumentParser()

@@ -19,6 +19,7 @@ from pyspark.sql.functions import (
 
 
 def normalize_text(column: Column) -> Column:
+    """Execute normalize text logic."""
     return trim(regexp_replace(column, r"\s+", " "))
 
 

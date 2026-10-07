@@ -4,6 +4,7 @@ from pyspark.sql.types import ArrayType, DoubleType, IntegerType, StringType, St
 
 
 def _arrays(names, type_):
+    """Execute arrays logic."""
     return [StructField(name, ArrayType(type_)) for name in names]
 
 
@@ -17,10 +18,12 @@ LOCATION_SCHEMA = ArrayType(StructType([
 
 
 def _locations(df: DataFrame) -> DataFrame:
+    """Execute locations logic."""
     return df.select("bronze_key", explode(from_json("raw", LOCATION_SCHEMA)).alias("location"))
 
 
 def _inline(prefix, fields):
+    """Execute inline logic."""
     return inline(arrays_zip(*[col(f"location.{prefix}.{field}").alias(field) for field in fields]))
 
 

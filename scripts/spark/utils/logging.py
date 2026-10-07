@@ -5,12 +5,11 @@ LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s - %(message)s"
 
 
 def setup_logging(level: int = logging.INFO) -> None:
-    logging.basicConfig(
-        level=level,
-        format=LOG_FORMAT,
-    )
+    logging.basicConfig(level=level, format=LOG_FORMAT)
 
 
 def create_logger(name: str) -> logging.Logger:
     setup_logging()
-    return logging.getLogger(name)
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
+    return logger

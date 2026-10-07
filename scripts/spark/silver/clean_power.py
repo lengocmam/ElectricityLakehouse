@@ -5,6 +5,7 @@ from silver.silver_utils import add_dq, normalize_text
 
 
 def clean_power(df: DataFrame) -> tuple[DataFrame, DataFrame]:
+    """Execute clean power logic."""
     prepared = (
         df.withColumn("period", normalize_text(lower("period")))
         .withColumn("generation_source", normalize_text("generation_source"))

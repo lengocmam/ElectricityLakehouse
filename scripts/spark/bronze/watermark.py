@@ -6,6 +6,7 @@ import psycopg
 
 
 def _get_connection():
+    """Establish a connection to the watermark PostgreSQL database."""
     return psycopg.connect(
         host=os.environ["WATERMARK_DB_HOST"],
         port=os.environ.get("WATERMARK_DB_PORT", "5432"),
