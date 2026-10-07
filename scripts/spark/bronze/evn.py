@@ -8,7 +8,7 @@ import requests
 from lxml import html
 
 from bronze.bronze_utils import write_raw_bronze
-from bronze.watermark import get_watermark
+from bronze.control import get_watermark, start_ingestion_log, finish_ingestion_log
 from bronze.http_client import create_legacy_tls_session
 from utils.spark import create_spark_session
 
@@ -367,70 +367,104 @@ def main(
 
     batch_id = ingestion_timestamp.strftime("%Y%m%d%H%M%S")
 
-    session = create_evn_session()
-
-    links = crawl_listing_pages(
-        session=session,
-        watermark=watermark,
+    start_ingestion_log(
+        run_id=batch_id,
+        dataset_name="evn",
         run_mode=run_mode,
         start_date=crawl_start_date,
         end_date=crawl_end_date,
+        started_at=ingestion_timestamp,
     )
 
-    logger.info(f"Total unique links: {len(links)}")
-
-    records = crawl_articles(
-        session=session,
-        links=links,
-        ingestion_timestamp=ingestion_timestamp,
-        ingest_date=ingest_date,
-        batch_id=batch_id,
-        watermark=watermark,
-        run_mode=run_mode,
-        start_date=crawl_start_date,
-        end_date=crawl_end_date,
-    )
-
-    if not records:
-        logger.info("No EVN data found for the requested range. Nothing to write.")
-        return
-
-    successful_dates = [
-        date.fromisoformat(record["source_data_date"])
-        for record in records
-        if record["source_data_date"] is not None
-    ]
-
-    if not successful_dates:
-        raise RuntimeError("Records were crawled, but no valid source_data_date was found.")
-
-    last_successful_data_date = max(successful_dates)
-
-    logger.info(
-        f"Last successful source data date: "
-        f"{last_successful_data_date.isoformat()}"
-    )
-
-    spark = None
+    start_time = time.time()
+    status = "SUCCESS"
+    error_msg = None
+    records_count = 0
 
     try:
-        spark = create_spark_session("ingest_evn")
+        session = create_evn_session()
 
-        write_bronze(
-            spark=spark,
-            records=records,
-            ingest_date=ingest_date,
-            last_successful_data_date=(
-                last_successful_data_date
-                if run_mode == "incremental"
-                else None
-            ),
-            update_watermark_after_write=(run_mode == "incremental"),
+        links = crawl_listing_pages(
+            session=session,
+            watermark=watermark,
+            run_mode=run_mode,
+            start_date=crawl_start_date,
+            end_date=crawl_end_date,
         )
 
+        logger.info(f"Total unique links: {len(links)}")
+
+        records = crawl_articles(
+            session=session,
+            links=links,
+            ingestion_timestamp=ingestion_timestamp,
+            ingest_date=ingest_date,
+            batch_id=batch_id,
+            watermark=watermark,
+            run_mode=run_mode,
+            start_date=crawl_start_date,
+            end_date=crawl_end_date,
+        )
+
+        if not records:
+            logger.info("No EVN data found for the requested range. Nothing to write.")
+            return
+
+        records_count = len(records)
+
+        successful_dates = [
+            date.fromisoformat(record["source_data_date"])
+            for record in records
+            if record["source_data_date"] is not None
+        ]
+
+        if not successful_dates:
+            raise RuntimeError("Records were crawled, but no valid source_data_date was found.")
+
+        last_successful_data_date = max(successful_dates)
+
+        logger.info(
+            f"Last successful source data date: "
+            f"{last_successful_data_date.isoformat()}"
+        )
+
+        spark = None
+
+        try:
+            spark = create_spark_session("ingest_evn")
+
+            write_bronze(
+                spark=spark,
+                records=records,
+                ingest_date=ingest_date,
+                last_successful_data_date=(
+                    last_successful_data_date
+                    if run_mode == "incremental"
+                    else None
+                ),
+                update_watermark_after_write=(run_mode == "incremental"),
+            )
+
+        finally:
+            if spark is not None:
+                spark.stop()
+
+    except Exception as exc:
+        status = "FAILED"
+        error_msg = str(exc)
+        raise
+
     finally:
-        if spark is not None:
-            spark.stop()
+        duration_seconds = time.time() - start_time
+        finished_at = datetime.now(timezone.utc)
+        finish_ingestion_log(
+            run_id=batch_id,
+            status=status,
+            records_count=records_count,
+            error_message=error_msg,
+            finished_at=finished_at,
+            duration_seconds=duration_seconds,
+        )
 
 
 if __name__ == "__main__":

@@ -25,8 +25,11 @@ def main():
 
     args = parser.parse_args()
 
+    start_date = args.start_date if args.start_date not in (None, "", "None") else None
+    end_date = args.end_date if args.end_date not in (None, "", "None") else None
+
     if args.dataset in {"open_meteo", "evn", "evn_hydro", "nsmo"}:
-        INGESTIONS[args.dataset](run_mode=args.run_mode, start_date=args.start_date, end_date=args.end_date)
+        INGESTIONS[args.dataset](run_mode=args.run_mode, start_date=start_date, end_date=end_date)
     else:
         INGESTIONS[args.dataset]()
 

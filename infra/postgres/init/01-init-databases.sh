@@ -51,8 +51,27 @@ CREATE TABLE IF NOT EXISTS pipeline_watermark (
     last_successful_run_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS bronze_ingestion_log (
+    run_id VARCHAR(50) PRIMARY KEY,
+    dataset_name VARCHAR(50) NOT NULL,
+    run_mode VARCHAR(20) NOT NULL,
+    start_date DATE,
+    end_date DATE,
+    records_count BIGINT DEFAULT 0,
+    status VARCHAR(20) NOT NULL,
+    error_message TEXT,
+    started_at TIMESTAMPTZ NOT NULL,
+    finished_at TIMESTAMPTZ,
+    duration_seconds DOUBLE PRECISION
+);
+
 GRANT SELECT, INSERT, UPDATE, DELETE
 ON TABLE pipeline_watermark
 TO lakehouse_control;
+
+GRANT SELECT, INSERT, UPDATE, DELETE
+ON TABLE bronze_ingestion_log
+TO lakehouse_control;
+
 
 EOSQL

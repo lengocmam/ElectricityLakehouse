@@ -7,7 +7,7 @@ import requests
 import urllib3
 
 from bronze.bronze_utils import write_raw_bronze
-from bronze.watermark import get_watermark
+from bronze.control import get_watermark, start_ingestion_log, finish_ingestion_log
 from utils.spark import create_spark_session
 from utils.logging import create_logger
 
@@ -194,39 +194,54 @@ def main(
         logger.info(f"Run mode: incremental. Previous watermark: {last_successful_data_date}")
         logger.info(f"Dataset date range: {crawl_start_date} to {crawl_end_date}")
 
-    if crawl_start_date > crawl_end_date:
-        logger.info("No new dates to crawl. Dataset is up to date.")
-        return
-
-    session = create_nsmo_session()
-
-    records, failed_dates = crawl_nsmo_dates(
-        session=session,
+    start_ingestion_log(
+        run_id=batch_id,
+        dataset_name=SOURCE_NAME,
+        run_mode=run_mode,
         start_date=crawl_start_date,
         end_date=crawl_end_date,
-        ingestion_timestamp=ingestion_timestamp,
-        ingest_date=ingest_date,
-        batch_id=batch_id,
+        started_at=ingestion_timestamp,
     )
 
-    if failed_dates:
-        logger.error(f"NSMO crawl failed for {len(failed_dates)} date(s). Watermark will not be updated.")
-        for failed_date in failed_dates:
-            logger.error(f"Failed date: {failed_date.isoformat()}")
-
-        raise RuntimeError(
-            f"NSMO crawl failed for "
-            f"{len(failed_dates)} date(s). "
-            "Watermark will not be updated."
-        )
-
-    if not records:
-        logger.info("No NSMO data found for the requested range. Nothing to write.")
-        return
+    start_time = time.time()
+    status = "SUCCESS"
+    error_msg = None
+    records_count = 0
 
     spark = None
-
     try:
+        if crawl_start_date > crawl_end_date:
+            logger.info("No new dates to crawl. Dataset is up to date.")
+            return
+
+        session = create_nsmo_session()
+
+        records, failed_dates = crawl_nsmo_dates(
+            session=session,
+            start_date=crawl_start_date,
+            end_date=crawl_end_date,
+            ingestion_timestamp=ingestion_timestamp,
+            ingest_date=ingest_date,
+            batch_id=batch_id,
+        )
+
+        if failed_dates:
+            logger.error(f"NSMO crawl failed for {len(failed_dates)} date(s). Watermark will not be updated.")
+            for failed_date in failed_dates:
+                logger.error(f"Failed date: {failed_date.isoformat()}")
+
+            raise RuntimeError(
+                f"NSMO crawl failed for "
+                f"{len(failed_dates)} date(s). "
+                "Watermark will not be updated."
+            )
+
+        if not records:
+            logger.info("No NSMO data found for the requested range. Nothing to write.")
+            return
+
+        records_count = len(records)
+
         spark = create_spark_session("ingest_nsmo")
 
         logger.info(f"Creating namespace if needed: {NAMESPACE}")
@@ -244,9 +259,25 @@ def main(
             update_watermark_after_write=(run_mode == "incremental")
         )
 
+    except Exception as exc:
+        status = "FAILED"
+        error_msg = str(exc)
+        raise
+
     finally:
         if spark is not None:
             spark.stop()
+
+        duration_seconds = time.time() - start_time
+        finished_at = datetime.now(timezone.utc)
+        finish_ingestion_log(
+            run_id=batch_id,
+            status=status,
+            records_count=records_count,
+            error_message=error_msg,
+            finished_at=finished_at,
+            duration_seconds=duration_seconds,
+        )
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@ from utils.logging import create_logger
 from datetime import date
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StringType, StructField, StructType
-from bronze.watermark import update_watermark
+from bronze.control import update_watermark
 
 logger = create_logger(__name__)
 

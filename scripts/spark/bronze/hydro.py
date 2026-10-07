@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 import requests
 from bronze.bronze_utils import write_raw_bronze
-from bronze.watermark import get_watermark
+from bronze.control import get_watermark, start_ingestion_log, finish_ingestion_log
 from bronze.http_client import create_legacy_tls_session
 from utils.spark import create_spark_session
 from utils.logging import create_logger
@@ -148,13 +148,27 @@ def main(
 
         logger.info(f"Run mode: incremental. Previous watermark: {last_successful_data_date}. Date range: {crawl_start_date} to {crawl_end_date}")
 
-    if crawl_start_date > crawl_end_date:
-        logger.info("No new dates to crawl. Dataset is up to date.")
-        return
+    start_ingestion_log(
+        run_id=batch_id,
+        dataset_name=SOURCE_NAME,
+        run_mode=run_mode,
+        start_date=crawl_start_date,
+        end_date=crawl_end_date,
+        started_at=ingestion_timestamp,
+    )
+
+    start_time = time.time()
+    status = "SUCCESS"
+    error_msg = None
+    records_count = 0
 
     spark = None
 
     try:
+        if crawl_start_date > crawl_end_date:
+            logger.info("No new dates to crawl. Dataset is up to date.")
+            return
+
         spark = create_spark_session("ingest_evn_hydro")
 
         logger.info(f"Creating namespace if needed: {NAMESPACE}")
@@ -176,6 +190,8 @@ def main(
             logger.info("No Hydro data found for the requested range. Nothing to write.")
             return
 
+        records_count = len(records)
+
         write_bronze(
             spark=spark,
             records=records,
@@ -183,12 +199,28 @@ def main(
             last_successful_data_date=(crawl_end_date if run_mode == "incremental" else None),
             update_watermark_after_write=(run_mode == "incremental"),
         )
-        logger.info(f"Successfully processed and wrote {len(records)} records.")
+        logger.info(f"Successfully processed and wrote {records_count} records.")
+
+    except Exception as exc:
+        status = "FAILED"
+        error_msg = str(exc)
+        raise
 
     finally:
         if spark is not None:
             spark.stop()
             logger.info("Spark session stopped.")
+            
+        duration_seconds = time.time() - start_time
+        finished_at = datetime.now(timezone.utc)
+        finish_ingestion_log(
+            run_id=batch_id,
+            status=status,
+            records_count=records_count,
+            error_message=error_msg,
+            finished_at=finished_at,
+            duration_seconds=duration_seconds,
+        )
 
 
 if __name__ == "__main__":
