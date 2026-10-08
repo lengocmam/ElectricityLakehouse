@@ -20,13 +20,14 @@ def clean_weather_daily(df: DataFrame) -> tuple[DataFrame, DataFrame]:
     return add_dq(
         prepared, key_name="daily_weather_key", key_columns=["latitude", "longitude", "data_date"],
         hash_columns=[
-            "latitude", "longitude", "timezone", "utc_offset_seconds", "data_date",
+            "location_name", "latitude", "longitude", "timezone", "utc_offset_seconds", "data_date",
             "weather_code", "temperature_2m_mean", "temperature_2m_max", "temperature_2m_min",
             "precipitation_sum", "precipitation_hours", "sunshine_duration",
             "cloud_cover_mean", "shortwave_radiation_sum", "wind_speed_10m_max",
         ],
         required_columns={
             "bronze_key": "BRONZE_KEY_NULL",
+            "location_name": "LOCATION_NAME_NULL",
             "latitude": "LATITUDE_NULL",
             "longitude": "LONGITUDE_NULL",
             "data_date": "DATE_NULL",

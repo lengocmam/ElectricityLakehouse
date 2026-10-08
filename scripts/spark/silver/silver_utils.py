@@ -128,9 +128,7 @@ def add_dq(
             "_dq_duplicate_count", "_dq_has_null_key", "_dq_duplicate"
         )
 
-    valid_df = prepared.where("dq_is_valid").drop(
-        "bronze_key", key_name, "dq_error_code", "dq_is_valid"
-    )
+    valid_df = prepared.where("dq_is_valid").drop("dq_error_code", "dq_is_valid")
     reject_df = prepared.where("NOT dq_is_valid")
 
     return valid_df, reject_df

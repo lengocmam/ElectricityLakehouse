@@ -228,6 +228,23 @@ def crawl_listing_pages(
     return links
 
 
+def validate_evn_payload(text: str) -> tuple[bool, str | None]:
+    """Validate EVN article HTML payload for empty response, maintenance, or captcha."""
+    if not text or not text.strip() or len(text.strip()) < 50:
+        return False, "PAYLOAD_EMPTY"
+    lower_text = text.lower()
+    if "cloudflare" in lower_text or "captcha" in lower_text or "just a moment..." in lower_text:
+        return False, "CAPTCHA_PAGE"
+    if (
+        "hệ thống đang bảo trì" in lower_text
+        or "đang bảo trì" in lower_text
+        or "hệ thống bảo trì" in lower_text
+        or "maintenance" in lower_text
+    ):
+        return False, "MAINTENANCE_PAGE"
+    return True, None
+
+
 def crawl_articles(
     session: requests.Session,
     links: set[str],
@@ -238,9 +255,10 @@ def crawl_articles(
     run_mode: str,
     start_date: date | None = None,
     end_date: date | None = None,
-) -> list[dict]:
+) -> tuple[list[dict], list[tuple[str, str]]]:
     """Crawl details of provided article links."""
     records = []
+    failed_items: list[tuple[str, str]] = []
 
     for index, link in enumerate(
         sorted(links),
@@ -251,6 +269,12 @@ def crawl_articles(
             response = session.get(link, headers=HEADERS, timeout=20)
 
             response.raise_for_status()
+
+            is_valid, error_reason = validate_evn_payload(response.text)
+            if not is_valid:
+                logger.warning(f"Invalid payload for {link}: {error_reason}")
+                failed_items.append((link, error_reason))
+                continue
 
             detail_tree = html.fromstring(response.content)
 
@@ -294,8 +318,9 @@ def crawl_articles(
 
         except requests.RequestException as error:
             logger.error(f"Failed: {link} - {error}")
+            failed_items.append((link, f"REQUEST_ERROR: {error}"))
 
-    return records
+    return records, failed_items
 
 
 def write_bronze(
@@ -394,7 +419,7 @@ def main(
 
         logger.info(f"Total unique links: {len(links)}")
 
-        records = crawl_articles(
+        records, failed_items = crawl_articles(
             session=session,
             links=links,
             ingestion_timestamp=ingestion_timestamp,
@@ -406,11 +431,26 @@ def main(
             end_date=crawl_end_date,
         )
 
-        if not records:
-            logger.info("No EVN data found for the requested range. Nothing to write.")
-            return
-
         records_count = len(records)
+
+        if failed_items:
+            error_msg = "; ".join(f"{item} - {reason}" for item, reason in failed_items)
+            for item, reason in failed_items:
+                logger.error(f"Failed item {item}: {reason}")
+
+        if records_count > 0 and failed_items:
+            status = "PARTIAL"
+        elif records_count > 0 and not failed_items:
+            status = "SUCCESS"
+        else:
+            if links:
+                status = "FAILED"
+                logger.warning("No EVN records were successfully crawled from found links. Nothing to write.")
+                if not error_msg:
+                    error_msg = "No EVN records were crawled."
+            else:
+                logger.info("No EVN links found for the requested range. Dataset is up to date.")
+            return
 
         successful_dates = [
             date.fromisoformat(record["source_data_date"])
@@ -419,6 +459,7 @@ def main(
         ]
 
         if not successful_dates:
+            status = "FAILED"
             raise RuntimeError("Records were crawled, but no valid source_data_date was found.")
 
         last_successful_data_date = max(successful_dates)

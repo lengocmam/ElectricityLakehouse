@@ -45,6 +45,32 @@ def build_end_of_day_td_param(data_date: date) -> str:
     )
 
 
+def validate_hydro_payload(text: str) -> tuple[bool, str | None]:
+    """Validate EVN Hydro HTML payload for empty response, maintenance, captcha, or missing table."""
+    if not text or not text.strip() or len(text.strip()) < 50:
+        return False, "PAYLOAD_EMPTY"
+
+    lower_text = text.lower()
+    if "cloudflare" in lower_text or "captcha" in lower_text or "just a moment..." in lower_text:
+        return False, "CAPTCHA_PAGE"
+
+    if (
+        "hệ thống đang bảo trì" in lower_text
+        or "đang bảo trì" in lower_text
+        or "hệ thống bảo trì" in lower_text
+        or "maintenance" in lower_text
+    ):
+        return False, "MAINTENANCE_PAGE"
+
+    if "server error in" in lower_text or "runtime error" in lower_text:
+        return False, "SERVER_ERROR_PAGE"
+
+    if "<table" not in lower_text and "<tr" not in lower_text:
+        return False, "NO_DATA_TABLE"
+
+    return True, None
+
+
 def crawl_hydro_dates(
     session: requests.Session,
     start_date: date,
@@ -52,24 +78,36 @@ def crawl_hydro_dates(
     ingestion_timestamp: datetime,
     ingest_date: str,
     batch_id: str,
-) -> list[dict]:
+) -> tuple[list[dict], list[tuple[date, str]]]:
     """Crawl raw HTML snapshots for reservoir data within the specified date range."""
     records = []
+    failed_dates: list[tuple[date, str]] = []
     current_date = start_date
     index = 1
 
     while current_date <= end_date:
         td_param = build_end_of_day_td_param(current_date)
+        source_data_date = current_date.isoformat()
         
         try:
             response = session.get(BASE_URL, params={"td": td_param}, headers=HEADERS, timeout=60)
             response.raise_for_status()
+
+            is_valid, error_reason = validate_hydro_payload(response.text)
+            if not is_valid:
+                logger.warning(
+                    f"Invalid payload for data_date={source_data_date}: {error_reason}"
+                )
+                failed_dates.append((current_date, error_reason))
+                current_date += timedelta(days=1)
+                time.sleep(0.1)
+                continue
             
             record = {
                 "bronze_key": f"{batch_id}_{index}",
                 "source_name": SOURCE_NAME,
                 "source_url": response.url,
-                "source_data_date": current_date.isoformat(),
+                "source_data_date": source_data_date,
                 "source_data_start_date": None,
                 "source_data_end_date": None,
                 "batch_id": batch_id,
@@ -78,16 +116,16 @@ def crawl_hydro_dates(
                 "raw": response.text,
             }
             records.append(record)
+            index += 1
             
         except Exception as e:
-            logger.error(f"Error crawling data_date={current_date.isoformat()}: {e}")
-            raise
+            logger.error(f"Error crawling data_date={source_data_date}: {e}")
+            failed_dates.append((current_date, f"REQUEST_ERROR: {e}"))
 
         current_date += timedelta(days=1)
-        index += 1
         time.sleep(0.1)
 
-    return records
+    return records, failed_dates
 
 
 def write_bronze(
@@ -169,15 +207,9 @@ def main(
             logger.info("No new dates to crawl. Dataset is up to date.")
             return
 
-        spark = create_spark_session("ingest_evn_hydro")
-
-        logger.info(f"Creating namespace if needed: {NAMESPACE}")
-
-        spark.sql(f"CREATE NAMESPACE IF NOT EXISTS {NAMESPACE}")
-
         session = create_hydro_session()
 
-        records = crawl_hydro_dates(
+        records, failed_dates = crawl_hydro_dates(
             session=session,
             start_date=crawl_start_date,
             end_date=crawl_end_date,
@@ -186,17 +218,47 @@ def main(
             batch_id=batch_id,
         )
 
-        if not records:
-            logger.info("No Hydro data found for the requested range. Nothing to write.")
+        records_count = len(records)
+
+        if failed_dates:
+            error_msg = "; ".join(f"{dt.isoformat()} - {reason}" for dt, reason in failed_dates)
+            for dt, reason in failed_dates:
+                logger.error(f"Failed date {dt.isoformat()}: {reason}")
+
+        if records_count > 0 and failed_dates:
+            status = "PARTIAL"
+        elif records_count > 0 and not failed_dates:
+            status = "SUCCESS"
+        else:
+            status = "FAILED"
+            logger.warning("No hydro records were crawled. Nothing to write to Bronze.")
+            if not error_msg:
+                error_msg = "No records were crawled."
             return
 
-        records_count = len(records)
+        successful_dates = [
+            date.fromisoformat(r["source_data_date"])
+            for r in records
+            if r.get("source_data_date")
+        ]
+        last_successful_data_date = max(successful_dates) if successful_dates else None
+
+        logger.info(
+            f"Run status: {status}. Records written: {records_count}. "
+            f"Furthest successful date: {last_successful_data_date}"
+        )
+
+        spark = create_spark_session("ingest_evn_hydro")
+
+        logger.info(f"Creating namespace if needed: {NAMESPACE}")
+
+        spark.sql(f"CREATE NAMESPACE IF NOT EXISTS {NAMESPACE}")
 
         write_bronze(
             spark=spark,
             records=records,
             ingest_date=ingest_date,
-            last_successful_data_date=(crawl_end_date if run_mode == "incremental" else None),
+            last_successful_data_date=(last_successful_data_date if run_mode == "incremental" else None),
             update_watermark_after_write=(run_mode == "incremental"),
         )
         logger.info(f"Successfully processed and wrote {records_count} records.")

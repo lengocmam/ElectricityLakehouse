@@ -1,3 +1,4 @@
+import json
 import sys
 import time
 from datetime import date, datetime, timedelta, timezone
@@ -48,6 +49,59 @@ def create_nsmo_session() -> requests.Session:
     return session
 
 
+def validate_nsmo_payload(text: str) -> tuple[bool, str | None]:
+    """Validate NSMO JSON payload for empty response, maintenance, captcha, or empty data."""
+    if not text or not text.strip() or len(text.strip()) < 50:
+        return False, "PAYLOAD_EMPTY"
+
+    stripped = text.strip()
+    if stripped.startswith("<"):
+        lower_text = stripped.lower()
+        if "cloudflare" in lower_text or "captcha" in lower_text or "just a moment..." in lower_text:
+            return False, "CAPTCHA_PAGE"
+        if "bảo trì" in lower_text or "maintenance" in lower_text:
+            return False, "MAINTENANCE_PAGE"
+        return False, "HTML_RESPONSE_EXPECTED_JSON"
+
+    try:
+        payload = json.loads(text)
+    except Exception as exc:
+        return False, f"INVALID_JSON: {exc}"
+
+    if not isinstance(payload, dict):
+        return False, "INVALID_JSON_STRUCTURE"
+
+    if payload.get("success") is False:
+        err = payload.get("error", {})
+        err_msg = err.get("message") if isinstance(err, dict) else str(err)
+        return False, f"API_ERROR: {err_msg or 'Unsuccessful response'}"
+
+    result = payload.get("result")
+    if result is None:
+        raw_data = payload.get("data")
+        if raw_data is None or raw_data == []:
+            return False, "EMPTY_DATA"
+        return False, "MISSING_RESULT"
+
+    if isinstance(result, dict):
+        if result.get("status") is False:
+            return False, f"API_STATUS_FALSE: {result.get('message') or 'status is false'}"
+
+        inner_data = result.get("data")
+        if inner_data is None or inner_data == []:
+            return False, "EMPTY_DATA"
+
+        if isinstance(inner_data, dict):
+            phu_tais = inner_data.get("phuTais")
+            if not phu_tais:
+                return False, "EMPTY_PHUTAIS"
+    elif isinstance(result, list):
+        if not result:
+            return False, "EMPTY_RESULT"
+
+    return True, None
+
+
 def crawl_nsmo_dates(
     session: requests.Session,
     start_date: date,
@@ -55,10 +109,10 @@ def crawl_nsmo_dates(
     ingestion_timestamp: datetime,
     ingest_date: str,
     batch_id: str,
-) -> tuple[list[dict], list[date]]:
+) -> tuple[list[dict], list[tuple[date, str]]]:
     """Fetch raw data from API across the specified date range."""
     records = []
-    failed_dates = []
+    failed_dates: list[tuple[date, str]] = []
 
     current_date = start_date
     index = 1
@@ -93,6 +147,16 @@ def crawl_nsmo_dates(
                         f"URL: {response.url}"
                     )
 
+            is_valid, error_reason = validate_nsmo_payload(response.text)
+            if not is_valid:
+                logger.warning(
+                    f"Invalid payload for data_date={source_data_date}: {error_reason}"
+                )
+                failed_dates.append((current_date, error_reason))
+                current_date += timedelta(days=1)
+                time.sleep(0.1)
+                continue
+
             records.append(
                 {
                     "bronze_key": f"{batch_id}_{index}",
@@ -118,7 +182,7 @@ def crawl_nsmo_dates(
                 f"data_date={source_data_date}: {e}"
             )
 
-            failed_dates.append(current_date)
+            failed_dates.append((current_date, f"REQUEST_ERROR: {e}"))
 
         current_date += timedelta(days=1)
 
@@ -225,22 +289,35 @@ def main(
             batch_id=batch_id,
         )
 
+        records_count = len(records)
+
         if failed_dates:
-            logger.error(f"NSMO crawl failed for {len(failed_dates)} date(s). Watermark will not be updated.")
-            for failed_date in failed_dates:
-                logger.error(f"Failed date: {failed_date.isoformat()}")
+            error_msg = "; ".join(f"{dt.isoformat()} - {reason}" for dt, reason in failed_dates)
+            for dt, reason in failed_dates:
+                logger.error(f"Failed date {dt.isoformat()}: {reason}")
 
-            raise RuntimeError(
-                f"NSMO crawl failed for "
-                f"{len(failed_dates)} date(s). "
-                "Watermark will not be updated."
-            )
-
-        if not records:
-            logger.info("No NSMO data found for the requested range. Nothing to write.")
+        if records_count > 0 and failed_dates:
+            status = "PARTIAL"
+        elif records_count > 0 and not failed_dates:
+            status = "SUCCESS"
+        else:
+            status = "FAILED"
+            logger.warning("No NSMO records were crawled. Nothing to write to Bronze.")
+            if not error_msg:
+                error_msg = "No records were crawled."
             return
 
-        records_count = len(records)
+        successful_dates = [
+            date.fromisoformat(r["source_data_date"])
+            for r in records
+            if r.get("source_data_date")
+        ]
+        last_successful_data_date = max(successful_dates) if successful_dates else None
+
+        logger.info(
+            f"Run status: {status}. Records written: {records_count}. "
+            f"Furthest successful date: {last_successful_data_date}"
+        )
 
         spark = create_spark_session("ingest_nsmo")
 
@@ -255,7 +332,9 @@ def main(
             spark=spark,
             records=records,
             ingest_date=ingest_date,
-            last_successful_data_date=(crawl_end_date if run_mode == "incremental" else None),
+            last_successful_data_date=(
+                last_successful_data_date if run_mode == "incremental" else None
+            ),
             update_watermark_after_write=(run_mode == "incremental")
         )
 

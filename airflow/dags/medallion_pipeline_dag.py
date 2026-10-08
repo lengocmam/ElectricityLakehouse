@@ -85,49 +85,49 @@ with DAG(
 
     with TaskGroup(group_id="bronze_ingestion"):
 
-        # bronze_evn = SparkSubmitOperator(
-        #     task_id="ingest_evn",
-        #     application=f"{SPARK_APP_DIR}/bronze/ingest_bronze.py",
-        #     application_args=[
-        #         "evn",
-        #         "--run-mode",
-        #         "{{ params.run_mode }}",
-        #         "--start-date",
-        #         "{{ params.start_date }}",
-        #         "--end-date",
-        #         "{{ params.end_date }}",
-        #     ],
-        #     conn_id="spark_default",
-        #     name="bronze_evn",
-        #     conf=SPARK_CONF,
-        #     packages=ICEBERG_PACKAGES,
-        #     env_vars=SPARK_ENV,
-        #     **SPARK_RESOURCES,
-        #     execution_timeout=timedelta(hours=2),
-        #     verbose=True,
-        # )
+        bronze_evn = SparkSubmitOperator(
+            task_id="ingest_evn",
+            application=f"{SPARK_APP_DIR}/bronze/ingest_bronze.py",
+            application_args=[
+                "evn",
+                "--run-mode",
+                "{{ params.run_mode }}",
+                "--start-date",
+                "{{ params.start_date }}",
+                "--end-date",
+                "{{ params.end_date }}",
+            ],
+            conn_id="spark_default",
+            name="bronze_evn",
+            conf=SPARK_CONF,
+            packages=ICEBERG_PACKAGES,
+            env_vars=SPARK_ENV,
+            **SPARK_RESOURCES,
+            execution_timeout=timedelta(hours=2),
+            verbose=True,
+        )
 
-        # bronze_evn_hydro = SparkSubmitOperator(
-        #     task_id="ingest_evn_hydro",
-        #     application=f"{SPARK_APP_DIR}/bronze/ingest_bronze.py",
-        #     application_args=[
-        #         "evn_hydro",
-        #         "--run-mode",
-        #         "{{ params.run_mode }}",
-        #         "--start-date",
-        #         "{{ params.start_date }}",
-        #         "--end-date",
-        #         "{{ params.end_date }}",
-        #     ],
-        #     conn_id="spark_default",
-        #     name="bronze_evn_hydro",
-        #     conf=SPARK_CONF,
-        #     packages=ICEBERG_PACKAGES,
-        #     env_vars=SPARK_ENV,
-        #     **SPARK_RESOURCES,
-        #     execution_timeout=timedelta(minutes=45),
-        #     verbose=True,
-        # )
+        bronze_evn_hydro = SparkSubmitOperator(
+            task_id="ingest_evn_hydro",
+            application=f"{SPARK_APP_DIR}/bronze/ingest_bronze.py",
+            application_args=[
+                "evn_hydro",
+                "--run-mode",
+                "{{ params.run_mode }}",
+                "--start-date",
+                "{{ params.start_date }}",
+                "--end-date",
+                "{{ params.end_date }}",
+            ],
+            conn_id="spark_default",
+            name="bronze_evn_hydro",
+            conf=SPARK_CONF,
+            packages=ICEBERG_PACKAGES,
+            env_vars=SPARK_ENV,
+            **SPARK_RESOURCES,
+            execution_timeout=timedelta(minutes=45),
+            verbose=True,
+        )
         
         bronze_nsmo = SparkSubmitOperator(
             task_id="ingest_nsmo",
@@ -151,28 +151,121 @@ with DAG(
             verbose=True,
         )
         
-        # bronze_open_meteo = SparkSubmitOperator(
-        #     task_id="ingest_open_meteo",
-        #     application=f"{SPARK_APP_DIR}/bronze/ingest_bronze.py",
-        #     application_args=[
-        #         "open_meteo",
-        #         "--run-mode",
-        #         "{{ params.run_mode }}",
-        #         "--start-date",
-        #         "{{ params.start_date }}",
-        #         "--end-date",
-        #         "{{ params.end_date }}",
-        #     ],
-        #     conn_id="spark_default",
-        #     name="bronze_open_meteo",
-        #     conf=SPARK_CONF,
-        #     packages=ICEBERG_PACKAGES,
-        #     env_vars=SPARK_ENV,
-        #     **SPARK_RESOURCES,
-        #     execution_timeout=timedelta(hours=2),
-        #     verbose=True,
-        # )
+        bronze_open_meteo = SparkSubmitOperator(
+            task_id="ingest_open_meteo",
+            application=f"{SPARK_APP_DIR}/bronze/ingest_bronze.py",
+            application_args=[
+                "open_meteo",
+                "--run-mode",
+                "{{ params.run_mode }}",
+                "--start-date",
+                "{{ params.start_date }}",
+                "--end-date",
+                "{{ params.end_date }}",
+            ],
+            conn_id="spark_default",
+            name="bronze_open_meteo",
+            conf=SPARK_CONF,
+            packages=ICEBERG_PACKAGES,
+            env_vars=SPARK_ENV,
+            **SPARK_RESOURCES,
+            execution_timeout=timedelta(hours=2),
+            verbose=True,
+        )
+
+    with TaskGroup(group_id="silver_processing"):
+
+        silver_power = SparkSubmitOperator(
+            task_id="silver_power",
+            application=f"{SPARK_APP_DIR}/silver/write_silver.py",
+            application_args=["--dataset", "power"],
+            conn_id="spark_default",
+            name="silver_power",
+            conf=SPARK_CONF,
+            packages=ICEBERG_PACKAGES,
+            env_vars=SPARK_ENV,
+            **SPARK_RESOURCES,
+            execution_timeout=timedelta(hours=1),
+            verbose=True,
+        )
+
+        silver_generation = SparkSubmitOperator(
+            task_id="silver_generation",
+            application=f"{SPARK_APP_DIR}/silver/write_silver.py",
+            application_args=["--dataset", "generation"],
+            conn_id="spark_default",
+            name="silver_generation",
+            conf=SPARK_CONF,
+            packages=ICEBERG_PACKAGES,
+            env_vars=SPARK_ENV,
+            **SPARK_RESOURCES,
+            execution_timeout=timedelta(hours=1),
+            verbose=True,
+        )
+
+        silver_hydro = SparkSubmitOperator(
+            task_id="silver_hydro",
+            application=f"{SPARK_APP_DIR}/silver/write_silver.py",
+            application_args=["--dataset", "hydro"],
+            conn_id="spark_default",
+            name="silver_hydro",
+            conf=SPARK_CONF,
+            packages=ICEBERG_PACKAGES,
+            env_vars=SPARK_ENV,
+            **SPARK_RESOURCES,
+            execution_timeout=timedelta(minutes=45),
+            verbose=True,
+        )
+
+        silver_load = SparkSubmitOperator(
+            task_id="silver_load",
+            application=f"{SPARK_APP_DIR}/silver/write_silver.py",
+            application_args=["--dataset", "load"],
+            conn_id="spark_default",
+            name="silver_load",
+            conf=SPARK_CONF,
+            packages=ICEBERG_PACKAGES,
+            env_vars=SPARK_ENV,
+            **SPARK_RESOURCES,
+            execution_timeout=timedelta(minutes=45),
+            verbose=True,
+        )
+
+        silver_weather_daily = SparkSubmitOperator(
+            task_id="silver_weather_daily",
+            application=f"{SPARK_APP_DIR}/silver/write_silver.py",
+            application_args=["--dataset", "weather_daily"],
+            conn_id="spark_default",
+            name="silver_weather_daily",
+            conf=SPARK_CONF,
+            packages=ICEBERG_PACKAGES,
+            env_vars=SPARK_ENV,
+            **SPARK_RESOURCES,
+            execution_timeout=timedelta(hours=1),
+            verbose=True,
+        )
+
+        silver_weather_hourly = SparkSubmitOperator(
+            task_id="silver_weather_hourly",
+            application=f"{SPARK_APP_DIR}/silver/write_silver.py",
+            application_args=["--dataset", "weather_hourly"],
+            conn_id="spark_default",
+            name="silver_weather_hourly",
+            conf=SPARK_CONF,
+            packages=ICEBERG_PACKAGES,
+            env_vars=SPARK_ENV,
+            **SPARK_RESOURCES,
+            execution_timeout=timedelta(hours=1),
+            verbose=True,
+        )
 
     end = EmptyOperator(task_id="end")
 
-    start >> bronze_nsmo >> end
+    start >> [bronze_evn, bronze_evn_hydro, bronze_nsmo, bronze_open_meteo]
+    
+    bronze_evn >> [silver_power, silver_generation]
+    bronze_evn_hydro >> silver_hydro
+    bronze_nsmo >> silver_load
+    bronze_open_meteo >> [silver_weather_daily, silver_weather_hourly]
+    
+    [silver_power, silver_generation, silver_hydro, silver_load, silver_weather_daily, silver_weather_hourly] >> end

@@ -1,4 +1,7 @@
 import argparse
+from datetime import datetime
+from zoneinfo import ZoneInfo
+import pyspark.sql.functions as F
 
 from utils.spark import create_spark_session
 from utils.logging import create_logger
@@ -15,13 +18,17 @@ DATASETS = {
     "weather_hourly": ("nessie.bronze.open_meteo", silver_pipeline.weather_hourly),
 }
 
-def write_silver_tables(spark, dataset_name, bronze_table, pipeline_func):
+def write_silver_tables(spark, dataset_name, bronze_table, pipeline_func, run_date=None):
     """Execute write silver tables logic."""
     logger.info(f"Processing {dataset_name}...")
     
     spark.sql("CREATE NAMESPACE IF NOT EXISTS nessie.silver")
     
     bronze_df = spark.table(bronze_table)
+    if run_date:
+        logger.info(f"Filtering bronze_df for ingest_date = {run_date}")
+        bronze_df = bronze_df.filter(F.col("ingest_date") == run_date)
+        
     valid_df, reject_df = pipeline_func(bronze_df)
     
     valid_table = f"nessie.silver.{dataset_name}"
@@ -63,15 +70,19 @@ def write_silver_tables(spark, dataset_name, bronze_table, pipeline_func):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", choices=["all", *DATASETS], default="all")
+    parser.add_argument("--run-date", type=str, help="The ingest_date partition to read from bronze layer. Defaults to current date.")
     args = parser.parse_args()
     
+    if not args.run_date:
+        args.run_date = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).date().isoformat()
+        
     spark = create_spark_session("write_silver")
     spark.sparkContext.setLogLevel("WARN")
     
     try:
         selected = DATASETS.items() if args.dataset == "all" else [(args.dataset, DATASETS[args.dataset])]
         for name, (bronze_table, pipeline) in selected:
-            write_silver_tables(spark, name, bronze_table, pipeline)
+            write_silver_tables(spark, name, bronze_table, pipeline, run_date=args.run_date)
     finally:
         spark.stop()
 

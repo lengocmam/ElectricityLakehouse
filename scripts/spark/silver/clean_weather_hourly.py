@@ -24,12 +24,13 @@ def clean_weather_hourly(df: DataFrame) -> tuple[DataFrame, DataFrame]:
         key_name="hourly_weather_key",
         key_columns=["latitude", "longitude", "observation_timestamp"],
         hash_columns=[
-            "latitude", "longitude", "timezone", "utc_offset_seconds", "observation_timestamp",
+            "location_name", "latitude", "longitude", "timezone", "utc_offset_seconds", "observation_timestamp",
             "temperature_2m", "apparent_temperature", "relative_humidity_2m",
             "precipitation", "cloud_cover", "shortwave_radiation", "wind_speed_10m", "weather_code",
         ],
         required_columns={
             "bronze_key": "BRONZE_KEY_NULL",
+            "location_name": "LOCATION_NAME_NULL",
             "latitude": "LATITUDE_NULL",
             "longitude": "LONGITUDE_NULL",
             "timezone": "TIMEZONE_NULL",

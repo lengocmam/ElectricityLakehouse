@@ -1,3 +1,4 @@
+import json
 import sys
 from datetime import date, datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
@@ -15,6 +16,34 @@ from utils.logging import create_logger
 
 logger = create_logger(__name__)
 
+
+def validate_open_meteo_payload(text: str) -> tuple[bool, str | None]:
+    """Validate Open-Meteo JSON payload for empty response, maintenance, captcha, or API error."""
+    if not text or not text.strip() or len(text.strip()) < 50:
+        return False, "PAYLOAD_EMPTY"
+
+    stripped = text.strip()
+    if stripped.startswith("<"):
+        lower_text = stripped.lower()
+        if "cloudflare" in lower_text or "captcha" in lower_text or "just a moment..." in lower_text:
+            return False, "CAPTCHA_PAGE"
+        if "maintenance" in lower_text or "bảo trì" in lower_text:
+            return False, "MAINTENANCE_PAGE"
+        return False, "HTML_RESPONSE_EXPECTED_JSON"
+
+    try:
+        data = json.loads(text)
+    except Exception as exc:
+        return False, f"INVALID_JSON: {exc}"
+
+    if isinstance(data, dict) and data.get("error"):
+        return False, f"API_ERROR: {data.get('reason', 'Unknown error')}"
+
+    if not data:
+        return False, "EMPTY_DATA"
+
+    return True, None
+
 BASE_URL = "https://archive-api.open-meteo.com/v1/archive"
 
 SOURCE_NAME = "open-meteo"
@@ -30,44 +59,7 @@ MAX_RETRIES = 5
 INITIAL_BACKOFF_SECONDS = 2
 DEFAULT_429_WAIT_SECONDS = 60
 
-LOCATIONS = [
-    {"location_name": "Ha Noi", "latitude": 21.0278, "longitude": 105.8342},
-    {"location_name": "Cao Bang", "latitude": 22.6666, "longitude": 106.2639},
-    {"location_name": "Tuyen Quang", "latitude": 21.8233, "longitude": 105.2140},
-    {"location_name": "Dien Bien", "latitude": 21.3860, "longitude": 103.0230},
-    {"location_name": "Lai Chau", "latitude": 22.3964, "longitude": 103.4582},
-    {"location_name": "Son La", "latitude": 21.3256, "longitude": 103.9188},
-    {"location_name": "Lao Cai", "latitude": 21.7168, "longitude": 104.8986},
-    {"location_name": "Thai Nguyen", "latitude": 21.5944, "longitude": 105.8482},
-    {"location_name": "Lang Son", "latitude": 21.8537, "longitude": 106.7610},
-    {"location_name": "Quang Ninh", "latitude": 21.0064, "longitude": 107.2925},
-    {"location_name": "Bac Ninh", "latitude": 21.2731, "longitude": 106.1946},
-    {"location_name": "Phu Tho", "latitude": 21.3227, "longitude": 105.4020},
-    {"location_name": "Hung Yen", "latitude": 20.6464, "longitude": 106.0511},
-    {"location_name": "Hai Phong", "latitude": 20.8449, "longitude": 106.6881},
-    {"location_name": "Ninh Binh", "latitude": 20.2506, "longitude": 105.9745},
-    {"location_name": "Thanh Hoa", "latitude": 19.8067, "longitude": 105.7852},
-    {"location_name": "Nghe An", "latitude": 18.6796, "longitude": 105.6813},
-    {"location_name": "Ha Tinh", "latitude": 18.3559, "longitude": 105.8877},
-
-    {"location_name": "Quang Tri", "latitude": 17.4677, "longitude": 106.6220},
-    {"location_name": "Hue", "latitude": 16.4637, "longitude": 107.5909},
-    {"location_name": "Da Nang", "latitude": 16.0544, "longitude": 108.2022},
-    {"location_name": "Quang Ngai", "latitude": 15.1214, "longitude": 108.8044},
-    {"location_name": "Gia Lai", "latitude": 13.7820, "longitude": 109.2196},
-    {"location_name": "Khanh Hoa", "latitude": 12.2388, "longitude": 109.1967},
-    {"location_name": "Lam Dong", "latitude": 11.9404, "longitude": 108.4583},
-    {"location_name": "Dak Lak", "latitude": 12.6667, "longitude": 108.0500},
-
-    {"location_name": "Dong Nai", "latitude": 10.9453, "longitude": 106.8243},
-    {"location_name": "Ho Chi Minh City", "latitude": 10.8231, "longitude": 106.6297},
-    {"location_name": "Tay Ninh", "latitude": 10.6956, "longitude": 106.2431},
-    {"location_name": "Can Tho", "latitude": 10.0452, "longitude": 105.7469},
-    {"location_name": "Vinh Long", "latitude": 10.2537, "longitude": 105.9722},
-    {"location_name": "Dong Thap", "latitude": 10.4493, "longitude": 106.3420},
-    {"location_name": "An Giang", "latitude": 10.0125, "longitude": 105.0809},
-    {"location_name": "Ca Mau", "latitude": 9.1527, "longitude": 105.1961},
-]
+from utils.locations import LOCATIONS
 
 LATITUDES = ",".join(str(location["latitude"]) for location in LOCATIONS)
 
@@ -229,10 +221,12 @@ def fetch_open_meteo(
 
             response.raise_for_status()
 
-            content_type = response.headers.get("Content-Type", "")
-
-            if "application/json" not in content_type:
-                raise RuntimeError(f"Unexpected Content-Type: {content_type}")
+            is_valid, error_reason = validate_open_meteo_payload(response.text)
+            if not is_valid:
+                logger.warning(
+                    f"Invalid payload for window {window_start_date_str} to {window_end_date_str}: {error_reason}"
+                )
+                return None, (window_start_date, error_reason)
 
             record = {
                 "bronze_key": f"{batch_id}_{task_index:06d}",
@@ -327,11 +321,16 @@ def crawl_open_meteo_dates(
                 failed_dates.append(error)
 
                 logger.error(
-                    f"Stopping crawl at window {window_start_date.isoformat()} "
-                    f"to {window_end_date.isoformat()}"
+                    f"Failed window {window_start_date.isoformat()} "
+                    f"to {window_end_date.isoformat()}: {error[1]}"
                 )
 
-                break
+                if "daily api request limit exceeded" in str(error[1]).lower():
+                    logger.warning("Breaking crawl due to daily rate limit.")
+                    break
+
+                window_start_date = (window_end_date + timedelta(days=1))
+                continue
 
     finally:
         session.close()
@@ -460,17 +459,23 @@ def main(
             )
         )
 
+        records_count = len(records)
+
         if failed_dates:
-            status = "PARTIAL"
-            error_msg = "; ".join([f"{failed_date.isoformat()}: {msg}" for failed_date, msg in failed_dates])
+            error_msg = "; ".join([f"{failed_date.isoformat()} - {msg}" for failed_date, msg in failed_dates])
             for failed_date, error_message in failed_dates:
                 logger.error(f"Failed request on {failed_date.isoformat()}: {error_message}")
 
-        if not records:
+        if records_count > 0 and failed_dates:
+            status = "PARTIAL"
+        elif records_count > 0 and not failed_dates:
+            status = "SUCCESS"
+        else:
+            status = "FAILED"
             logger.warning("No successful Open-Meteo windows. Nothing to write.")
+            if not error_msg:
+                error_msg = "No Open-Meteo records were crawled."
             return
-
-        records_count = len(records)
 
         if last_successful_window_end_date is None:
             raise RuntimeError("Records exist but no successful window end date was found.")
