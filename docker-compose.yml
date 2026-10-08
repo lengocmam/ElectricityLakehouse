@@ -4,24 +4,21 @@ x-airflow-build: &airflow-build
   context: .
   dockerfile: infra/docker/airflow/Dockerfile
   args:
-    AIRFLOW_IMAGE: ${AIRFLOW_IMAGE:-apache/airflow:3.3.1-python3.10}
+    AIRFLOW_IMAGE: ${AIRFLOW_IMAGE:-apache/airflow:2.10.2-python3.10}
 
 x-airflow-common: &airflow-common
-  image: lakehouse-airflow:3.3.1-python3.10
+  image: lakehouse-airflow:2.10.2-python3.10
   user: "${AIRFLOW_UID:-50000}:0"
   environment: &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
     AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg://${AIRFLOW_DB_USER:-airflow}:${AIRFLOW_DB_PASSWORD:-airflow}@postgres:5432/airflow
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER:-airflow}:${AIRFLOW_DB_PASSWORD:-airflow}@postgres:5432/airflow
     AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY:-2MYa4t2qTlYnLWvH9voP3_h4U1FCRsPcpK_EacA9cHY=}
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
     AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-apiserver:8080/execution/
-    AIRFLOW__API_AUTH__JWT_EXPIRATION_TIME: 3600
-    AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_API_AUTH_JWT_SECRET:-RlUjGWNGavpTq_9nDgqs-hIynVtYAJ76rOYV8OfbJXmL8BachrFfkvRSb9IAN2c_}
-    AIRFLOW__API_AUTH__JWT_ISSUER: airflow
+    AIRFLOW__SCHEDULER__STANDALONE_DAG_PROCESSOR: "true"
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
-    AIRFLOW_CONN_SPARK_DEFAULT: spark://spark-master:7077
+    AIRFLOW_CONN_SPARK_DEFAULT: spark://spark%3A%2F%2Fspark-master:7077
     AIRFLOW_CONN_TRINO_DEFAULT: trino://trino@trino:8080/iceberg
     AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
     AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
@@ -247,11 +244,11 @@ services:
 
   airflow-apiserver:
     <<: *airflow-common
-    command: api-server
+    command: webserver
     ports:
       - "8080:8080"
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/monitor/health"]
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
       interval: 30s
       timeout: 10s
       retries: 5

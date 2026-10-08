@@ -268,4 +268,4 @@ with DAG(
     bronze_nsmo >> silver_load
     bronze_open_meteo >> [silver_weather_daily, silver_weather_hourly]
     
-    [silver_power, silver_generation, silver_hydro, silver_load, silver_weather_daily, silver_weather_hourly] >> end
+    [silver_generation, silver_power, silver_hydro, silver_load, silver_weather_hourly, silver_weather_daily] >> end
