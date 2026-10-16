@@ -74,6 +74,26 @@ CREATE TABLE IF NOT EXISTS gold_partition_watermark (
     PRIMARY KEY (fact_table, data_date)
 );
 
+CREATE TABLE IF NOT EXISTS pipeline_task_audit (
+    audit_id SERIAL PRIMARY KEY,
+    dag_id VARCHAR(100) NOT NULL,
+    task_id VARCHAR(100) NOT NULL,
+    run_id VARCHAR(150) NOT NULL,
+    logical_date TIMESTAMPTZ,
+    start_time TIMESTAMPTZ,
+    end_time TIMESTAMPTZ,
+    duration_seconds DOUBLE PRECISION,
+    baseline_avg_seconds DOUBLE PRECISION,
+    state VARCHAR(20) NOT NULL,
+    try_number INT NOT NULL DEFAULT 1,
+    is_anomaly BOOLEAN DEFAULT FALSE,
+    anomaly_reason TEXT,
+    error_message TEXT,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_task_time ON pipeline_task_audit(task_id, start_time DESC);
+
 GRANT SELECT, INSERT, UPDATE, DELETE
 ON TABLE pipeline_watermark
 TO lakehouse_control;
@@ -84,6 +104,13 @@ TO lakehouse_control;
 
 GRANT SELECT, INSERT, UPDATE, DELETE
 ON TABLE gold_partition_watermark
+TO lakehouse_control;
+
+GRANT SELECT, INSERT, UPDATE, DELETE
+ON TABLE pipeline_task_audit
+TO lakehouse_control;
+
+GRANT USAGE, SELECT ON SEQUENCE pipeline_task_audit_audit_id_seq
 TO lakehouse_control;
 
 

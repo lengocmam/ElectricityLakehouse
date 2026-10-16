@@ -6,12 +6,38 @@ from airflow.operators.empty import EmptyOperator
 from airflow.utils.task_group import TaskGroup
 from airflow.models.param import Param
 
+try:
+    from monitoring import (
+        alert_task_failure,
+        alert_task_retry,
+        check_duration_anomaly_and_audit,
+        alert_sla_miss,
+        init_audit_table,
+    )
+except ImportError:
+    import sys, os
+    plugin_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "plugins"))
+    if plugin_dir not in sys.path:
+        sys.path.insert(0, plugin_dir)
+    from monitoring import (
+        alert_task_failure,
+        alert_task_retry,
+        check_duration_anomaly_and_audit,
+        alert_sla_miss,
+        init_audit_table,
+    )
+
+# Ensure audit table exists in PostgreSQL
+init_audit_table()
 
 DEFAULT_ARGS = {
     "owner": "data-engineering",
     "depends_on_past": False,
     "retries": 2,
     "retry_delay": timedelta(minutes=5),
+    "on_failure_callback": alert_task_failure,
+    "on_retry_callback": alert_task_retry,
+    "on_success_callback": check_duration_anomaly_and_audit,
 }
 
 SPARK_APP_DIR = "/opt/lakehouse/scripts/spark"
@@ -78,6 +104,7 @@ with DAG(
     max_active_runs=1,
     max_active_tasks=2,
     dagrun_timeout=timedelta(hours=2),
+    sla_miss_callback=alert_sla_miss,
     tags=["lakehouse", "electricity"],
 ) as dag:
 
