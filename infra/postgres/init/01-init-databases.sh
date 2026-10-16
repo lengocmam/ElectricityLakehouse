@@ -65,12 +65,25 @@ CREATE TABLE IF NOT EXISTS bronze_ingestion_log (
     duration_seconds DOUBLE PRECISION
 );
 
+CREATE TABLE IF NOT EXISTS gold_partition_watermark (
+    fact_table VARCHAR(100) NOT NULL,
+    data_date DATE NOT NULL,
+    silver_max_checked_at TIMESTAMPTZ,
+    last_loaded_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    records_count BIGINT DEFAULT 0,
+    PRIMARY KEY (fact_table, data_date)
+);
+
 GRANT SELECT, INSERT, UPDATE, DELETE
 ON TABLE pipeline_watermark
 TO lakehouse_control;
 
 GRANT SELECT, INSERT, UPDATE, DELETE
 ON TABLE bronze_ingestion_log
+TO lakehouse_control;
+
+GRANT SELECT, INSERT, UPDATE, DELETE
+ON TABLE gold_partition_watermark
 TO lakehouse_control;
 
 

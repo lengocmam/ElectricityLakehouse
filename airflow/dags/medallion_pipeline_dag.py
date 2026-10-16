@@ -259,13 +259,129 @@ with DAG(
             verbose=True,
         )
 
+    with TaskGroup(group_id="gold_processing"):
+
+        gold_dimensions = SparkSubmitOperator(
+            task_id="gold_dimensions",
+            application=f"{SPARK_APP_DIR}/gold/write_gold.py",
+            application_args=["--dataset", "dims"],
+            conn_id="spark_default",
+            name="gold_dimensions",
+            conf=SPARK_CONF,
+            packages=ICEBERG_PACKAGES,
+            env_vars=SPARK_ENV,
+            **SPARK_RESOURCES,
+            execution_timeout=timedelta(minutes=45),
+            verbose=True,
+        )
+
+        gold_load_hourly = SparkSubmitOperator(
+            task_id="gold_load_hourly",
+            application=f"{SPARK_APP_DIR}/gold/write_gold.py",
+            application_args=["--dataset", "fact_load_hourly"],
+            conn_id="spark_default",
+            name="gold_fact_load_hourly",
+            conf=SPARK_CONF,
+            packages=ICEBERG_PACKAGES,
+            env_vars=SPARK_ENV,
+            **SPARK_RESOURCES,
+            execution_timeout=timedelta(minutes=45),
+            verbose=True,
+        )
+
+        gold_weather_hourly = SparkSubmitOperator(
+            task_id="gold_weather_hourly",
+            application=f"{SPARK_APP_DIR}/gold/write_gold.py",
+            application_args=["--dataset", "fact_weather_hourly"],
+            conn_id="spark_default",
+            name="gold_fact_weather_hourly",
+            conf=SPARK_CONF,
+            packages=ICEBERG_PACKAGES,
+            env_vars=SPARK_ENV,
+            **SPARK_RESOURCES,
+            execution_timeout=timedelta(hours=1),
+            verbose=True,
+        )
+
+        gold_weather_daily = SparkSubmitOperator(
+            task_id="gold_weather_daily",
+            application=f"{SPARK_APP_DIR}/gold/write_gold.py",
+            application_args=["--dataset", "fact_weather_daily"],
+            conn_id="spark_default",
+            name="gold_fact_weather_daily",
+            conf=SPARK_CONF,
+            packages=ICEBERG_PACKAGES,
+            env_vars=SPARK_ENV,
+            **SPARK_RESOURCES,
+            execution_timeout=timedelta(hours=1),
+            verbose=True,
+        )
+
+        gold_hydro_status = SparkSubmitOperator(
+            task_id="gold_hydro_status",
+            application=f"{SPARK_APP_DIR}/gold/write_gold.py",
+            application_args=["--dataset", "fact_hydro_status"],
+            conn_id="spark_default",
+            name="gold_fact_hydro_status",
+            conf=SPARK_CONF,
+            packages=ICEBERG_PACKAGES,
+            env_vars=SPARK_ENV,
+            **SPARK_RESOURCES,
+            execution_timeout=timedelta(minutes=45),
+            verbose=True,
+        )
+
+        gold_generation_daily = SparkSubmitOperator(
+            task_id="gold_generation_daily",
+            application=f"{SPARK_APP_DIR}/gold/write_gold.py",
+            application_args=["--dataset", "fact_generation_daily"],
+            conn_id="spark_default",
+            name="gold_fact_generation_daily",
+            conf=SPARK_CONF,
+            packages=ICEBERG_PACKAGES,
+            env_vars=SPARK_ENV,
+            **SPARK_RESOURCES,
+            execution_timeout=timedelta(hours=1),
+            verbose=True,
+        )
+
+        gold_generation_capacity_daily = SparkSubmitOperator(
+            task_id="gold_generation_capacity_daily",
+            application=f"{SPARK_APP_DIR}/gold/write_gold.py",
+            application_args=["--dataset", "fact_generation_capacity_daily"],
+            conn_id="spark_default",
+            name="gold_fact_generation_capacity_daily",
+            conf=SPARK_CONF,
+            packages=ICEBERG_PACKAGES,
+            env_vars=SPARK_ENV,
+            **SPARK_RESOURCES,
+            execution_timeout=timedelta(hours=1),
+            verbose=True,
+        )
+
     end = EmptyOperator(task_id="end")
 
     start >> [bronze_evn, bronze_evn_hydro, bronze_nsmo, bronze_open_meteo]
-    
+
     bronze_evn >> [silver_power, silver_generation]
     bronze_evn_hydro >> silver_hydro
     bronze_nsmo >> silver_load
     bronze_open_meteo >> [silver_weather_daily, silver_weather_hourly]
-    
-    [silver_generation, silver_power, silver_hydro, silver_load, silver_weather_hourly, silver_weather_daily] >> end
+
+    silver_hydro >> gold_dimensions
+
+    [silver_load, gold_dimensions] >> gold_load_hourly
+    [silver_weather_hourly, gold_dimensions] >> gold_weather_hourly
+    [silver_weather_daily, gold_dimensions] >> gold_weather_daily
+    [silver_hydro, gold_dimensions] >> gold_hydro_status
+    [silver_generation, gold_dimensions] >> gold_generation_daily
+    [silver_power, gold_dimensions] >> gold_generation_capacity_daily
+
+    [
+        gold_load_hourly,
+        gold_weather_hourly,
+        gold_weather_daily,
+        gold_hydro_status,
+        gold_generation_daily,
+        gold_generation_capacity_daily,
+    ] >> end

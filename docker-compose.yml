@@ -1,4 +1,4 @@
-name: ${COMPOSE_PROJECT_NAME:-lakehouse}
+﻿name: ${COMPOSE_PROJECT_NAME:-lakehouse}
 
 x-airflow-build: &airflow-build
   context: .
@@ -246,7 +246,7 @@ services:
     <<: *airflow-common
     command: webserver
     ports:
-      - "8080:8080"
+      - "8084:8080"
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
       interval: 30s
