@@ -6,6 +6,11 @@ import pyspark.sql.functions as F
 from utils.spark import create_spark_session
 from utils.logging import create_logger
 from silver import silver_pipeline
+from silver.quality_control import (
+    enforce_quality_circuit_breaker,
+    detect_volume_skew,
+    QualityCircuitBreakerError,
+)
 
 logger = create_logger(__name__)
 
@@ -18,8 +23,27 @@ DATASETS = {
     "weather_hourly": ("nessie.bronze.open_meteo", silver_pipeline.weather_hourly),
 }
 
+
+def _write_iceberg_partitioned(df, table_name, spark, partition_col="data_date"):
+    """Write DataFrame to Iceberg table partitioned by partition_col with dynamic partition overwrite."""
+    df_sorted = df.repartition(partition_col).sortWithinPartitions(partition_col)
+    if spark.catalog.tableExists(table_name):
+        df_sorted.writeTo(table_name) \
+            .option("fanout-enabled", "false") \
+            .overwritePartitions()
+    else:
+        df_sorted.writeTo(table_name) \
+            .tableProperty("write.format.default", "parquet") \
+            .tableProperty("format-version", "2") \
+            .tableProperty("write.distribution-mode", "hash") \
+            .tableProperty("write.spark.fanout.enabled", "false") \
+            .partitionedBy(partition_col) \
+            .using("iceberg") \
+            .create()
+
+
 def write_silver_tables(spark, dataset_name, bronze_table, pipeline_func, run_date=None):
-    """Execute write silver tables logic."""
+    """Execute write silver tables logic with Quality Circuit Breaker and Volume Skew Detection."""
     logger.info(f"Processing {dataset_name}...")
     
     spark.sql("CREATE NAMESPACE IF NOT EXISTS nessie.silver")
@@ -34,38 +58,46 @@ def write_silver_tables(spark, dataset_name, bronze_table, pipeline_func, run_da
     valid_table = f"nessie.silver.{dataset_name}"
     reject_table = f"nessie.silver.{dataset_name}_reject"
     
-    valid_df = valid_df.repartition("data_date").sortWithinPartitions("data_date")
-    reject_df = reject_df.repartition("data_date").sortWithinPartitions("data_date")
-    
-    if spark.catalog.tableExists(valid_table):
-        valid_df.writeTo(valid_table) \
-            .option("fanout-enabled", "false") \
-            .overwritePartitions()
-    else:
-        valid_df.writeTo(valid_table) \
-            .tableProperty("write.format.default", "parquet") \
-            .tableProperty("format-version", "2") \
-            .tableProperty("write.distribution-mode", "hash") \
-            .tableProperty("write.spark.fanout.enabled", "false") \
-            .partitionedBy("data_date") \
-            .using("iceberg") \
-            .create()
-    logger.info(f"  -> Wrote {valid_df.count()} records to {valid_table}")
-    
-    if spark.catalog.tableExists(reject_table):
-        reject_df.writeTo(reject_table) \
-            .option("fanout-enabled", "false") \
-            .overwritePartitions()
-    else:
-        reject_df.writeTo(reject_table) \
-            .tableProperty("write.format.default", "parquet") \
-            .tableProperty("format-version", "2") \
-            .tableProperty("write.distribution-mode", "hash") \
-            .tableProperty("write.spark.fanout.enabled", "false") \
-            .partitionedBy("data_date") \
-            .using("iceberg") \
-            .create()
-    logger.info(f"  -> Wrote {reject_df.count()} records to {reject_table}")
+    # Persist DataFrames to avoid multiple Spark DAG re-evaluations
+    valid_df = valid_df.persist()
+    reject_df = reject_df.persist()
+
+    try:
+        valid_count = valid_df.count()
+        reject_count = reject_df.count()
+        total_count = valid_count + reject_count
+
+        logger.info(f"  -> Pipeline produced {valid_count} valid, {reject_count} rejected records.")
+
+        # 1. Volume Skew / Drop Detection (Alert if volume drops > 30% vs 7-day average)
+        detect_volume_skew(spark, dataset_name, valid_table, total_count, run_date=run_date, max_drop_ratio=0.30)
+
+        # 2. Quality Circuit Breaker: Halt pipeline if reject rate > 10%
+        try:
+            enforce_quality_circuit_breaker(dataset_name, valid_count, reject_count, max_reject_ratio=0.10)
+        except QualityCircuitBreakerError:
+            # If rejected rows exist, preserve them in reject table for data engineering diagnostics
+            if reject_count > 0:
+                logger.info(f"Writing {reject_count} rejected records to {reject_table} for debugging...")
+                _write_iceberg_partitioned(reject_df, reject_table, spark)
+            raise
+
+        # 3. Write Valid Records
+        if valid_count > 0:
+            _write_iceberg_partitioned(valid_df, valid_table, spark)
+            logger.info(f"  -> Wrote {valid_count} records to {valid_table}")
+        else:
+            logger.warning(f"  -> Valid record count is 0 for {dataset_name}. Skipped write.")
+
+        # 4. Write Reject Records (if any)
+        if reject_count > 0:
+            _write_iceberg_partitioned(reject_df, reject_table, spark)
+            logger.info(f"  -> Wrote {reject_count} records to {reject_table}")
+
+    finally:
+        valid_df.unpersist()
+        reject_df.unpersist()
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -85,6 +117,7 @@ def main():
             write_silver_tables(spark, name, bronze_table, pipeline, run_date=args.run_date)
     finally:
         spark.stop()
+
 
 if __name__ == "__main__":
     main()

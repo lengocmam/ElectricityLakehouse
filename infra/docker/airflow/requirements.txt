@@ -7,3 +7,5 @@ trino
 lxml==6.1.3
 psycopg2-binary
 psycopg[binary]
+
+boto3
