@@ -15,6 +15,7 @@ from gold.dim_plant import generate_dim_plant
 from gold.dim_energy_source import generate_dim_energy_source
 from gold.dim_period import generate_dim_period
 from gold import gold_pipeline
+from gold.gold_control import get_changed_partitions
 
 logger = create_logger(__name__)
 
@@ -59,13 +60,6 @@ def write_dimension_table(spark, dim_name: str, generator_func) -> None:
             .create()
 
     logger.info(f"  -> Wrote {dim_count} records to {table_name}")
-
-
-from gold.gold_control import (
-    get_changed_partitions,
-    init_gold_control_table,
-    update_gold_watermarks,
-)
 
 
 def validate_fact_invariants(fact_name: str, fact_df: DataFrame) -> None:
@@ -128,13 +122,23 @@ def audit_row_conservation(
             logger.info(f"  [✓] 100% Row conservation on {fact_name} [{p_date}]: {g_cnt}/{s_cnt} rows.")
 
 
-def write_fact_table(spark, fact_name: str, source_table: str, pipeline_func, run_date: str | None = None) -> None:
+def write_fact_table(
+    spark,
+    fact_name: str,
+    source_table: str,
+    pipeline_func,
+    run_date: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> None:
     """Transform and write a fact table to nessie.gold partitioned by date_key for changed partitions."""
     table_name = f"nessie.gold.{fact_name}"
     logger.info(f"Processing fact {fact_name} from {source_table} -> {table_name}...")
 
     # 1. Identify which partitions in Silver have changed or are new
-    changed_partitions = get_changed_partitions(spark, fact_name, source_table, run_date=run_date)
+    changed_partitions = get_changed_partitions(
+        spark, fact_name, source_table, run_date=run_date, start_date=start_date, end_date=end_date
+    )
     if not changed_partitions:
         logger.info(f"No changed or new partitions detected for {fact_name}. Table is up-to-date. Skipped.")
         return
@@ -195,9 +199,6 @@ def write_fact_table(spark, fact_name: str, source_table: str, pipeline_func, ru
 
         logger.info(f"  -> Wrote {written_count} records for {len(changed_partitions)} partition(s) to {table_name}")
 
-        # Update watermarks for the successfully loaded partitions
-        update_gold_watermarks(fact_name, changed_partitions, spark.table(source_table), written_count)
-
     finally:
         fact_df.unpersist()
 
@@ -220,15 +221,20 @@ def main():
     all_targets = ["all", "dims", "facts", *DIMENSIONS.keys(), *FACTS.keys()]
     parser = argparse.ArgumentParser(description="Gold Layer Pipeline Dispatcher")
     parser.add_argument("--dataset", choices=all_targets, default="all")
-    parser.add_argument("--run-date", type=str, help="Filter date (YYYY-MM-DD) for incremental fact updates.")
+    parser.add_argument("--run-date", type=str, default=None, help="Filter date (YYYY-MM-DD) for specific fact partition update.")
+    parser.add_argument("--start-date", type=str, default=None, help="Start date (YYYY-MM-DD) for backfill updates.")
+    parser.add_argument("--end-date", type=str, default=None, help="End date (YYYY-MM-DD) for backfill updates.")
     parser.add_argument("--optimize", action="store_true", help="Run Iceberg compaction (rewrite_data_files) on gold tables.")
     args = parser.parse_args()
+
+    run_date = args.run_date if args.run_date not in (None, "", "None") else None
+    start_date = args.start_date if args.start_date not in (None, "", "None") else None
+    end_date = args.end_date if args.end_date not in (None, "", "None") else None
 
     spark = create_spark_session("write_gold")
     spark.sparkContext.setLogLevel("WARN")
 
     try:
-        init_gold_control_table()
         spark.sql("CREATE NAMESPACE IF NOT EXISTS nessie.gold")
 
         if args.optimize:
@@ -246,10 +252,10 @@ def main():
         # 2. Process Facts
         if args.dataset in {"all", "facts"}:
             for name, (src, pipe) in FACTS.items():
-                write_fact_table(spark, name, src, pipe, run_date=args.run_date)
+                write_fact_table(spark, name, src, pipe, run_date=run_date, start_date=start_date, end_date=end_date)
         elif args.dataset in FACTS:
             src, pipe = FACTS[args.dataset]
-            write_fact_table(spark, args.dataset, src, pipe, run_date=args.run_date)
+            write_fact_table(spark, args.dataset, src, pipe, run_date=run_date, start_date=start_date, end_date=end_date)
 
     finally:
         spark.stop()

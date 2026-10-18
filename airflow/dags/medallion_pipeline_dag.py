@@ -305,7 +305,11 @@ with DAG(
         gold_load_hourly = SparkSubmitOperator(
             task_id="gold_load_hourly",
             application=f"{SPARK_APP_DIR}/gold/write_gold.py",
-            application_args=["--dataset", "fact_load_hourly"],
+            application_args=[
+                "--dataset", "fact_load_hourly",
+                "--start-date", "{{ params.start_date }}",
+                "--end-date", "{{ params.end_date }}",
+            ],
             conn_id="spark_default",
             name="gold_fact_load_hourly",
             conf=SPARK_CONF,
@@ -319,7 +323,11 @@ with DAG(
         gold_weather_hourly = SparkSubmitOperator(
             task_id="gold_weather_hourly",
             application=f"{SPARK_APP_DIR}/gold/write_gold.py",
-            application_args=["--dataset", "fact_weather_hourly"],
+            application_args=[
+                "--dataset", "fact_weather_hourly",
+                "--start-date", "{{ params.start_date }}",
+                "--end-date", "{{ params.end_date }}",
+            ],
             conn_id="spark_default",
             name="gold_fact_weather_hourly",
             conf=SPARK_CONF,
@@ -333,7 +341,11 @@ with DAG(
         gold_weather_daily = SparkSubmitOperator(
             task_id="gold_weather_daily",
             application=f"{SPARK_APP_DIR}/gold/write_gold.py",
-            application_args=["--dataset", "fact_weather_daily"],
+            application_args=[
+                "--dataset", "fact_weather_daily",
+                "--start-date", "{{ params.start_date }}",
+                "--end-date", "{{ params.end_date }}",
+            ],
             conn_id="spark_default",
             name="gold_fact_weather_daily",
             conf=SPARK_CONF,
@@ -347,7 +359,11 @@ with DAG(
         gold_hydro_status = SparkSubmitOperator(
             task_id="gold_hydro_status",
             application=f"{SPARK_APP_DIR}/gold/write_gold.py",
-            application_args=["--dataset", "fact_hydro_status"],
+            application_args=[
+                "--dataset", "fact_hydro_status",
+                "--start-date", "{{ params.start_date }}",
+                "--end-date", "{{ params.end_date }}",
+            ],
             conn_id="spark_default",
             name="gold_fact_hydro_status",
             conf=SPARK_CONF,
@@ -361,7 +377,11 @@ with DAG(
         gold_generation_daily = SparkSubmitOperator(
             task_id="gold_generation_daily",
             application=f"{SPARK_APP_DIR}/gold/write_gold.py",
-            application_args=["--dataset", "fact_generation_daily"],
+            application_args=[
+                "--dataset", "fact_generation_daily",
+                "--start-date", "{{ params.start_date }}",
+                "--end-date", "{{ params.end_date }}",
+            ],
             conn_id="spark_default",
             name="gold_fact_generation_daily",
             conf=SPARK_CONF,
@@ -375,7 +395,11 @@ with DAG(
         gold_generation_capacity_daily = SparkSubmitOperator(
             task_id="gold_generation_capacity_daily",
             application=f"{SPARK_APP_DIR}/gold/write_gold.py",
-            application_args=["--dataset", "fact_generation_capacity_daily"],
+            application_args=[
+                "--dataset", "fact_generation_capacity_daily",
+                "--start-date", "{{ params.start_date }}",
+                "--end-date", "{{ params.end_date }}",
+            ],
             conn_id="spark_default",
             name="gold_fact_generation_capacity_daily",
             conf=SPARK_CONF,
@@ -385,6 +409,7 @@ with DAG(
             execution_timeout=timedelta(hours=1),
             verbose=True,
         )
+
 
     end = EmptyOperator(task_id="end")
 
