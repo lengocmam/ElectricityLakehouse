@@ -1,4 +1,4 @@
-﻿name: ${COMPOSE_PROJECT_NAME:-lakehouse}
+name: ${COMPOSE_PROJECT_NAME:-lakehouse}
 
 x-airflow-build: &airflow-build
   context: .
@@ -34,6 +34,7 @@ x-airflow-common: &airflow-common
     - ./airflow/logs:/opt/airflow/logs
     - ./airflow/plugins:/opt/airflow/plugins
     - ./scripts/spark:/opt/lakehouse/scripts/spark:ro
+    - ./data_exports:/opt/lakehouse/data_exports
   depends_on: &airflow-common-depends-on
     postgres-init:
       condition: service_completed_successfully
@@ -48,6 +49,7 @@ x-spark-common: &spark-common
   volumes:
     - ./config/spark:/opt/spark/conf:ro
     - ./scripts/spark:/opt/lakehouse/scripts/spark:ro
+    - ./data_exports:/opt/lakehouse/data_exports
     - spark-ivy:/tmp/.ivy2
   depends_on:
     minio-init:
