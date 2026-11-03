@@ -12,7 +12,9 @@ scripts/metabase/
 ├── setup_dashboard_01.py     # Script riêng cho Dashboard 01 (Cung - Cầu & Duck Curve)
 ├── setup_dashboard_02.py     # Script riêng cho Dashboard 02 (Khí Hậu Cực Đoan & Thủy Điện)
 ├── setup_dashboard_03.py     # Script riêng cho Dashboard 03 (Mất Cân Đối Vùng Miền & Siêu Lưới 500kV)
+├── setup_dashboard_04.py     # Script riêng cho Dashboard 04 (Giám Sát Vận Hành Pipeline & Chất Lượng Dữ Liệu)
 ├── setup_dashboards.py       # Script tổng hợp (Master Runner) cho phép chạy lẻ hoặc chạy tất cả
+├── check_all_cards.py        # Kiểm thử tự động toàn bộ 36 biểu đồ trên Metabase
 └── README.md                 # Tài liệu hướng dẫn
 ```
 
@@ -35,9 +37,13 @@ Khi bạn hoặc thành viên trong nhóm `git pull` nhánh `feature/Lakehouse` 
   ```bash
   python scripts/metabase/setup_dashboard_03.py
   ```
+* **Chỉ cập nhật Dashboard 04** (*Giám Sát Vận Hành Pipeline & Chất Lượng Dữ Liệu DataOps*):
+  ```bash
+  python scripts/metabase/setup_dashboard_04.py
+  ```
 
 ### 2. Triển khai qua Script Tổng Hợp (`setup_dashboards.py`)
-* **Chạy tất cả 3 Dashboard cùng lúc**:
+* **Chạy tất cả 4 Dashboard cùng lúc**:
   ```bash
   python scripts/metabase/setup_dashboards.py --all
   ```

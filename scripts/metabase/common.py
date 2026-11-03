@@ -79,8 +79,8 @@ def authenticate(base_url, user=DEFAULT_USER, password=DEFAULT_PASS):
         sys.exit(1)
 
 
-def get_database_id(base_url, token):
-    """Auto-detect Trino/Iceberg database ID."""
+def get_database_id(base_url, token, engine_type="trino"):
+    """Auto-detect Trino/Iceberg or Postgres database ID."""
     req = urllib.request.Request(f"{base_url}/api/database", headers={"X-Metabase-Session": token})
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
@@ -88,8 +88,12 @@ def get_database_id(base_url, token):
             for db in databases:
                 engine = db.get("engine", "").lower()
                 name = db.get("name", "").lower()
-                if "trino" in engine or "starburst" in engine or "iceberg" in name or "trino" in name:
-                    return db["id"]
+                if engine_type == "postgres":
+                    if "postgres" in engine or "control" in name or "monitoring" in name:
+                        return db["id"]
+                else:
+                    if "trino" in engine or "starburst" in engine or "iceberg" in name or "trino" in name:
+                        return db["id"]
             if databases:
                 return databases[0]["id"]
     except Exception as e:

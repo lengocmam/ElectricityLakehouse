@@ -17,7 +17,7 @@ def get_session():
 
 token = get_session()
 
-dashboards = [5, 4, 6]
+dashboards = [5, 4, 6, 7]
 
 for d_id in dashboards:
     req = urllib.request.Request(f"{METABASE_URL}/api/dashboard/{d_id}", headers={"X-Metabase-Session": token})

@@ -18,10 +18,11 @@ from common import DEFAULT_PASS, DEFAULT_USER, get_metabase_url
 from setup_dashboard_01 import deploy_dashboard_01
 from setup_dashboard_02 import deploy_dashboard_02
 from setup_dashboard_03 import deploy_dashboard_03
+from setup_dashboard_04 import deploy_dashboard_04
 
 def main():
     parser = argparse.ArgumentParser(description="Master Provisioner for Vietnam Electricity Lakehouse BI Dashboards")
-    parser.add_argument("--dashboard", choices=["1", "2", "3", "all"], default="all", help="Target dashboard to deploy (1, 2, 3, or all)")
+    parser.add_argument("--dashboard", choices=["1", "2", "3", "4", "all"], default="all", help="Target dashboard to deploy (1, 2, 3, 4, or all)")
     parser.add_argument("--url", default=None, help="Metabase URL (e.g. http://localhost:3000)")
     parser.add_argument("--user", default=DEFAULT_USER, help="Metabase admin username")
     parser.add_argument("--password", default=DEFAULT_PASS, help="Metabase admin password")
@@ -48,6 +49,10 @@ def main():
     if args.dashboard in ("3", "all"):
         d3_id = deploy_dashboard_03(url, args.user, args.password)
         dashboards_deployed.append(("03. Mất Cân Đối Vùng Miền & Siêu Lưới 500kV", d3_id))
+
+    if args.dashboard in ("4", "all"):
+        d4_id = deploy_dashboard_04(url, args.user, args.password)
+        dashboards_deployed.append(("04. Giám Sát Vận Hành Pipeline & Chất Lượng Dữ Liệu", d4_id))
 
     print("\n" + "#"*75)
     print("SUMMARY: ALL REQUESTED DASHBOARDS READY ON METABASE!")
