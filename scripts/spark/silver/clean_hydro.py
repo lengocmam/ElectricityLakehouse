@@ -9,7 +9,7 @@ def clean_hydro(df: DataFrame) -> tuple[DataFrame, DataFrame]:
     prepared = (
         df.withColumn(
             "plant_name",
-            normalize_text(regexp_replace("plant_name", r"(?i)\s+\u0111\u1ed3ng\s+b\u1ed9\s+l\u00fac:.*$", "")),
+            normalize_text(regexp_replace("plant_name", r"(?iu)\s*[đĐ]\u1ed3ng\s*b\u1ed9\s*l\u00fac.*$", "")),
         )
         .withColumn("spillway_discharge_m3_per_s", coalesce(col("spillway_discharge_m3_per_s"), lit(0.0)))
         .withColumn("powerhouse_discharge_m3_per_s", coalesce(col("powerhouse_discharge_m3_per_s"), lit(0.0)))

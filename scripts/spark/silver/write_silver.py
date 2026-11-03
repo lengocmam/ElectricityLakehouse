@@ -11,6 +11,7 @@ from silver.quality_control import (
     detect_volume_skew,
     QualityCircuitBreakerError,
 )
+from utils.audit import record_task_metrics
 
 logger = create_logger(__name__)
 
@@ -80,6 +81,19 @@ def write_silver_tables(spark, dataset_name, bronze_table, pipeline_func, run_da
             if reject_count > 0:
                 logger.info(f"Writing {reject_count} rejected records to {reject_table} for debugging...")
                 _write_iceberg_partitioned(reject_df, reject_table, spark)
+            try:
+                record_task_metrics(
+                    dataset_name=dataset_name,
+                    records_read=total_count,
+                    records_written=0,
+                    records_rejected=reject_count,
+                    start_date=run_date,
+                    end_date=run_date,
+                    status="FAILED",
+                    error_message="Quality Circuit Breaker tripped",
+                )
+            except Exception:
+                pass
             raise
 
         # 3. Write Valid Records
@@ -93,6 +107,19 @@ def write_silver_tables(spark, dataset_name, bronze_table, pipeline_func, run_da
         if reject_count > 0:
             _write_iceberg_partitioned(reject_df, reject_table, spark)
             logger.info(f"  -> Wrote {reject_count} records to {reject_table}")
+
+        # 5. Record task metrics into audit
+        try:
+            record_task_metrics(
+                dataset_name=dataset_name,
+                records_read=total_count,
+                records_written=valid_count,
+                records_rejected=reject_count,
+                start_date=run_date,
+                end_date=run_date,
+            )
+        except Exception as exc:
+            logger.debug(f"Audit metric recording skipped: {exc}")
 
     finally:
         valid_df.unpersist()

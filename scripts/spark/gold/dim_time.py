@@ -7,12 +7,10 @@ def generate_dim_time(spark: SparkSession) -> DataFrame:
     hours_df = spark.range(0, 24).select(F.col("id").cast("int").alias("hour"))
 
     time_period = (
-        F.when(F.col("hour").between(0, 5), "night")
-        .when(F.col("hour").between(6, 10), "morning")
-        .when(F.col("hour").between(11, 13), "midday_off_peak")
-        .when(F.col("hour").between(14, 17), "afternoon")
-        .when(F.col("hour").between(18, 21), "evening_peak")
-        .otherwise("late_night")
+        F.when(F.col("hour").between(6, 11), "morning")
+        .when(F.col("hour").between(12, 17), "afternoon")
+        .when(F.col("hour").between(18, 21), "evening")
+        .otherwise("night")
     )
 
     return hours_df.select(

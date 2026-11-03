@@ -1,6 +1,6 @@
 from pyspark.sql import DataFrame, SparkSession
 import pyspark.sql.functions as F
-from pyspark.sql.functions import col, dense_rank, lit, when
+from pyspark.sql.functions import col, dense_rank, lit, regexp_replace, when
 from pyspark.sql.window import Window
 
 
@@ -32,7 +32,11 @@ def generate_dim_plant(spark: SparkSession, hydro_df: DataFrame | None = None) -
 
     distinct_plants = (
         hydro_df
-        .select(F.trim(col("plant_name")).alias("plant_name"))
+        .select(
+            F.trim(
+                regexp_replace(col("plant_name"), r"(?iu)\s*[đĐ]\u1ed3ng\s*b\u1ed9\s*l\u00fac.*$", "")
+            ).alias("plant_name")
+        )
         .filter(col("plant_name").isNotNull() & (col("plant_name") != ""))
         .withColumn("norm_name", F.lower(col("plant_name")))
         .dropDuplicates(["norm_name"])

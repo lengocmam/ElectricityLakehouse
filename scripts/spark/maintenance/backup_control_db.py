@@ -129,7 +129,14 @@ def create_backup_dump(conn) -> bytes:
         f"-- =========================================================================\n\n"
     )
 
-    tables = ["pipeline_watermark", "bronze_ingestion_log", "pipeline_task_audit"]
+    tables = [
+        "pipeline_watermark",
+        "bronze_ingestion_log",
+        "pipeline_task_audit",
+        "pipeline_dag_audit",
+        "alert_event",
+        "data_lineage",
+    ]
     full_sql = header
     for tbl in tables:
         full_sql += dump_table_as_sql(conn, tbl)

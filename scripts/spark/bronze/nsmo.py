@@ -349,6 +349,9 @@ def main(
 
         duration_seconds = time.time() - start_time
         finished_at = datetime.now(timezone.utc)
+        failed_count = len(failed_dates) if "failed_dates" in locals() and failed_dates else 0
+        read_count = records_count + failed_count
+        written_count = records_count if status in ("SUCCESS", "PARTIAL") else 0
         finish_ingestion_log(
             run_id=batch_id,
             status=status,
@@ -356,6 +359,10 @@ def main(
             error_message=error_msg,
             finished_at=finished_at,
             duration_seconds=duration_seconds,
+            records_read=read_count,
+            records_written=written_count,
+            records_rejected=failed_count,
+            dataset_name="nsmo",
         )
 
 

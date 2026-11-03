@@ -498,6 +498,11 @@ def main(
     finally:
         duration_seconds = time.time() - start_time
         finished_at = datetime.now(timezone.utc)
+        failed_count = len(failed_items) if "failed_items" in locals() and failed_items else 0
+        read_count = records_count + failed_count
+        written_count = records_count if status in ("SUCCESS", "PARTIAL") else 0
+        min_crawled_date = min(successful_dates) if ("successful_dates" in locals() and successful_dates) else crawl_start_date
+        max_crawled_date = max(successful_dates) if ("successful_dates" in locals() and successful_dates) else crawl_end_date
         finish_ingestion_log(
             run_id=batch_id,
             status=status,
@@ -505,6 +510,12 @@ def main(
             error_message=error_msg,
             finished_at=finished_at,
             duration_seconds=duration_seconds,
+            records_read=read_count,
+            records_written=written_count,
+            records_rejected=failed_count,
+            dataset_name="evn",
+            start_date=min_crawled_date,
+            end_date=max_crawled_date,
         )
 
 

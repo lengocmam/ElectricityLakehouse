@@ -6,6 +6,7 @@ import pyspark.sql.functions as F
 
 from utils.spark import create_spark_session
 from utils.logging import create_logger
+from utils.audit import record_task_metrics
 
 from gold.dim_date import generate_dim_date
 from gold.dim_time import generate_dim_time
@@ -60,6 +61,18 @@ def write_dimension_table(spark, dim_name: str, generator_func) -> None:
             .create()
 
     logger.info(f"  -> Wrote {dim_count} records to {table_name}")
+    try:
+        today = datetime.now().date()
+        record_task_metrics(
+            dataset_name=dim_name,
+            records_read=dim_count,
+            records_written=dim_count,
+            records_rejected=0,
+            start_date=today,
+            end_date=today,
+        )
+    except Exception as exc:
+        logger.debug(f"Dim audit metric recording skipped: {exc}")
 
 
 def validate_fact_invariants(fact_name: str, fact_df: DataFrame) -> None:
@@ -141,6 +154,18 @@ def write_fact_table(
     )
     if not changed_partitions:
         logger.info(f"No changed or new partitions detected for {fact_name}. Table is up-to-date. Skipped.")
+        try:
+            target_dt = run_date or datetime.now().date().isoformat()
+            record_task_metrics(
+                dataset_name=fact_name,
+                records_read=0,
+                records_written=0,
+                records_rejected=0,
+                start_date=target_dt,
+                end_date=target_dt,
+            )
+        except Exception as exc:
+            logger.debug(f"Fact audit metric recording skipped: {exc}")
         return
 
     logger.info(f"Found {len(changed_partitions)} changed/new partition(s) for {fact_name}: {changed_partitions}")
@@ -198,6 +223,17 @@ def write_fact_table(
                 .create()
 
         logger.info(f"  -> Wrote {written_count} records for {len(changed_partitions)} partition(s) to {table_name}")
+        try:
+            record_task_metrics(
+                dataset_name=fact_name,
+                records_read=written_count,
+                records_written=written_count,
+                records_rejected=0,
+                start_date=min_date,
+                end_date=max_date,
+            )
+        except Exception as exc:
+            logger.debug(f"Fact audit metric recording skipped: {exc}")
 
     finally:
         fact_df.unpersist()

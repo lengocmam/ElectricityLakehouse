@@ -8,10 +8,13 @@ from airflow.models.param import Param
 
 try:
     from monitoring import (
+        record_task_start_audit,
         alert_task_failure,
         alert_task_retry,
         check_duration_anomaly_and_audit,
         alert_sla_miss,
+        alert_dag_success,
+        alert_dag_failure,
         init_audit_table,
     )
 except ImportError:
@@ -20,10 +23,13 @@ except ImportError:
     if plugin_dir not in sys.path:
         sys.path.insert(0, plugin_dir)
     from monitoring import (
+        record_task_start_audit,
         alert_task_failure,
         alert_task_retry,
         check_duration_anomaly_and_audit,
         alert_sla_miss,
+        alert_dag_success,
+        alert_dag_failure,
         init_audit_table,
     )
 
@@ -35,6 +41,7 @@ DEFAULT_ARGS = {
     "depends_on_past": False,
     "retries": 2,
     "retry_delay": timedelta(minutes=5),
+    "on_execute_callback": record_task_start_audit,
     "on_failure_callback": alert_task_failure,
     "on_retry_callback": alert_task_retry,
     "on_success_callback": check_duration_anomaly_and_audit,
@@ -74,6 +81,15 @@ SPARK_RESOURCES = {
 
 SPARK_ENV = {
     "PYTHONPATH": SPARK_APP_DIR,
+    "AIRFLOW_DAG_ID": "{{ dag.dag_id }}",
+    "AIRFLOW_TASK_ID": "{{ ti.task_id }}",
+    "AIRFLOW_RUN_ID": "{{ run_id }}",
+    "AIRFLOW_TRY_NUMBER": "{{ ti.try_number }}",
+    "WATERMARK_DB_HOST": "postgres",
+    "WATERMARK_DB_PORT": "5432",
+    "WATERMARK_DB_NAME": "lakehouse_control",
+    "WATERMARK_DB_USER": "lakehouse_control",
+    "WATERMARK_DB_PASSWORD": "lakehouse_control",
 }
 
 
@@ -105,6 +121,8 @@ with DAG(
     max_active_tasks=2,
     dagrun_timeout=timedelta(hours=2),
     sla_miss_callback=alert_sla_miss,
+    on_success_callback=alert_dag_success,
+    on_failure_callback=alert_dag_failure,
     tags=["lakehouse", "electricity"],
 ) as dag:
 

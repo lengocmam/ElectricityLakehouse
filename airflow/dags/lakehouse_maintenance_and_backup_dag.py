@@ -13,9 +13,12 @@ from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOpe
 
 try:
     from monitoring import (
+        record_task_start_audit,
         alert_task_failure,
         alert_task_retry,
         check_duration_anomaly_and_audit,
+        alert_dag_success,
+        alert_dag_failure,
     )
 except ImportError:
     import sys, os
@@ -23,9 +26,12 @@ except ImportError:
     if plugin_dir not in sys.path:
         sys.path.insert(0, plugin_dir)
     from monitoring import (
+        record_task_start_audit,
         alert_task_failure,
         alert_task_retry,
         check_duration_anomaly_and_audit,
+        alert_dag_success,
+        alert_dag_failure,
     )
 
 DEFAULT_ARGS = {
@@ -33,6 +39,7 @@ DEFAULT_ARGS = {
     "depends_on_past": False,
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
+    "on_execute_callback": record_task_start_audit,
     "on_failure_callback": alert_task_failure,
     "on_retry_callback": alert_task_retry,
     "on_success_callback": check_duration_anomaly_and_audit,
@@ -85,6 +92,8 @@ with DAG(
     schedule="0 4 * * *",
     catchup=False,
     max_active_runs=1,
+    on_success_callback=alert_dag_success,
+    on_failure_callback=alert_dag_failure,
     tags=["lakehouse", "maintenance", "backup", "disaster-recovery"],
 ) as dag:
 
