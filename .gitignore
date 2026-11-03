@@ -4,4 +4,4 @@ airflow/logs/*
 __pycache__/
 .pytest_cache/
 *.pyc
-
+data_exports/
