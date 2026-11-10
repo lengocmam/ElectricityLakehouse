@@ -1,0 +1,240 @@
+{
+  "args": {
+    "csv": "unified_daily_v2.csv",
+    "target": "load_mean_mw",
+    "features": "cal,wx,hol",
+    "horizon": 7,
+    "models": "lightgbm,timexer,s4d",
+    "trials": 8,
+    "n_seeds": 5,
+    "epochs": 60,
+    "patience": 10,
+    "batch": 64,
+    "train_end": "2025-06-30",
+    "val_end": "2025-12-31",
+    "test_end": "",
+    "future": 1,
+    "load_config": "results/fut/stage3_load_mean_mw_cal+wx+hol_H7_fut.json",
+    "out": "results/timexer/load_H7"
+  },
+  "best_config": {
+    "lightgbm": {
+      "lags": 28,
+      "num_leaves": 7,
+      "learning_rate": 0.02,
+      "min_data_in_leaf": 20,
+      "feature_fraction": 0.5
+    },
+    "s4d": {
+      "lookback": 28,
+      "d_model": 32,
+      "n_layers": 4,
+      "d_state": 64,
+      "dropout": 0.2,
+      "lr": 0.001,
+      "wd": 0.01,
+      "dt_min": 0.01,
+      "dt_max": 1.0
+    },
+    "timexer": {
+      "lookback": 28,
+      "d_model": 128,
+      "ptst_layers": 2,
+      "dropout": 0.1,
+      "lr": 0.002,
+      "wd": 0.01,
+      "patch_len": 7
+    }
+  },
+  "tuning": {
+    "timexer": [
+      {
+        "cfg": {
+          "lookback": 56,
+          "d_model": 64,
+          "ptst_layers": 2,
+          "dropout": 0.1,
+          "lr": 0.002,
+          "wd": 0.05,
+          "patch_len": 7
+        },
+        "val_MAE": 1542.277099609375
+      },
+      {
+        "cfg": {
+          "lookback": 224,
+          "d_model": 64,
+          "ptst_layers": 1,
+          "dropout": 0.2,
+          "lr": 0.005,
+          "wd": 0.05,
+          "patch_len": 14
+        },
+        "val_MAE": 1769.40380859375
+      },
+      {
+        "cfg": {
+          "lookback": 224,
+          "d_model": 64,
+          "ptst_layers": 3,
+          "dropout": 0.1,
+          "lr": 0.001,
+          "wd": 0.05,
+          "patch_len": 7
+        },
+        "val_MAE": 1892.822509765625
+      },
+      {
+        "cfg": {
+          "lookback": 28,
+          "d_model": 128,
+          "ptst_layers": 2,
+          "dropout": 0.1,
+          "lr": 0.002,
+          "wd": 0.01,
+          "patch_len": 7
+        },
+        "val_MAE": 1465.9029541015625
+      },
+      {
+        "cfg": {
+          "lookback": 112,
+          "d_model": 64,
+          "ptst_layers": 3,
+          "dropout": 0.0,
+          "lr": 0.002,
+          "wd": 0.05,
+          "patch_len": 14
+        },
+        "val_MAE": 1666.8956298828125
+      },
+      {
+        "cfg": {
+          "lookback": 56,
+          "d_model": 128,
+          "ptst_layers": 2,
+          "dropout": 0.3,
+          "lr": 0.002,
+          "wd": 0.01,
+          "patch_len": 7
+        },
+        "val_MAE": 1574.98193359375
+      },
+      {
+        "cfg": {
+          "lookback": 28,
+          "d_model": 128,
+          "ptst_layers": 2,
+          "dropout": 0.0,
+          "lr": 0.005,
+          "wd": 0.05,
+          "patch_len": 7
+        },
+        "val_MAE": 1535.049560546875
+      },
+      {
+        "cfg": {
+          "lookback": 112,
+          "d_model": 128,
+          "ptst_layers": 1,
+          "dropout": 0.1,
+          "lr": 0.001,
+          "wd": 0.01,
+          "patch_len": 7
+        },
+        "val_MAE": 1837.1953125
+      }
+    ]
+  },
+  "results": {
+    "persistence": {
+      "MAE": 3029.357421875,
+      "RMSE": 4124.68603515625,
+      "MAPE%": 7.798417568206787,
+      "MASE": 1.4259847729169983
+    },
+    "seasonal_naive_7": {
+      "MAE": 2986.57470703125,
+      "RMSE": 4386.30078125,
+      "MAPE%": 7.896424770355225,
+      "MASE": 1.4058460136307211
+    },
+    "LightGBM (to hop)": {
+      "MAE": 1933.017578125,
+      "RMSE": 2575.9833984375,
+      "MAPE%": 4.663634777069092,
+      "MASE": 0.909913637883329
+    },
+    "TimeXer (to hop)": {
+      "MAE": 1639.0087890625,
+      "RMSE": 2212.990478515625,
+      "MAPE%": 4.156192302703857,
+      "MASE": 0.7715172726081488
+    },
+    "S4D (to hop)": {
+      "MAE": 1559.9981689453125,
+      "RMSE": 2201.97705078125,
+      "MAPE%": 3.8912887573242188,
+      "MASE": 0.7343252462159301
+    },
+    "LightGBM (TB 5 seed)": {
+      "MAE": 1937.058984375,
+      "RMSE": 2581.407958984375,
+      "MAPE%": 4.674255466461181,
+      "MASE": 0.9118160161672704,
+      "MAE_std": 3.0666140194620377
+    },
+    "TimeXer (TB 5 seed)": {
+      "MAE": 1727.197216796875,
+      "RMSE": 2317.22421875,
+      "MAPE%": 4.379452228546143,
+      "MASE": 0.8130294937110897,
+      "MAE_std": 17.565140740750756
+    },
+    "S4D (TB 5 seed)": {
+      "MAE": 1642.1426513671875,
+      "RMSE": 2281.614208984375,
+      "MAPE%": 4.100504779815674,
+      "MASE": 0.7729924501143202,
+      "MAE_std": 33.453033658151945
+    }
+  },
+  "dm": {
+    "S4D (to hop)_vs_persistence": {
+      "stat": -7.474576382669742,
+      "p": 1.020961093445294e-12
+    },
+    "S4D (to hop)_vs_seasonal_naive_7": {
+      "stat": -3.4757225795589997,
+      "p": 0.0005912320552621253
+    },
+    "S4D (to hop)_vs_LightGBM (to hop)": {
+      "stat": -2.956665654179652,
+      "p": 0.003377759820266224
+    },
+    "S4D (to hop)_vs_TimeXer (to hop)": {
+      "stat": -1.0261625683582163,
+      "p": 0.30571022447568375
+    },
+    "S4D_vs_persistence": {
+      "stat": -7.474576382669742,
+      "p": 1.020961093445294e-12
+    },
+    "S4D_vs_seasonal_naive_7": {
+      "stat": -3.4757225795589997,
+      "p": 0.0005912320552621253
+    },
+    "S4D_vs_LightGBM (to hop)": {
+      "stat": -2.956665654179652,
+      "p": 0.003377759820266224
+    },
+    "S4D_vs_TimeXer (to hop)": {
+      "stat": -1.0261625683582163,
+      "p": 0.30571022447568375
+    }
+  },
+  "best_model": "S4D (to hop)",
+  "n_test": 278,
+  "mase_scale": 2124.396753324468,
+  "seconds": 181.09566473960876
+}

@@ -1,0 +1,127 @@
+{
+  "args": {
+    "csv": "unified_daily_v2.csv",
+    "target": "gen_hydro",
+    "features": "cal,hol,wx",
+    "horizon": 7,
+    "models": "ridge,lightgbm,s4d",
+    "trials": 6,
+    "n_seeds": 3,
+    "epochs": 60,
+    "patience": 10,
+    "batch": 64,
+    "train_end": "2025-06-30",
+    "val_end": "2025-12-31",
+    "test_end": "",
+    "load_config": "results/h7_tuned/stage3_gen_hydro_cal+hydro_H7.json",
+    "out": "results/abl/hydro/cal_hol_wx"
+  },
+  "best_config": {
+    "ridge": {
+      "lags": 14
+    },
+    "lightgbm": {
+      "lags": 14,
+      "num_leaves": 31,
+      "learning_rate": 0.02,
+      "min_data_in_leaf": 40,
+      "feature_fraction": 0.5
+    },
+    "s4d": {
+      "lookback": 56,
+      "d_model": 64,
+      "n_layers": 3,
+      "d_state": 64,
+      "dropout": 0.1,
+      "lr": 0.002,
+      "wd": 0.05,
+      "dt_min": 0.01,
+      "dt_max": 0.5
+    }
+  },
+  "tuning": {},
+  "results": {
+    "persistence": {
+      "MAE": 34495.23828125,
+      "RMSE": 45468.60546875,
+      "MAPE%": 17.105525970458984,
+      "MASE": 1.1666637074033754
+    },
+    "seasonal_naive_7": {
+      "MAE": 33669.68359375,
+      "RMSE": 44696.3359375,
+      "MAPE%": 16.366079330444336,
+      "MASE": 1.1387426162507306
+    },
+    "Ridge (to hop)": {
+      "MAE": 27608.74105452149,
+      "RMSE": 35341.54728405515,
+      "MAPE%": 13.156505128392137,
+      "MASE": 0.9337554340917753
+    },
+    "LightGBM (to hop)": {
+      "MAE": 26741.55859375,
+      "RMSE": 36420.83203125,
+      "MAPE%": 13.093873977661133,
+      "MASE": 0.9044264497134077
+    },
+    "S4D (to hop)": {
+      "MAE": 29758.1796875,
+      "RMSE": 42407.39453125,
+      "MAPE%": 14.147119522094727,
+      "MASE": 1.0064516138932003
+    },
+    "LightGBM (TB 3 seed)": {
+      "MAE": 26795.959635416668,
+      "RMSE": 36470.6875,
+      "MAPE%": 13.119217872619629,
+      "MASE": 0.9062663477433898,
+      "MAE_std": 70.68563579181433
+    },
+    "S4D (TB 3 seed)": {
+      "MAE": 30968.561848958332,
+      "RMSE": 43658.34375,
+      "MAPE%": 14.695323626200357,
+      "MASE": 1.04738795787055,
+      "MAE_std": 1834.3073732506778
+    }
+  },
+  "dm": {
+    "LightGBM (to hop)_vs_persistence": {
+      "stat": -9.75557839991692,
+      "p": 0.0
+    },
+    "LightGBM (to hop)_vs_seasonal_naive_7": {
+      "stat": -3.5000540054343188,
+      "p": 0.0005442900746510659
+    },
+    "LightGBM (to hop)_vs_Ridge (to hop)": {
+      "stat": -0.7310345805631897,
+      "p": 0.46539430582357166
+    },
+    "LightGBM (to hop)_vs_S4D (to hop)": {
+      "stat": -1.104934017318939,
+      "p": 0.2701754868917208
+    },
+    "S4D_vs_persistence": {
+      "stat": -1.5676849259812762,
+      "p": 0.11813023279075807
+    },
+    "S4D_vs_seasonal_naive_7": {
+      "stat": -1.1348133046079674,
+      "p": 0.25746372674788787
+    },
+    "S4D_vs_Ridge (to hop)": {
+      "stat": 0.6576889138250996,
+      "p": 0.5113004382840622
+    },
+    "S4D_vs_LightGBM (to hop)": {
+      "stat": 1.104934017318939,
+      "p": 0.2701754868917208
+    }
+  },
+  "best_model": "LightGBM (to hop)",
+  "n_test": 270,
+  "mase_scale": 29567.42209631728,
+  "seconds": 66.17203283309937
+}

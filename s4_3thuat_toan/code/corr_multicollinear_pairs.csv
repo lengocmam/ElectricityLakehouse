@@ -1,0 +1,12 @@
+﻿feature_1,feature_2,abs_corr
+gen_coal,gen_thermal,0.9919
+is_weekend,is_working_day,0.9154
+hy_inflow_total_m3s,hy_inflow_da,0.8479
+month_cos,hy_fill_ratio_mean,0.8435
+month_cos,wx_temp_c,0.8187
+is_public_holiday,is_holiday_break,0.8176
+dow_sin,is_weekend,0.7858
+wx_temp_c,hy_fill_ratio_mean,0.782
+hy_powerhouse_total_m3s,hy_inflow_da,0.7703
+hy_inflow_total_m3s,hy_powerhouse_total_m3s,0.7676
+hy_inflow_da,hy_inflow_lo_gam,0.7592

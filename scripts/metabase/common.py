@@ -29,6 +29,23 @@ COMMON_TAG_DEF = {
     }
 }
 
+TAGS_DATE_AND_PLANT = {
+    "selected_date": {
+        "id": "tag_selected_date",
+        "name": "selected_date",
+        "display-name": "Chọn Ngày (Để trống = Tự động lấy ngày mới nhất)",
+        "type": "date",
+        "required": False
+    },
+    "selected_plant": {
+        "id": "tag_selected_plant",
+        "name": "selected_plant",
+        "display-name": "Chọn Hồ Thủy Điện",
+        "type": "text",
+        "required": False
+    }
+}
+
 def get_target_date_cte(fallback_table="iceberg.gold.fact_generation_daily"):
     """Generate dynamic target_date CTE that defaults to latest date in Lakehouse."""
     return f"""
@@ -67,7 +84,7 @@ def authenticate(base_url, user=DEFAULT_USER, password=DEFAULT_PASS):
     payload = json.dumps({"username": user, "password": password}).encode("utf-8")
     req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=60) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             return data["id"]
     except urllib.error.HTTPError as e:
@@ -143,7 +160,7 @@ def get_or_create_dashboard(base_url, token, collection_id, name, description):
         return new_dash["id"]
 
 
-def upsert_card(base_url, token, collection_id, db_id, name, sql, display, viz=None, tag_def=None):
+def upsert_card(base_url, token, collection_id, db_id, name, sql, display, viz=None, tag_def=None, description=None):
     """Create card if not existing, or update query & visualization if already exists."""
     req = urllib.request.Request(f"{base_url}/api/card", headers={"X-Metabase-Session": token})
     with urllib.request.urlopen(req, timeout=10) as resp:
@@ -164,6 +181,8 @@ def upsert_card(base_url, token, collection_id, db_id, name, sql, display, viz=N
         "display": display,
         "visualization_settings": viz or {}
     }
+    if description:
+        payload["description"] = description
 
     if existing:
         cid = existing["id"]
@@ -173,7 +192,7 @@ def upsert_card(base_url, token, collection_id, db_id, name, sql, display, viz=N
             headers={"X-Metabase-Session": token, "Content-Type": "application/json"},
             method="PUT"
         )
-        with urllib.request.urlopen(update_req, timeout=10) as resp:
+        with urllib.request.urlopen(update_req, timeout=60) as resp:
             print(f"  [✓] Updated Card {cid}: '{name}' ({display})")
             return cid
     else:
@@ -182,18 +201,18 @@ def upsert_card(base_url, token, collection_id, db_id, name, sql, display, viz=N
             data=json.dumps(payload).encode("utf-8"),
             headers={"X-Metabase-Session": token, "Content-Type": "application/json"}
         )
-        with urllib.request.urlopen(create_req, timeout=10) as resp:
+        with urllib.request.urlopen(create_req, timeout=60) as resp:
             new_card = json.loads(resp.read().decode("utf-8"))
             cid = new_card["id"]
             print(f"  [+] Created Card {cid}: '{name}' ({display})")
             return cid
 
 
-def set_dashboard_layout(base_url, token, dashboard_id, card_specs, param_id="date_filter"):
-    """Position cards on dashboard and configure dynamic interactive date filter."""
-    # 1. Configure dashboard parameter
-    d_param_payload = {
-        "parameters": [
+def set_dashboard_layout(base_url, token, dashboard_id, card_specs, param_id="date_filter", parameters=None):
+    """Position cards on dashboard and configure dynamic interactive filters."""
+    # 1. Configure dashboard parameter(s)
+    if parameters is None:
+        parameters = [
             {
                 "id": param_id,
                 "name": "Chọn Ngày (Để trống = Tự động cập nhật ngày mới nhất)",
@@ -202,7 +221,7 @@ def set_dashboard_layout(base_url, token, dashboard_id, card_specs, param_id="da
                 "default": None
             }
         ]
-    }
+    d_param_payload = {"parameters": parameters}
     req_p = urllib.request.Request(
         f"{base_url}/api/dashboard/{dashboard_id}",
         data=json.dumps(d_param_payload).encode("utf-8"),
@@ -214,15 +233,23 @@ def set_dashboard_layout(base_url, token, dashboard_id, card_specs, param_id="da
     # 2. Configure dashcards with parameter mappings
     dashcards = []
     for i, spec in enumerate(card_specs, start=1):
-        mapping = []
-        if spec.get("has_date_filter", True):
-            mapping = [
-                {
-                    "parameter_id": param_id,
+        if "parameter_mappings" in spec:
+            mapping = spec["parameter_mappings"]
+        else:
+            mapping = []
+            if spec.get("has_date_filter", True):
+                mapping.append({
+                    "parameter_id": "date_filter",
                     "card_id": spec["card_id"],
                     "target": ["variable", ["template-tag", "selected_date"]]
-                }
-            ]
+                })
+            if spec.get("has_plant_filter", False):
+                mapping.append({
+                    "parameter_id": "plant_filter",
+                    "card_id": spec["card_id"],
+                    "target": ["variable", ["template-tag", "selected_plant"]]
+                })
+
         dashcards.append({
             "id": -i,
             "card_id": spec["card_id"],
@@ -241,7 +268,7 @@ def set_dashboard_layout(base_url, token, dashboard_id, card_specs, param_id="da
         method="PUT"
     )
     urllib.request.urlopen(req_c, timeout=10)
-    print(f"[✓] Dashboard {dashboard_id}: Configured {len(dashcards)} cards with layout and date filter!\n")
+    print(f"[✓] Dashboard {dashboard_id}: Configured {len(dashcards)} cards with layout and filters!\n")
 
 
 def parse_common_args(dashboard_name):

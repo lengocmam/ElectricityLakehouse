@@ -1,0 +1,13 @@
+{
+ "best_config": {
+  "smamba": {
+   "lookback": 28,
+   "d_model": 128,
+   "n_layers": 2,
+   "d_state": 8,
+   "dropout": 0.2,
+   "lr": 0.0005,
+   "wd": 0.1
+  }
+ }
+}

@@ -1,0 +1,172 @@
+{
+  "args": {
+    "csv": "unified_daily_v2.csv",
+    "target": "load_mean_mw",
+    "features": "cal,wx,hol",
+    "horizon": 1,
+    "models": "smamba",
+    "trials": 8,
+    "n_seeds": 5,
+    "epochs": 60,
+    "patience": 10,
+    "batch": 64,
+    "train_end": "2025-06-30",
+    "val_end": "2025-12-31",
+    "test_end": "",
+    "future": 1,
+    "load_config": "results/timexer/load_H1/stage3_load_mean_mw_cal+wx+hol_H1_fut.json",
+    "out": "results/smamba/load_H1"
+  },
+  "best_config": {
+    "smamba": {
+      "lookback": 28,
+      "d_model": 128,
+      "n_layers": 2,
+      "d_state": 8,
+      "dropout": 0.2,
+      "lr": 0.0005,
+      "wd": 0.1
+    }
+  },
+  "tuning": {
+    "smamba": [
+      {
+        "cfg": {
+          "lookback": 56,
+          "d_model": 64,
+          "n_layers": 2,
+          "d_state": 16,
+          "dropout": 0.1,
+          "lr": 0.002,
+          "wd": 0.05
+        },
+        "val_MAE": 969.0872802734375
+      },
+      {
+        "cfg": {
+          "lookback": 224,
+          "d_model": 64,
+          "n_layers": 1,
+          "d_state": 16,
+          "dropout": 0.3,
+          "lr": 0.005,
+          "wd": 0.05
+        },
+        "val_MAE": 1669.4449462890625
+      },
+      {
+        "cfg": {
+          "lookback": 224,
+          "d_model": 64,
+          "n_layers": 3,
+          "d_state": 8,
+          "dropout": 0.1,
+          "lr": 0.002,
+          "wd": 0.01
+        },
+        "val_MAE": 1655.374267578125
+      },
+      {
+        "cfg": {
+          "lookback": 28,
+          "d_model": 128,
+          "n_layers": 2,
+          "d_state": 8,
+          "dropout": 0.2,
+          "lr": 0.0005,
+          "wd": 0.1
+        },
+        "val_MAE": 876.7557373046875
+      },
+      {
+        "cfg": {
+          "lookback": 28,
+          "d_model": 128,
+          "n_layers": 2,
+          "d_state": 16,
+          "dropout": 0.0,
+          "lr": 0.002,
+          "wd": 0.05
+        },
+        "val_MAE": 899.5084838867188
+      },
+      {
+        "cfg": {
+          "lookback": 112,
+          "d_model": 128,
+          "n_layers": 3,
+          "d_state": 8,
+          "dropout": 0.3,
+          "lr": 0.005,
+          "wd": 0.1
+        },
+        "val_MAE": 1578.26708984375
+      },
+      {
+        "cfg": {
+          "lookback": 112,
+          "d_model": 32,
+          "n_layers": 3,
+          "d_state": 8,
+          "dropout": 0.0,
+          "lr": 0.005,
+          "wd": 0.1
+        },
+        "val_MAE": 1414.257080078125
+      },
+      {
+        "cfg": {
+          "lookback": 28,
+          "d_model": 128,
+          "n_layers": 2,
+          "d_state": 16,
+          "dropout": 0.1,
+          "lr": 0.002,
+          "wd": 0.1
+        },
+        "val_MAE": 927.0684204101562
+      }
+    ]
+  },
+  "results": {
+    "persistence": {
+      "MAE": 1925.0389404296875,
+      "RMSE": 2591.47021484375,
+      "MAPE%": 4.894384860992432,
+      "MASE": 0.9061579186737102
+    },
+    "seasonal_naive_7": {
+      "MAE": 3016.1474609375,
+      "RMSE": 4409.6650390625,
+      "MAPE%": 8.007964134216309,
+      "MASE": 1.4197665554786465
+    },
+    "S-Mamba (to hop)": {
+      "MAE": 979.0611572265625,
+      "RMSE": 1368.9005126953125,
+      "MAPE%": 2.501042366027832,
+      "MASE": 0.4608654930838271
+    },
+    "S-Mamba (TB 5 seed)": {
+      "MAE": 1020.0270751953125,
+      "RMSE": 1415.4571044921875,
+      "MAPE%": 2.6144139766693115,
+      "MASE": 0.4801490463582532,
+      "MAE_std": 20.966125642050276
+    }
+  },
+  "dm": {
+    "S-Mamba (to hop)_vs_persistence": {
+      "stat": -9.762472073782002,
+      "p": 0.0
+    },
+    "S-Mamba (to hop)_vs_seasonal_naive_7": {
+      "stat": -11.191629965805207,
+      "p": 0.0
+    }
+  },
+  "best_model": "S-Mamba (to hop)",
+  "n_test": 284,
+  "mase_scale": 2124.396753324468,
+  "seconds": 963.7617728710175
+}

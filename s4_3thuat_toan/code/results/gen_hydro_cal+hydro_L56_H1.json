@@ -1,0 +1,53 @@
+{
+  "args": {
+    "csv": "unified_daily_v2.csv",
+    "target": "gen_hydro",
+    "features": "cal,hydro",
+    "lookback": 56,
+    "horizon": 1,
+    "train_end": "2025-06-30",
+    "val_end": "2025-12-31",
+    "d_model": 64,
+    "n_layers": 3,
+    "d_state": 64,
+    "dropout": 0.1,
+    "dt_min": 0.01,
+    "dt_max": 0.5,
+    "lr": 0.002,
+    "wd": 0.05,
+    "epochs": 80,
+    "patience": 15,
+    "batch": 64,
+    "n_seeds": 3,
+    "out": "results"
+  },
+  "windows": [
+    698,
+    181,
+    282
+  ],
+  "results": {
+    "persistence": {
+      "MAE": 22725.53125,
+      "RMSE": 29873.6484375,
+      "MAPE%": 11.386093139648438
+    },
+    "seasonal_naive_7": {
+      "MAE": 34483.6875,
+      "RMSE": 45912.8046875,
+      "MAPE%": 16.782493591308594
+    },
+    "ridge(alpha=10)": {
+      "MAE": 16214.279689287829,
+      "RMSE": 20989.593430520825,
+      "MAPE%": 8.069598083668318
+    },
+    "S4D (TB 3 seed)": {
+      "MAE": 18870.178385416668,
+      "RMSE": 24361.423177083332,
+      "MAPE%": 9.241744041442871,
+      "MAE_std": 346.83535831635675
+    }
+  },
+  "seconds": 100.23970818519592
+}

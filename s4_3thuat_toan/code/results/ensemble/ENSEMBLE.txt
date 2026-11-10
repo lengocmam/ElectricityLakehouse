@@ -1,0 +1,5 @@
+Bai toan                  LightGBM      S4D  TimeXer  S-Mamba  TB 3 bai bao  TB 2 tot nhat   DM TB3 vs LightGBM | vs model don tot nhat
+Phu tai 1 ngay (MW)            834      919     1018      979           873        850 (S4D+S-Mamba)    0.92 p=0.359 | -1.38 p=0.167 (vs S4D)
+Phu tai 7 ngay (MW)           1933     1560     1639     1665          1545       1525 (S4D+TimeXer)   -2.93 p=0.004 | -0.34 p=0.736 (vs S4D)
+Thuy dien 1 ngay (MWh)       14787    16804    16416    16423         15599      16128 (TimeXer+S-Mamba)    1.42 p=0.156 | -2.19 p=0.029 (vs TimeXer)
+Thuy dien 7 ngay (MWh)       25167    30177    24367    24343         23994      23944 (S-Mamba+TimeXer)   -1.09 p=0.275 | -0.51 p=0.613 (vs S-Mamba)

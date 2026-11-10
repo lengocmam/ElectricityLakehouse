@@ -1,0 +1,644 @@
+{
+  "args": {
+    "csv": "unified_daily_v2.csv",
+    "target": "load_mean_mw",
+    "features": "cal,wx,hol",
+    "horizon": 1,
+    "models": "timexer,smamba,s4d",
+    "trials": 12,
+    "n_seeds": 5,
+    "epochs": 60,
+    "patience": 10,
+    "batch": 64,
+    "train_end": "2025-06-30",
+    "val_end": "2025-12-31",
+    "test_end": "",
+    "future": 1,
+    "anchor": "",
+    "search_anchor": 1,
+    "load_config": "",
+    "out": "results/tuned2/load_H1"
+  },
+  "best_config": {
+    "timexer": {
+      "lookback": 28,
+      "d_model": 128,
+      "ptst_layers": 2,
+      "dropout": 0.2,
+      "lr": 0.001,
+      "wd": 0.05,
+      "patch_len": 7,
+      "anchor": "none"
+    },
+    "smamba": {
+      "lookback": 28,
+      "d_model": 32,
+      "n_layers": 1,
+      "d_state": 8,
+      "dropout": 0.0,
+      "lr": 0.005,
+      "wd": 0.01,
+      "anchor": "last"
+    },
+    "s4d": {
+      "lookback": 28,
+      "d_model": 128,
+      "n_layers": 2,
+      "d_state": 32,
+      "dropout": 0.3,
+      "lr": 0.005,
+      "wd": 0.05,
+      "dt_min": 0.001,
+      "dt_max": 0.1,
+      "anchor": "none"
+    }
+  },
+  "tuning": {
+    "timexer": [
+      {
+        "cfg": {
+          "lookback": 56,
+          "d_model": 64,
+          "ptst_layers": 2,
+          "dropout": 0.1,
+          "lr": 0.002,
+          "wd": 0.05,
+          "patch_len": 7
+        },
+        "val_MAE": 911.2554931640625
+      },
+      {
+        "cfg": {
+          "lookback": 224,
+          "d_model": 64,
+          "ptst_layers": 1,
+          "dropout": 0.2,
+          "lr": 0.005,
+          "wd": 0.05,
+          "patch_len": 14,
+          "anchor": "last"
+        },
+        "val_MAE": 844.3234252929688
+      },
+      {
+        "cfg": {
+          "lookback": 112,
+          "d_model": 128,
+          "ptst_layers": 1,
+          "dropout": 0.1,
+          "lr": 0.002,
+          "wd": 0.01,
+          "patch_len": 7,
+          "anchor": "week"
+        },
+        "val_MAE": 1080.7657470703125
+      },
+      {
+        "cfg": {
+          "lookback": 112,
+          "d_model": 128,
+          "ptst_layers": 3,
+          "dropout": 0.1,
+          "lr": 0.002,
+          "wd": 0.01,
+          "patch_len": 7,
+          "anchor": "week"
+        },
+        "val_MAE": 1010.5556640625
+      },
+      {
+        "cfg": {
+          "lookback": 112,
+          "d_model": 64,
+          "ptst_layers": 3,
+          "dropout": 0.0,
+          "lr": 0.002,
+          "wd": 0.05,
+          "patch_len": 14,
+          "anchor": "week"
+        },
+        "val_MAE": 1138.869873046875
+      },
+      {
+        "cfg": {
+          "lookback": 56,
+          "d_model": 128,
+          "ptst_layers": 2,
+          "dropout": 0.3,
+          "lr": 0.002,
+          "wd": 0.01,
+          "patch_len": 7,
+          "anchor": "none"
+        },
+        "val_MAE": 989.9832153320312
+      },
+      {
+        "cfg": {
+          "lookback": 224,
+          "d_model": 128,
+          "ptst_layers": 3,
+          "dropout": 0.0,
+          "lr": 0.005,
+          "wd": 0.05,
+          "patch_len": 7,
+          "anchor": "week"
+        },
+        "val_MAE": 1958.480224609375
+      },
+      {
+        "cfg": {
+          "lookback": 112,
+          "d_model": 128,
+          "ptst_layers": 1,
+          "dropout": 0.1,
+          "lr": 0.001,
+          "wd": 0.01,
+          "patch_len": 7,
+          "anchor": "week"
+        },
+        "val_MAE": 1117.460693359375
+      },
+      {
+        "cfg": {
+          "lookback": 224,
+          "d_model": 32,
+          "ptst_layers": 1,
+          "dropout": 0.2,
+          "lr": 0.005,
+          "wd": 0.01,
+          "patch_len": 14,
+          "anchor": "week"
+        },
+        "val_MAE": 1350.6365966796875
+      },
+      {
+        "cfg": {
+          "lookback": 112,
+          "d_model": 128,
+          "ptst_layers": 1,
+          "dropout": 0.2,
+          "lr": 0.001,
+          "wd": 0.1,
+          "patch_len": 14,
+          "anchor": "last"
+        },
+        "val_MAE": 864.6638793945312
+      },
+      {
+        "cfg": {
+          "lookback": 28,
+          "d_model": 128,
+          "ptst_layers": 2,
+          "dropout": 0.2,
+          "lr": 0.001,
+          "wd": 0.05,
+          "patch_len": 7,
+          "anchor": "none"
+        },
+        "val_MAE": 814.8526611328125
+      },
+      {
+        "cfg": {
+          "lookback": 56,
+          "d_model": 32,
+          "ptst_layers": 3,
+          "dropout": 0.2,
+          "lr": 0.005,
+          "wd": 0.01,
+          "patch_len": 7,
+          "anchor": "week"
+        },
+        "val_MAE": 870.8212280273438
+      }
+    ],
+    "smamba": [
+      {
+        "cfg": {
+          "lookback": 56,
+          "d_model": 64,
+          "n_layers": 2,
+          "d_state": 16,
+          "dropout": 0.1,
+          "lr": 0.002,
+          "wd": 0.05
+        },
+        "val_MAE": 969.0872802734375
+      },
+      {
+        "cfg": {
+          "lookback": 56,
+          "d_model": 32,
+          "n_layers": 1,
+          "d_state": 8,
+          "dropout": 0.3,
+          "lr": 0.002,
+          "wd": 0.1,
+          "anchor": "none"
+        },
+        "val_MAE": 926.5841064453125
+      },
+      {
+        "cfg": {
+          "lookback": 56,
+          "d_model": 128,
+          "n_layers": 3,
+          "d_state": 16,
+          "dropout": 0.2,
+          "lr": 0.005,
+          "wd": 0.05,
+          "anchor": "week"
+        },
+        "val_MAE": 1095.9390869140625
+      },
+      {
+        "cfg": {
+          "lookback": 112,
+          "d_model": 32,
+          "n_layers": 2,
+          "d_state": 8,
+          "dropout": 0.3,
+          "lr": 0.002,
+          "wd": 0.01,
+          "anchor": "none"
+        },
+        "val_MAE": 1381.534423828125
+      },
+      {
+        "cfg": {
+          "lookback": 28,
+          "d_model": 128,
+          "n_layers": 2,
+          "d_state": 8,
+          "dropout": 0.1,
+          "lr": 0.002,
+          "wd": 0.01,
+          "anchor": "last"
+        },
+        "val_MAE": 821.8641967773438
+      },
+      {
+        "cfg": {
+          "lookback": 224,
+          "d_model": 32,
+          "n_layers": 1,
+          "d_state": 8,
+          "dropout": 0.1,
+          "lr": 0.0005,
+          "wd": 0.1,
+          "anchor": "week"
+        },
+        "val_MAE": 1832.9420166015625
+      },
+      {
+        "cfg": {
+          "lookback": 28,
+          "d_model": 32,
+          "n_layers": 1,
+          "d_state": 8,
+          "dropout": 0.0,
+          "lr": 0.005,
+          "wd": 0.01,
+          "anchor": "last"
+        },
+        "val_MAE": 775.0899658203125
+      },
+      {
+        "cfg": {
+          "lookback": 28,
+          "d_model": 32,
+          "n_layers": 3,
+          "d_state": 8,
+          "dropout": 0.1,
+          "lr": 0.001,
+          "wd": 0.1,
+          "anchor": "none"
+        },
+        "val_MAE": 857.0469970703125
+      },
+      {
+        "cfg": {
+          "lookback": 224,
+          "d_model": 32,
+          "n_layers": 3,
+          "d_state": 8,
+          "dropout": 0.0,
+          "lr": 0.005,
+          "wd": 0.1,
+          "anchor": "none"
+        },
+        "val_MAE": 1658.22509765625
+      },
+      {
+        "cfg": {
+          "lookback": 112,
+          "d_model": 32,
+          "n_layers": 1,
+          "d_state": 8,
+          "dropout": 0.2,
+          "lr": 0.002,
+          "wd": 0.05,
+          "anchor": "none"
+        },
+        "val_MAE": 1313.0306396484375
+      },
+      {
+        "cfg": {
+          "lookback": 28,
+          "d_model": 128,
+          "n_layers": 2,
+          "d_state": 8,
+          "dropout": 0.0,
+          "lr": 0.005,
+          "wd": 0.01,
+          "anchor": "last"
+        },
+        "val_MAE": 827.5985717773438
+      },
+      {
+        "cfg": {
+          "lookback": 112,
+          "d_model": 128,
+          "n_layers": 2,
+          "d_state": 8,
+          "dropout": 0.1,
+          "lr": 0.0005,
+          "wd": 0.1,
+          "anchor": "none"
+        },
+        "val_MAE": 1295.3907470703125
+      }
+    ],
+    "s4d": [
+      {
+        "cfg": {
+          "lookback": 56,
+          "d_model": 64,
+          "n_layers": 3,
+          "d_state": 64,
+          "dropout": 0.1,
+          "lr": 0.002,
+          "wd": 0.05,
+          "dt_min": 0.01,
+          "dt_max": 0.5
+        },
+        "val_MAE": 928.7353515625
+      },
+      {
+        "cfg": {
+          "lookback": 56,
+          "d_model": 64,
+          "n_layers": 4,
+          "d_state": 64,
+          "dropout": 0.0,
+          "lr": 0.005,
+          "wd": 0.1,
+          "dt_min": 0.001,
+          "dt_max": 0.1,
+          "anchor": "last"
+        },
+        "val_MAE": 2002.6927490234375
+      },
+      {
+        "cfg": {
+          "lookback": 224,
+          "d_model": 128,
+          "n_layers": 4,
+          "d_state": 64,
+          "dropout": 0.2,
+          "lr": 0.005,
+          "wd": 0.1,
+          "dt_min": 0.01,
+          "dt_max": 0.1,
+          "anchor": "week"
+        },
+        "val_MAE": 1479.369384765625
+      },
+      {
+        "cfg": {
+          "lookback": 28,
+          "d_model": 64,
+          "n_layers": 4,
+          "d_state": 32,
+          "dropout": 0.2,
+          "lr": 0.0005,
+          "wd": 0.1,
+          "dt_min": 0.01,
+          "dt_max": 0.1,
+          "anchor": "none"
+        },
+        "val_MAE": 818.1392822265625
+      },
+      {
+        "cfg": {
+          "lookback": 224,
+          "d_model": 64,
+          "n_layers": 4,
+          "d_state": 64,
+          "dropout": 0.2,
+          "lr": 0.001,
+          "wd": 0.1,
+          "dt_min": 0.01,
+          "dt_max": 0.5,
+          "anchor": "week"
+        },
+        "val_MAE": 1532.691162109375
+      },
+      {
+        "cfg": {
+          "lookback": 224,
+          "d_model": 128,
+          "n_layers": 2,
+          "d_state": 32,
+          "dropout": 0.1,
+          "lr": 0.002,
+          "wd": 0.01,
+          "dt_min": 0.001,
+          "dt_max": 0.1,
+          "anchor": "week"
+        },
+        "val_MAE": 1698.5926513671875
+      },
+      {
+        "cfg": {
+          "lookback": 224,
+          "d_model": 64,
+          "n_layers": 4,
+          "d_state": 64,
+          "dropout": 0.0,
+          "lr": 0.005,
+          "wd": 0.1,
+          "dt_min": 0.01,
+          "dt_max": 1.0,
+          "anchor": "week"
+        },
+        "val_MAE": 1501.872314453125
+      },
+      {
+        "cfg": {
+          "lookback": 28,
+          "d_model": 32,
+          "n_layers": 3,
+          "d_state": 32,
+          "dropout": 0.2,
+          "lr": 0.001,
+          "wd": 0.05,
+          "dt_min": 0.01,
+          "dt_max": 1.0,
+          "anchor": "week"
+        },
+        "val_MAE": 2108.2763671875
+      },
+      {
+        "cfg": {
+          "lookback": 28,
+          "d_model": 32,
+          "n_layers": 3,
+          "d_state": 64,
+          "dropout": 0.2,
+          "lr": 0.005,
+          "wd": 0.01,
+          "dt_min": 0.01,
+          "dt_max": 0.1,
+          "anchor": "week"
+        },
+        "val_MAE": 2071.574951171875
+      },
+      {
+        "cfg": {
+          "lookback": 28,
+          "d_model": 128,
+          "n_layers": 2,
+          "d_state": 32,
+          "dropout": 0.3,
+          "lr": 0.005,
+          "wd": 0.05,
+          "dt_min": 0.001,
+          "dt_max": 0.1,
+          "anchor": "none"
+        },
+        "val_MAE": 780.0003662109375
+      },
+      {
+        "cfg": {
+          "lookback": 28,
+          "d_model": 128,
+          "n_layers": 4,
+          "d_state": 32,
+          "dropout": 0.1,
+          "lr": 0.0005,
+          "wd": 0.1,
+          "dt_min": 0.001,
+          "dt_max": 0.5,
+          "anchor": "last"
+        },
+        "val_MAE": 2117.477783203125
+      },
+      {
+        "cfg": {
+          "lookback": 56,
+          "d_model": 32,
+          "n_layers": 3,
+          "d_state": 64,
+          "dropout": 0.0,
+          "lr": 0.0005,
+          "wd": 0.05,
+          "dt_min": 0.01,
+          "dt_max": 0.1,
+          "anchor": "last"
+        },
+        "val_MAE": 2128.4921875
+      }
+    ]
+  },
+  "results": {
+    "persistence": {
+      "MAE": 1925.0389404296875,
+      "RMSE": 2591.47021484375,
+      "MAPE%": 4.894384860992432,
+      "MASE": 0.9061579186737102
+    },
+    "seasonal_naive_7": {
+      "MAE": 3016.1474609375,
+      "RMSE": 4409.6650390625,
+      "MAPE%": 8.007964134216309,
+      "MASE": 1.4197665554786465
+    },
+    "TimeXer (to hop)": {
+      "MAE": 997.138671875,
+      "RMSE": 1386.426025390625,
+      "MAPE%": 2.595735549926758,
+      "MASE": 0.469374974479027
+    },
+    "S-Mamba (to hop)": {
+      "MAE": 911.010009765625,
+      "RMSE": 1340.060791015625,
+      "MAPE%": 2.3407769203186035,
+      "MASE": 0.4288323300908767
+    },
+    "S4D (to hop)": {
+      "MAE": 929.1708984375,
+      "RMSE": 1284.870361328125,
+      "MAPE%": 2.417355537414551,
+      "MASE": 0.4373810574618139
+    },
+    "TimeXer (TB 5 seed)": {
+      "MAE": 1096.2855834960938,
+      "RMSE": 1505.515771484375,
+      "MAPE%": 2.853511428833008,
+      "MASE": 0.516045593545799,
+      "MAE_std": 46.09570584660644
+    },
+    "S-Mamba (TB 5 seed)": {
+      "MAE": 975.1625,
+      "RMSE": 1421.5692626953125,
+      "MAPE%": 2.507651615142822,
+      "MASE": 0.4590303098863092,
+      "MAE_std": 16.119958859042413
+    },
+    "S4D (TB 5 seed)": {
+      "MAE": 1006.8535278320312,
+      "RMSE": 1402.4142822265626,
+      "MAPE%": 2.6215426445007326,
+      "MASE": 0.4739479695854394,
+      "MAE_std": 76.23998432781875
+    }
+  },
+  "dm": {
+    "S-Mamba (to hop)_vs_persistence": {
+      "stat": -10.218241024707375,
+      "p": 0.0
+    },
+    "S-Mamba (to hop)_vs_seasonal_naive_7": {
+      "stat": -11.450050595414263,
+      "p": 0.0
+    },
+    "S-Mamba (to hop)_vs_TimeXer (to hop)": {
+      "stat": -2.1476947523902,
+      "p": 0.03258711898357691
+    },
+    "S-Mamba (to hop)_vs_S4D (to hop)": {
+      "stat": -0.37950665880345996,
+      "p": 0.7045962753557371
+    },
+    "S4D_vs_persistence": {
+      "stat": -9.604958030366497,
+      "p": 0.0
+    },
+    "S4D_vs_seasonal_naive_7": {
+      "stat": -11.134058138831717,
+      "p": 0.0
+    },
+    "S4D_vs_TimeXer (to hop)": {
+      "stat": -1.5325588210551018,
+      "p": 0.12650169448791182
+    },
+    "S4D_vs_S-Mamba (to hop)": {
+      "stat": 0.37950665880345996,
+      "p": 0.7045962753557371
+    }
+  },
+  "best_model": "S-Mamba (to hop)",
+  "n_test": 284,
+  "mase_scale": 2124.396753324468,
+  "seconds": 1503.5508093833923
+}

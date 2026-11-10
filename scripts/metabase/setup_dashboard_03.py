@@ -84,7 +84,7 @@ def deploy_dashboard_03(base_url=None, user=None, password=None):
             "viz": {}, "col": 12, "row": 0, "size_x": 6, "size_y": 4
         },
         {
-            "name": "Mức Độ Căng Thẳng Truyền Tải Liên Miền (500kV Stress)",
+            "name": "Chỉ Báo Áp Lực Truyền Tải Liên Miền (Proxy Index)",
             "display": "scalar",
             "sql": f"""
                 {CTE}
@@ -171,7 +171,7 @@ def deploy_dashboard_03(base_url=None, user=None, password=None):
 
         # Nhịp 3: Phân tích tài nguyên & Chênh lệch truyền tải (Rows 14-31)
         {
-            "name": "Bức Xạ Nắng & Gió 3 Miền (Tiềm Năng NLTT Tự Nhiên)",
+            "name": "Bức Xạ Nắng & Tốc Độ Gió 3 Miền (Tiềm Năng Khí Hậu Tự Nhiên)",
             "display": "bar",
             "sql": f"""
                 {CTE}
@@ -195,7 +195,7 @@ def deploy_dashboard_03(base_url=None, user=None, password=None):
             "viz": {
                 "graph.dimensions": ["Vung_Mien"],
                 "graph.metrics": ["Buc_Xa_Nang_MJ_m2", "Toc_Do_Gio_m_s"],
-                "graph.y_axis.title_text": "Tiềm năng thời tiết",
+                "graph.y_axis.title_text": "Tiềm năng thời tiết tự nhiên",
                 "column_settings": {
                     '["name","Vung_Mien"]': {"column_title": "Vùng Miền"},
                     '["name","Buc_Xa_Nang_MJ_m2"]': {"column_title": "Bức xạ mặt trời (MJ/m²)"},
@@ -205,7 +205,7 @@ def deploy_dashboard_03(base_url=None, user=None, password=None):
             "col": 0, "row": 14, "size_x": 12, "size_y": 10
         },
         {
-            "name": "Chênh Lệch Phụ Tải Bắc - Nam & Áp Lực Truyền Tải 500kV 24 Giờ",
+            "name": "Chênh Lệch Phụ Tải Bắc - Nam & Dòng Hỗ Trợ Ước Tính (Proxy 500kV)",
             "display": "line",
             "sql": f"""
                 {CTE}
@@ -225,12 +225,12 @@ def deploy_dashboard_03(base_url=None, user=None, password=None):
                 "graph.dimensions": ["Gio"],
                 "graph.metrics": ["Chenh_Lech_Bac_Nam_MW", "Dong_Truyen_Tai_500kV_Uoc_Tinh_MW"],
                 "graph.x_axis.scale": "linear",
-                "graph.y_axis.title_text": "Công suất chênh lệch & Truyền tải (MW)",
+                "graph.y_axis.title_text": "Công suất chênh lệch & Dòng hỗ trợ Proxy (MW)",
                 "graph.x_axis.title_text": "Giờ trong ngày (0-23h)",
                 "column_settings": {
                     '["name","Gio"]': {"column_title": "Giờ"},
-                    '["name","Chenh_Lech_Bac_Nam_MW"]': {"column_title": "Chênh lệch tải Bắc - Nam (Vọt +5,426 MW lúc 18h)"},
-                    '["name","Dong_Truyen_Tai_500kV_Uoc_Tinh_MW"]': {"column_title": "Ước tính dòng điện 500kV cần bơm ra Bắc (MW)"}
+                    '["name","Chenh_Lech_Bac_Nam_MW"]': {"column_title": "Chênh lệch tải Bắc - Nam (Vọt +5,267 MW lúc 18h)"},
+                    '["name","Dong_Truyen_Tai_500kV_Uoc_Tinh_MW"]': {"column_title": "Dòng công suất hỗ trợ ước tính - Proxy (MW)"}
                 }
             },
             "col": 12, "row": 14, "size_x": 12, "size_y": 10

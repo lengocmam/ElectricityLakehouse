@@ -1,0 +1,14 @@
+{
+ "best_config": {
+  "lightgbm": {
+   "lags": 14,
+   "num_leaves": 15,
+   "learning_rate": 0.03,
+   "min_data_in_leaf": 15,
+   "feature_fraction": 0.8
+  },
+  "ridge": {
+   "lags": 14
+  }
+ }
+}

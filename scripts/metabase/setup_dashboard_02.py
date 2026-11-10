@@ -1,16 +1,21 @@
 # -*- coding: utf-8 -*-
-"""Dashboard 02: Khí Hậu Cực Đoan, An Ninh Nguồn Nước & Thủy Điện.
+"""Dashboard 02: Thời Tiết Cực Đoan, An Ninh Nước & Thủy Điện.
 
-Tác động kép của khí hậu cực đoan đến hệ thống điện:
-- Nắng nóng kích hoạt nhu cầu làm mát (Độ nhạy phụ tải theo dải nhiệt độ máy lạnh).
-- Mưa lũ điều tiết an toàn hồ đập bậc thang Sông Đà và tối ưu hóa xả phát điện tổ máy vs xả tràn.
-- Giám sát an toàn, dung tích hữu ích và số cửa xả lũ mở của 30 đập thủy điện toàn quốc.
+Storytelling Architecture:
+- Thông điệp: Thời tiết tác động theo hai hướng: nhiệt độ ảnh hưởng nhu cầu điện,
+  mưa ảnh hưởng lượng nước về hồ và an toàn vận hành.
+- Nguồn kết hợp: Open-Meteo (nhiệt độ, bức xạ, mưa) × Phụ tải NSMO × Thủy văn EVN × Điện mặt trời NSMO.
+- Bộ lọc: {{selected_date}} (chọn ngày) và {{reservoir}} (chọn hồ thủy điện).
 """
-import os
 import sys
+import os
 
-# Ensure local imports work regardless of execution directory
-sys.stdout.reconfigure(encoding='utf-8')
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from common import (
@@ -19,18 +24,72 @@ from common import (
     get_metabase_url,
     get_or_create_collection,
     get_or_create_dashboard,
-    get_target_date_cte,
     parse_common_args,
     set_dashboard_layout,
     upsert_card,
+    COMMON_TAG_DEF,
 )
 
-DASHBOARD_NAME = "02. Khí Hậu Cực Đoan, An Ninh Nguồn Nước & Thủy Điện"
+DASHBOARD_NAME = "02. Thời Tiết Cực Đoan, An Ninh Nước & Thủy Điện"
 DASHBOARD_DESC = (
-    "Tác động kép của biến đổi khí hậu: Nắng nóng bùng nổ phụ tải máy lạnh, "
-    "điều tiết an toàn bậc thang Sông Đà và ma trận xả lũ 30 đập quốc gia."
+    "Thời tiết tác động theo hai hướng: nhiệt độ ảnh hưởng nhu cầu điện máy lạnh, "
+    "mưa ảnh hưởng lượng nước về hồ và an toàn vận hành hồ đập thủy điện quốc gia."
 )
-CTE = get_target_date_cte("iceberg.gold.fact_hydro_status")
+
+TARGET_DATE_CTE = """
+WITH target AS (
+    SELECT COALESCE(
+        NULL [[ , CAST({{selected_date}} AS DATE) ]],
+        (SELECT MAX(date_value) FROM gold.v_gen_hourly)
+    ) AS selected_date
+)
+""".strip()
+
+HYDRO_PLANTS = [
+    'Bản Chát', 'Huội Quảng', 'Hòa Bình', 'Lai Châu', 'Sơn La', 'Thác Bà', 'Tuyên Quang',
+    'Đa Mi', 'Đại Ninh', 'Đơn Dương', 'Đồng Nai 3', 'Đồng Nai 4', 'Hàm Thuận', 'Thác Mơ', 'Trị An',
+    'A Vương', 'An Khê', 'Buôn Kuốp', 'Buôn Tua Srah', 'Bản Vẽ', 'Ialy', 'Kanak', 'Khe Bố',
+    'Pleikrông', 'Quảng Trị', 'Sê San 3', 'Sê San 3A', 'Sê San 4', 'Sông Ba Hạ', 'Sông Bung 2',
+    'Sông Bung 4', 'Sông Hinh', 'Sông Tranh 2', 'Thượng Kon Tum', 'Trung Sơn', 'Vĩnh Sơn A'
+]
+
+TAGS_DATE_AND_RESERVOIR = {
+    "selected_date": {
+        "id": "tag_selected_date",
+        "name": "selected_date",
+        "display-name": "Chọn Ngày",
+        "type": "date",
+        "required": False
+    },
+    "reservoir": {
+        "id": "tag_reservoir",
+        "name": "reservoir",
+        "display-name": "Chọn Hồ Thủy Điện",
+        "type": "text",
+        "required": False
+    }
+}
+
+DASHBOARD_PARAMETERS = [
+    {
+        "id": "date_filter",
+        "name": "Chọn Ngày (Để trống = Tự động lấy ngày mới nhất)",
+        "slug": "selected_date",
+        "type": "date/single",
+        "default": None
+    },
+    {
+        "id": "reservoir_filter",
+        "name": "Chọn Hồ Thủy Điện",
+        "slug": "reservoir",
+        "type": "string/=",
+        "default": "Hòa Bình",
+        "values_source_type": "static-list",
+        "values_source_config": {
+            "values": sorted(HYDRO_PLANTS)
+        }
+    }
+]
 
 
 def deploy_dashboard_02(base_url=None, user=None, password=None):
@@ -46,253 +105,356 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
     dash_id = get_or_create_dashboard(url, token, col_id, DASHBOARD_NAME, DASHBOARD_DESC)
 
     cards_def = [
-        # ----------------------------------------------------------------------
-        # NHỊP 1: 4 KPIs VẬN HÀNH THỜI GIAN THỰC (Rows 0-3, Height 4)
-        # ----------------------------------------------------------------------
+        # ======================================================================
+        # NHỊP 1: 4 KPIs THỜI TIẾT & THỦY VĂN (Rows 0-3, Height 4, Width 6)
+        # ======================================================================
         {
-            "name": "Nhiệt độ Cực Đại Toàn Quốc (°C)",
+            "name": "D2-1. Nhiệt độ cực đại & Bình quân trọng số phụ tải",
+            "desc": "Tmax toàn quốc kèm vùng/giờ xảy ra và nhiệt độ bình quân có trọng số theo phụ tải 3 miền.",
             "display": "scalar",
             "sql": f"""
-                {CTE}
-                SELECT ROUND(MAX(w.temperature_2m_max), 1) AS max_temp_c 
-                FROM iceberg.gold.fact_weather_daily w
-                JOIN target_date td ON w.date_key = td.date_key
+                {TARGET_DATE_CTE},
+                w AS (
+                  SELECT * FROM gold.v_weather_hourly WHERE date_value = (SELECT selected_date FROM target)
+                ),
+                l AS (
+                  SELECT * FROM gold.v_load_region_hourly WHERE date_value = (SELECT selected_date FROM target)
+                ),
+                j AS (
+                  SELECT w.temperature_c, w.region_name, w.hour_of_day, l.load_mw
+                  FROM w JOIN l ON w.hour_of_day = l.hour_of_day AND w.region_name = l.region_name
+                )
+                SELECT ROUND(MAX(temperature_c), 1) AS tmax_c,
+                       MAX_BY(region_name, temperature_c) AS tmax_region,
+                       MAX_BY(hour_of_day, temperature_c) AS tmax_hour,
+                       ROUND(SUM(temperature_c * load_mw) / NULLIF(SUM(load_mw), 0), 1) AS temp_weighted_c
+                FROM j
             """,
-            "viz": {}, "col": 0, "row": 0, "size_x": 6, "size_y": 4
+            "viz": {
+                "column_settings": {
+                    '["name","tmax_c"]': {"column_title": "Tmax Toàn Quốc (°C)"},
+                    '["name","tmax_region"]': {"column_title": "Miền Tmax"},
+                    '["name","tmax_hour"]': {"column_title": "Giờ Tmax"},
+                    '["name","temp_weighted_c"]': {"column_title": "Nhiệt độ trọng số (°C)"}
+                }
+            },
+            "col": 0, "row": 0, "size_x": 6, "size_y": 4
         },
         {
-            "name": "Hệ Số Co Giãn Nhiệt Độ (MW / °C)",
+            "name": "D2-2. Tổng lưu lượng nước về hồ & Biến động 7 ngày",
+            "desc": "Tổng lưu lượng dòng chảy về các hồ thủy điện (m³/s) so với trung bình 7 ngày trước.",
             "display": "scalar",
             "sql": f"""
-                {CTE}
-                SELECT ROUND((MAX(p.peak_load_mw) - MIN(p.peak_load_mw)) / NULLIF(MAX(w.temperature_2m_mean) - MIN(w.temperature_2m_mean), 0), 0) AS mw_per_c 
-                FROM iceberg.gold.fact_weather_daily w 
-                JOIN target_date td ON w.date_key <= td.date_key
-                JOIN (
-                    SELECT date_key, MAX(daily_peak_load_mw) AS peak_load_mw 
-                    FROM iceberg.gold.fact_load_hourly 
-                    GROUP BY date_key
-                ) p ON w.date_key = p.date_key 
-                WHERE w.temperature_2m_mean >= 30.0
+                {TARGET_DATE_CTE},
+                d AS (
+                  SELECT date_value, SUM(inflow_m3s) AS q_in
+                  FROM gold.v_hydro_daily
+                  WHERE date_value BETWEEN (SELECT selected_date FROM target) - INTERVAL '7' DAY AND (SELECT selected_date FROM target)
+                  GROUP BY 1
+                )
+                SELECT ROUND(MAX(CASE WHEN date_value = (SELECT selected_date FROM target) THEN q_in END)) AS q_in_today,
+                       ROUND(AVG(CASE WHEN date_value < (SELECT selected_date FROM target) THEN q_in END)) AS q_in_avg7,
+                       ROUND(100.0 * (MAX(CASE WHEN date_value = (SELECT selected_date FROM target) THEN q_in END)
+                             / NULLIF(AVG(CASE WHEN date_value < (SELECT selected_date FROM target) THEN q_in END), 0) - 1), 1) AS change_pct
+                FROM d
             """,
-            "viz": {}, "col": 6, "row": 0, "size_x": 6, "size_y": 4
+            "viz": {
+                "column_settings": {
+                    '["name","q_in_today"]': {"column_title": "Lưu lượng về hôm nay (m³/s)"},
+                    '["name","q_in_avg7"]': {"column_title": "TB 7 ngày trước (m³/s)"},
+                    '["name","change_pct"]': {"column_title": "Tăng giảm (%)"}
+                }
+            },
+            "col": 6, "row": 0, "size_x": 6, "size_y": 4
         },
         {
-            "name": "Tổng Lưu Lượng Nước Về 30 Hồ Thủy Điện (m³/s)",
+            "name": "D2-3. Tổng lưu lượng xả & Tỷ lệ qua tổ máy",
+            "desc": "Hiệu quả sử dụng nước: Q qua tổ máy phát điện, Q xả tràn và tỷ lệ nước được tận dụng.",
             "display": "scalar",
             "sql": f"""
-                {CTE}
-                SELECT ROUND(SUM(h.reservoir_inflow_m3_per_s), 0) AS total_inflow_m3_s 
-                FROM iceberg.gold.fact_hydro_status h
-                JOIN target_date td ON h.date_key = td.date_key
+                {TARGET_DATE_CTE}
+                SELECT ROUND(SUM(turbine_flow_m3s)) AS q_turbine,
+                       ROUND(SUM(spill_flow_m3s))   AS q_spill,
+                       ROUND(100.0 * SUM(turbine_flow_m3s)
+                             / NULLIF(SUM(turbine_flow_m3s) + SUM(spill_flow_m3s), 0), 1) AS turbine_share_pct
+                FROM gold.v_hydro_daily
+                WHERE date_value = (SELECT selected_date FROM target)
             """,
-            "viz": {}, "col": 12, "row": 0, "size_x": 6, "size_y": 4
+            "viz": {
+                "column_settings": {
+                    '["name","q_turbine"]': {"column_title": "Xả qua tổ máy (m³/s)"},
+                    '["name","q_spill"]': {"column_title": "Xả tràn (m³/s)"},
+                    '["name","turbine_share_pct"]': {"column_title": "% Tận dụng phát điện"}
+                }
+            },
+            "col": 12, "row": 0, "size_x": 6, "size_y": 4
         },
         {
-            "name": "Cảnh Báo An Toàn & Số Cửa Xả Lũ Đang Mở",
+            "name": "D2-4. Mức cảnh báo an toàn hồ chứa (3 phân cấp)",
+            "desc": "Phân cấp cảnh báo hồ đập (Đỏ: Mực nước cao + lũ dồn | Vàng: Mở cửa xả hoặc dung tích >= 95% | Xanh: An toàn).",
             "display": "scalar",
             "sql": f"""
-                {CTE}
-                SELECT CASE 
-                    WHEN SUM(h.deep_discharge_gate_count + h.surface_discharge_gate_count) > 0 
-                    THEN '⚠️ ĐANG MỞ ' || CAST(SUM(h.deep_discharge_gate_count + h.surface_discharge_gate_count) AS VARCHAR) || ' CỬA XẢ LŨ' 
-                    ELSE '✅ AN TOÀN - ĐÓNG CỬA XẢ' 
-                END AS alert_status 
-                FROM iceberg.gold.fact_hydro_status h
-                JOIN target_date td ON h.date_key = td.date_key
+                {TARGET_DATE_CTE}
+                SELECT MAX(alert_level)                       AS overall_level,
+                       COUNT_IF(alert_level = 3)              AS n_red,
+                       COUNT_IF(alert_level = 2)              AS n_yellow,
+                       COUNT_IF(alert_level = 1)              AS n_green,
+                       SUM(spill_gates_open)                  AS gates_open
+                FROM gold.v_hydro_daily
+                WHERE date_value = (SELECT selected_date FROM target)
             """,
-            "viz": {}, "col": 18, "row": 0, "size_x": 6, "size_y": 4
+            "viz": {
+                "column_settings": {
+                    '["name","overall_level"]': {"column_title": "Mức cao nhất (1=Xanh, 2=Vàng, 3=Đỏ)"},
+                    '["name","n_red"]': {"column_title": "Số hồ Đỏ"},
+                    '["name","n_yellow"]': {"column_title": "Số hồ Vàng"},
+                    '["name","n_green"]': {"column_title": "Số hồ Xanh"},
+                    '["name","gates_open"]': {"column_title": "Tổng cửa xả mở"}
+                }
+            },
+            "col": 18, "row": 0, "size_x": 6, "size_y": 4
         },
 
-        # ----------------------------------------------------------------------
-        # NHỊP 2: 2 HERO CHARTS - HỒI 1: KHÍ HẬU & BẬC THANG SÔNG ĐÀ (Rows 4-13)
-        # ----------------------------------------------------------------------
+        # ======================================================================
+        # NHỊP 1: 2 HERO CHARTS CHIẾN LƯỢC (Rows 4-12, Height 9, Width 12 each)
+        # ======================================================================
         {
-            "name": "Độ Nhạy Phụ Tải Theo Dải Nhiệt Độ Máy Lạnh (MW)",
-            "display": "bar",
+            "name": "D2-5. [Hero 1] Độ nhạy phụ tải theo nhiệt độ (Scatter 13h-15h)",
+            "desc": "Mối quan hệ nhiệt độ nắng nóng và nhu cầu phụ tải máy lạnh (cố định khung 13h-15h các ngày làm việc 90 ngày qua).",
+            "display": "scatter",
             "sql": f"""
-                {CTE},
-                daily_stats AS (
-                    SELECT 
-                        w.date_key,
-                        AVG(w.temperature_2m_mean) AS nat_temp,
-                        MAX(p.daily_peak_load_mw) AS peak_mw
-                    FROM iceberg.gold.fact_weather_daily w
-                    JOIN target_date td ON w.date_key <= td.date_key
-                    JOIN iceberg.gold.fact_load_hourly p ON w.date_key = p.date_key
-                    GROUP BY w.date_key
+                {TARGET_DATE_CTE},
+                hr AS (
+                  SELECT l.date_value, l.hour_of_day,
+                         SUM(l.load_mw) AS load_mw,
+                         SUM(w.temperature_c * l.load_mw) / SUM(l.load_mw) AS temp_c
+                  FROM gold.v_load_region_hourly l
+                  JOIN gold.v_weather_hourly w
+                    ON w.date_value = l.date_value AND w.hour_of_day = l.hour_of_day AND w.region_name = l.region_name
+                  JOIN gold.dim_date dd ON dd.date_value = l.date_value
+                  CROSS JOIN target
+                  WHERE l.hour_of_day BETWEEN 13 AND 15
+                    AND NOT dd.is_weekend AND NOT dd.is_holiday
+                    AND l.date_value BETWEEN target.selected_date - INTERVAL '90' DAY AND target.selected_date
+                  GROUP BY 1, 2
+                ),
+                d AS (
+                  SELECT date_value, AVG(load_mw) AS load_mw, AVG(temp_c) AS temp_c
+                  FROM hr GROUP BY 1
                 )
-                SELECT 
-                    CASE 
-                        WHEN nat_temp < 20.0 THEN '1. Dưới 20°C (Tiết trời lạnh)'
-                        WHEN nat_temp < 24.0 THEN '2. 20 - 24°C (Mát mẻ)'
-                        WHEN nat_temp < 27.0 THEN '3. 24 - 27°C (Dễ chịu)'
-                        WHEN nat_temp < 30.0 THEN '4. 27 - 30°C (Bật máy lạnh)'
-                        ELSE '5. Trên 30°C (Nắng nóng cao điểm)'
-                    END AS Dai_Nhiet_Do,
-                    ROUND(AVG(peak_mw), 0) AS Phu_Tai_Dinh_Binh_Quan_MW,
-                    ROUND(MAX(peak_mw), 0) AS Dinh_Tai_Ky_Luc_MW
-                FROM daily_stats
-                GROUP BY 1
+                SELECT ROUND(temp_c, 1) AS "Nhiệt độ 13h-15h (°C)",
+                       ROUND(load_mw) AS "Phụ tải Quốc gia (MW)",
+                       date_value AS "Ngày"
+                FROM d
+                ORDER BY temp_c
+            """,
+            "viz": {
+                "graph.dimensions": ["Nhiệt độ 13h-15h (°C)"],
+                "graph.metrics": ["Phụ tải Quốc gia (MW)"]
+            },
+            "col": 0, "row": 4, "size_x": 12, "size_y": 9
+        },
+        {
+            "name": "D2-6. [Hero 2] Thước đo mực nước an toàn hồ chứa",
+            "desc": "Vị trí mực nước hiện tại so với Mực nước chết (0%) và Mực nước dâng bình thường (100%) kèm % dung tích hữu ích.",
+            "display": "table",
+            "sql": f"""
+                {TARGET_DATE_CTE},
+                target_res AS (
+                    SELECT COALESCE(
+                        NULL [[ , {{{{reservoir}}}} ]],
+                        'Hòa Bình'
+                    ) AS res_name
+                )
+                SELECT h.reservoir_name AS "Hồ thủy điện",
+                       h.water_level_m AS "Mực nước hiện tại (m)",
+                       h.dead_level_m AS "Mực nước chết (m)",
+                       h.normal_level_m AS "Mực nước dâng BT (m)",
+                       ROUND(100.0 * (h.water_level_m - h.dead_level_m)
+                             / NULLIF(h.normal_level_m - h.dead_level_m, 0), 1) AS "Vị trí cột nước (%)",
+                       h.storage_pct AS "Dung tích hữu ích (%)",
+                       h.alert_label AS "Trạng thái an toàn"
+                FROM gold.v_hydro_daily h
+                CROSS JOIN target
+                CROSS JOIN target_res
+                WHERE h.date_value = target.selected_date AND h.reservoir_name = target_res.res_name
+            """,
+            "viz": {
+                "table.pivot": False
+            },
+            "tag_def": TAGS_DATE_AND_RESERVOIR,
+            "has_reservoir_filter": True,
+            "col": 12, "row": 4, "size_x": 12, "size_y": 9
+        },
+
+        # ======================================================================
+        # NHỊP 2: CUỘN XUỐNG - CÂN BẰNG THỦY VĂN & BỨC XẠ (Rows 13-20, Height 8)
+        # ======================================================================
+        {
+            "name": "D2-7. Cân bằng thủy văn hồ được chọn (30 ngày)",
+            "desc": "Diễn biến Q về, Q qua tổ máy, Q xả tràn và lượng mưa lưu vực 30 ngày qua của hồ được chọn.",
+            "display": "line",
+            "sql": f"""
+                {TARGET_DATE_CTE},
+                target_res AS (
+                    SELECT COALESCE(
+                        NULL [[ , {{{{reservoir}}}} ]],
+                        'Hòa Bình'
+                    ) AS res_name
+                ),
+                rain AS (
+                  SELECT date_value, SUM(precipitation_mm) AS rain_mm
+                  FROM gold.v_weather_hourly
+                  WHERE region_name = 'Bắc'
+                  GROUP BY 1
+                )
+                SELECT h.date_value AS "Ngày",
+                       h.inflow_m3s AS "Q về (m³/s)",
+                       h.turbine_flow_m3s AS "Q qua tổ máy (m³/s)",
+                       h.spill_flow_m3s AS "Q xả tràn (m³/s)",
+                       COALESCE(r.rain_mm, 0) AS "Lượng mưa lưu vực (mm)"
+                FROM gold.v_hydro_daily h
+                LEFT JOIN rain r ON h.date_value = r.date_value
+                CROSS JOIN target
+                CROSS JOIN target_res
+                WHERE h.reservoir_name = target_res.res_name
+                  AND h.date_value BETWEEN target.selected_date - INTERVAL '29' DAY AND target.selected_date
                 ORDER BY 1
             """,
             "viz": {
-                "graph.dimensions": ["Dai_Nhiet_Do"],
-                "graph.metrics": ["Phu_Tai_Dinh_Binh_Quan_MW", "Dinh_Tai_Ky_Luc_MW"],
-                "graph.y_axis.title_text": "Phụ tải Đỉnh Pmax (MW)",
-                "graph.x_axis.title_text": "Dải Nhiệt Độ Khí Tượng (°C)",
-                "column_settings": {
-                    '["name","Dai_Nhiet_Do"]': {"column_title": "Dải Nhiệt Độ Khí Tượng"},
-                    '["name","Phu_Tai_Dinh_Binh_Quan_MW"]': {"column_title": "Phụ Tải Đỉnh Bình Quân (MW)"},
-                    '["name","Dinh_Tai_Ky_Luc_MW"]': {"column_title": "Đỉnh Tải Kỷ Lục (MW)"}
+                "graph.dimensions": ["Ngày"],
+                "graph.metrics": [
+                    "Q về (m³/s)",
+                    "Q qua tổ máy (m³/s)",
+                    "Q xả tràn (m³/s)",
+                    "Lượng mưa lưu vực (mm)"
+                ],
+                "series_settings": {
+                    "Q về (m³/s)": {"color": "#3B82F6"},
+                    "Q qua tổ máy (m³/s)": {"color": "#10B981"},
+                    "Q xả tràn (m³/s)": {"color": "#EF4444"},
+                    "Lượng mưa lưu vực (mm)": {"display": "bar", "color": "#60A5FA"}
                 }
             },
-            "col": 0, "row": 4, "size_x": 12, "size_y": 10
+            "tag_def": TAGS_DATE_AND_RESERVOIR,
+            "has_reservoir_filter": True,
+            "col": 0, "row": 13, "size_x": 14, "size_y": 8
         },
         {
-            "name": "Bậc Thang Sông Đà: Giám Sát Mực Nước So Với Ngưỡng An Toàn",
-            "display": "bar",
+            "name": "D2-8. Bức xạ mặt trời vs Công suất điện mặt trời (Scatter)",
+            "desc": "Kiểm tra độ tương quan bức xạ - công suất mặt trời và phát hiện các giờ công suất thấp bất thường.",
+            "display": "scatter",
             "sql": f"""
-                {CTE}
-                SELECT 
-                    split_part(p.plant_name, ' Đồng bộ', 1) AS Nha_May_Thuy_Dien,
-                    ROUND(h.upstream_water_level_m, 1) AS Muc_Nuoc_Hien_Tai_m,
-                    ROUND(h.normal_water_level_m, 1) AS Muc_Nuoc_Dang_BT_m,
-                    ROUND(h.dead_water_level_m, 1) AS Muc_Nuoc_Chet_m
-                FROM iceberg.gold.fact_hydro_status h
-                JOIN target_date td ON h.date_key = td.date_key
-                JOIN iceberg.gold.dim_plant p ON h.plant_key = p.plant_key
-                WHERE p.river_basin = 'Sông Đà'
-                ORDER BY h.normal_water_level_m DESC
+                {TARGET_DATE_CTE},
+                anchor AS (
+                    SELECT CASE 
+                        WHEN (SELECT selected_date FROM target) <= DATE '2024-06-03'
+                        THEN (SELECT selected_date FROM target)
+                        ELSE DATE '2024-06-03'
+                    END AS ref_date
+                ),
+                s AS (
+                  SELECT g.date_value, g.hour_of_day, g.generation_mw AS solar_mw,
+                         AVG(w.radiation_wm2) AS rad_wm2
+                  FROM gold.v_gen_hourly g
+                  CROSS JOIN anchor
+                  JOIN gold.v_weather_hourly w
+                    ON w.date_value = g.date_value AND w.hour_of_day = g.hour_of_day
+                   AND w.region_name IN ('Trung', 'Nam')
+                   AND w.date_value BETWEEN anchor.ref_date - INTERVAL '30' DAY AND anchor.ref_date
+                  WHERE g.source_group = 'Mặt trời'
+                    AND g.date_value BETWEEN anchor.ref_date - INTERVAL '30' DAY AND anchor.ref_date
+                    AND w.radiation_wm2 > 50
+                  GROUP BY 1, 2, 3
+                ),
+                ref AS (
+                  SELECT APPROX_PERCENTILE(solar_mw / rad_wm2, 0.5) AS median_ratio
+                  FROM s WHERE rad_wm2 >= 500
+                )
+                SELECT ROUND(s.rad_wm2) AS "Bức xạ mặt trời (W/m²)",
+                       ROUND(s.solar_mw) AS "Công suất phát (MW)",
+                       s.date_value AS "Ngày",
+                       s.hour_of_day AS "Giờ",
+                       CASE WHEN (s.rad_wm2 >= 500 AND s.solar_mw / s.rad_wm2 < 0.8 * ref.median_ratio) 
+                            THEN 'Nghi vấn phát thấp' 
+                            ELSE 'Bình thường' 
+                       END AS "Trạng thái"
+                FROM s CROSS JOIN ref
+                ORDER BY 1, 2
             """,
             "viz": {
-                "graph.dimensions": ["Nha_May_Thuy_Dien"],
-                "graph.metrics": ["Muc_Nuoc_Hien_Tai_m", "Muc_Nuoc_Dang_BT_m", "Muc_Nuoc_Chet_m"],
-                "graph.y_axis.title_text": "Mực nước hồ (mét)",
-                "graph.x_axis.title_text": "Bậc Thang Thủy Điện Sông Đà",
-                "column_settings": {
-                    '["name","Nha_May_Thuy_Dien"]': {"column_title": "Đập Thủy Điện"},
-                    '["name","Muc_Nuoc_Hien_Tai_m"]': {"column_title": "Mực Nước Hiện Tại (m)"},
-                    '["name","Muc_Nuoc_Dang_BT_m"]': {"column_title": "Mực Nước Dâng Bình Thường (m)"},
-                    '["name","Muc_Nuoc_Chet_m"]': {"column_title": "Mực Nước Chết (m)"}
-                }
+                "graph.dimensions": ["Bức xạ mặt trời (W/m²)"],
+                "graph.metrics": ["Công suất phát (MW)"]
             },
-            "col": 12, "row": 4, "size_x": 12, "size_y": 10
+            "col": 14, "row": 13, "size_x": 10, "size_y": 8
         },
 
-        # ----------------------------------------------------------------------
-        # NHỊP 3: HỒI 2: ĐIỀU TIẾT XẢ PHÁT ĐIỆN & PHÂN BỔ LƯU VỰC (Rows 14-23)
-        # ----------------------------------------------------------------------
+        # ======================================================================
+        # NHỊP 2: MA TRẬN GIÁM SÁT HỒ CHỨA THEO LƯU VỰC (Rows 21-28, Height 8, Width 24)
+        # ======================================================================
         {
-            "name": "Điều Tiết Hồ Hòa Bình 30 Ngày: Xả Phát Điện Tổ Máy vs Xả Tràn Chống Lũ",
-            "display": "line",
-            "sql": f"""
-                {CTE}
-                SELECT 
-                    d.full_date AS Ngay, 
-                    ROUND(h.reservoir_inflow_m3_per_s, 1) AS Q_Ve_m3_s, 
-                    ROUND(h.powerhouse_discharge_m3_per_s, 1) AS Q_Phat_Dien_m3_s,
-                    ROUND(h.spillway_discharge_m3_per_s, 1) AS Q_Xa_Tran_m3_s
-                FROM iceberg.gold.fact_hydro_status h 
-                JOIN target_date td ON h.date_key <= td.date_key
-                JOIN iceberg.gold.dim_plant p ON h.plant_key = p.plant_key 
-                JOIN iceberg.gold.dim_date d ON h.date_key = d.date_key 
-                WHERE p.plant_name LIKE '%Hòa Bình%' 
-                ORDER BY h.date_key DESC 
-                LIMIT 30
-            """,
-            "viz": {
-                "graph.dimensions": ["Ngay"],
-                "graph.metrics": ["Q_Ve_m3_s", "Q_Phat_Dien_m3_s", "Q_Xa_Tran_m3_s"],
-                "graph.y_axis.title_text": "Lưu lượng (m³/s)",
-                "graph.x_axis.title_text": "Ngày theo dõi",
-                "column_settings": {
-                    '["name","Ngay"]': {"column_title": "Ngày"},
-                    '["name","Q_Ve_m3_s"]': {"column_title": "Lưu lượng về hồ Qvề (m³/s)"},
-                    '["name","Q_Phat_Dien_m3_s"]': {"column_title": "Xả phát điện qua tổ máy (m³/s)"},
-                    '["name","Q_Xa_Tran_m3_s"]': {"column_title": "Xả tràn chống lũ (m³/s)"}
-                }
-            },
-            "col": 0, "row": 14, "size_x": 12, "size_y": 10
-        },
-        {
-            "name": "Phân Bổ Lưu Lượng Nước Về (Qvề) & Xả Phát Điện Theo 8 Lưu Vực Sông",
-            "display": "bar",
-            "sql": f"""
-                {CTE}
-                SELECT 
-                    p.river_basin AS Luu_Vuc_Song,
-                    ROUND(SUM(h.reservoir_inflow_m3_per_s), 0) AS Tong_Nuoc_Ve_m3_s,
-                    ROUND(SUM(h.powerhouse_discharge_m3_per_s), 0) AS Xa_Phat_Dien_m3_s,
-                    ROUND(SUM(h.spillway_discharge_m3_per_s), 0) AS Xa_Tran_m3_s
-                FROM iceberg.gold.fact_hydro_status h
-                JOIN target_date td ON h.date_key = td.date_key
-                JOIN iceberg.gold.dim_plant p ON h.plant_key = p.plant_key
-                GROUP BY p.river_basin
-                ORDER BY Tong_Nuoc_Ve_m3_s DESC
-            """,
-            "viz": {
-                "graph.dimensions": ["Luu_Vuc_Song"],
-                "graph.metrics": ["Tong_Nuoc_Ve_m3_s", "Xa_Phat_Dien_m3_s", "Xa_Tran_m3_s"],
-                "graph.y_axis.title_text": "Lưu lượng dòng chảy (m³/s)",
-                "graph.x_axis.title_text": "Lưu Vực Sông Quốc Gia",
-                "column_settings": {
-                    '["name","Luu_Vuc_Song"]': {"column_title": "Lưu Vực Sông"},
-                    '["name","Tong_Nuoc_Ve_m3_s"]': {"column_title": "Tổng Nước Về Qvề (m³/s)"},
-                    '["name","Xa_Phat_Dien_m3_s"]': {"column_title": "Xả Phát Điện Tổ Máy (m³/s)"},
-                    '["name","Xa_Tran_m3_s"]': {"column_title": "Xả Tràn Chống Lũ (m³/s)"}
-                }
-            },
-            "col": 12, "row": 14, "size_x": 12, "size_y": 10
-        },
-
-        # ----------------------------------------------------------------------
-        # NHỊP 4: BẢNG MA TRẬN GIÁM SÁT CHI TIẾT 30 ĐẬP (Rows 24-31, Height 8)
-        # ----------------------------------------------------------------------
-        {
-            "name": "Ma Trận Giám Sát An Toàn & Điều Tiết 30 Đập Thủy Điện Quốc Gia",
+            "name": "D2-9. Ma trận giám sát an toàn hồ chứa theo lưu vực",
+            "desc": "Bức tranh tổng thể an toàn liên hồ chứa trên 8 lưu vực sông chính, phân cấp cảnh báo trực quan.",
             "display": "table",
             "sql": f"""
-                {CTE}
-                SELECT 
-                    split_part(p.plant_name, ' Đồng bộ', 1) AS "Nhà Máy Thủy Điện", 
-                    p.river_basin AS "Lưu Vực Sông", 
-                    ROUND(h.upstream_water_level_m, 2) AS "Mực Nước (m)", 
-                    h.normal_water_level_m AS "Dâng BT (m)", 
-                    h.dead_water_level_m AS "Mực Nước Chết (m)", 
-                    ROUND((h.upstream_water_level_m - h.dead_water_level_m) * 100.0 / NULLIF(h.normal_water_level_m - h.dead_water_level_m, 0), 1) AS "Dung Tích Hữu Ích (%)", 
-                    ROUND(h.reservoir_inflow_m3_per_s, 1) AS "Nước Về Qvề (m³/s)",
-                    ROUND(h.powerhouse_discharge_m3_per_s, 1) AS "Xả Tổ Máy (m³/s)",
-                    ROUND(h.spillway_discharge_m3_per_s, 1) AS "Xả Tràn (m³/s)",
-                    (h.deep_discharge_gate_count + h.surface_discharge_gate_count) AS "Cửa Xả Mở", 
-                    CASE 
-                        WHEN (h.deep_discharge_gate_count + h.surface_discharge_gate_count) > 0 THEN '⚠️ Đang xả lũ' 
-                        WHEN h.upstream_water_level_m >= (h.normal_water_level_m - 1.5) THEN '🔴 Đầy hồ' 
-                        WHEN h.upstream_water_level_m <= (h.dead_water_level_m + 3.0) THEN '🟡 Nguy cơ cạn nước' 
-                        ELSE '🟢 Bình thường' 
-                    END AS "Trạng Thái Cảnh Báo" 
-                FROM iceberg.gold.fact_hydro_status h 
-                JOIN target_date td ON h.date_key = td.date_key
-                JOIN iceberg.gold.dim_plant p ON h.plant_key = p.plant_key 
-                ORDER BY (h.deep_discharge_gate_count + h.surface_discharge_gate_count) DESC, "Dung Tích Hữu Ích (%)" DESC
+                {TARGET_DATE_CTE}
+                SELECT basin_name AS "Lưu vực sông",
+                       reservoir_name AS "Hồ thủy điện",
+                       water_level_m AS "Mực nước (m)",
+                       storage_pct AS "Dung tích hữu ích (%)",
+                       ROUND(inflow_m3s) AS "Q về (m³/s)",
+                       ROUND(turbine_flow_m3s) AS "Q tổ máy (m³/s)",
+                       ROUND(spill_flow_m3s) AS "Q xả tràn (m³/s)",
+                       spill_gates_open AS "Cửa xả mở",
+                       alert_label AS "Trạng thái an toàn"
+                FROM gold.v_hydro_daily
+                WHERE date_value = (SELECT selected_date FROM target)
+                ORDER BY basin_name, alert_level DESC, storage_pct DESC
             """,
-            "viz": {}, "col": 0, "row": 24, "size_x": 24, "size_y": 8
+            "viz": {
+                "table.pivot": False
+            },
+            "col": 0, "row": 21, "size_x": 24, "size_y": 8
         }
     ]
 
+    # Create/update cards
+    for card in cards_def:
+        tag_def = card.get("tag_def", COMMON_TAG_DEF)
+        cid = upsert_card(
+            url, token, col_id, db_id,
+            card["name"], card["sql"], card["display"],
+            card.get("viz"), tag_def, card.get("desc")
+        )
+        card["card_id"] = cid
+
+    # Custom parameter mappings
     card_specs = []
     for c in cards_def:
-        cid = upsert_card(url, token, col_id, db_id, c["name"], c["sql"], c["display"], c["viz"])
-        card_specs.append({
-            "card_id": cid, "col": c["col"], "row": c["row"],
-            "size_x": c["size_x"], "size_y": c["size_y"], "viz": c["viz"]
-        })
+        mappings = [
+            {
+                "parameter_id": "date_filter",
+                "card_id": c["card_id"],
+                "target": ["variable", ["template-tag", "selected_date"]]
+            }
+        ]
+        if c.get("has_reservoir_filter", False):
+            mappings.append({
+                "parameter_id": "reservoir_filter",
+                "card_id": c["card_id"],
+                "target": ["variable", ["template-tag", "reservoir"]]
+            })
+        c["parameter_mappings"] = mappings
+        card_specs.append(c)
 
-    set_dashboard_layout(url, token, dash_id, card_specs)
-    print(f"[✓] Dashboard 02 ready at: {url}/dashboard/{dash_id}\n")
-    return dash_id
+    set_dashboard_layout(
+        url, token, dash_id, card_specs,
+        parameters=DASHBOARD_PARAMETERS
+    )
+    print(f"\n[SUCCESS] Deployed {len(cards_def)} cards on {DASHBOARD_NAME} (Dashboard ID: {dash_id})!")
+    print(f"URL: {url}/dashboard/{dash_id}\n")
 
 
 if __name__ == "__main__":
-    args = parse_common_args("Dashboard 02")
+    args = parse_common_args(DASHBOARD_NAME)
     deploy_dashboard_02(args.url, args.user, args.password)
