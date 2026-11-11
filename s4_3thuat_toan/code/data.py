@@ -19,27 +19,30 @@ FEATURE_GROUPS = {
     "hol": ["is_public_holiday", "is_holiday_break", "is_tet_break", "days_to_next_break",
             "days_since_break", "tet_offset", "is_working_day"],
 
-    # 2. Nhóm ĐẶC TRƯNG TƯƠNG QUAN CAO (Đã thanh lọc bằng Ma trận tương quan, loại bỏ biến rác và đa cộng tuyến)
+    # 2. Nhóm ĐẶC TRƯNG TƯƠNG QUAN CAO & RIÊNG PHẦN (Tính toán nghiêm ngặt CHỈ TRÊN TẬP TRAIN 761 ngày)
+    # Đã kiểm soát mùa vụ, xu hướng, chu kỳ tuần bằng Partial Correlation (r_partial) & Sai phân tuần (diff7)
     "load_high_corr": [
-        "wx_temp_c",          # r = 0.5533 (Nhiệt độ - nhu cầu điều hòa)
-        "wx_solar_rad_wm2",   # r = 0.4392 (Bức xạ mặt trời)
-        "month_cos",          # r = -0.5285 (Chu kỳ mùa trong năm)
-        "is_tet_break",       # r = -0.4447 (Kỳ nghỉ Tết sụt giảm tải)
-        "is_public_holiday",  # r = -0.4325 (Ngày lễ quốc gia)
-        "is_working_day",     # r = 0.3710 (Ngày làm việc - loại bỏ is_weekend đa cộng tuyến)
-        "days_since_break",   # r = 0.3562 (Hiệu ứng phục hồi sau kỳ nghỉ)
+        "wx_temp_c",          # r_raw = 0.5456, r_partial = 0.4408 (Nhu cầu làm mát AC vượt ngoài mùa vụ)
+        "wx_solar_rad_wm2",   # r_raw = 0.4076, r_partial = 0.2426 (Bức xạ mặt trời tác động nhiệt công trình)
+        "wx_precip_mm",       # r_diff7 = -0.1907, r_partial = -0.2057 (Hiệu ứng mưa làm mát giảm tải điều hòa)
+        "month_cos",          # r_raw = -0.4491, r_partial = -0.5797 (Chu kỳ mùa hè - đông trong năm)
+        "is_tet_break",       # r_raw = -0.5430, r_partial = -0.5817 (Kỳ nghỉ Tết sụt giảm tải công nghiệp)
+        "is_public_holiday",  # r_raw = -0.5035, r_partial = -0.5319 (Ngày nghỉ lễ quốc gia)
+        "is_working_day",     # r_raw = 0.4676, r_partial = 0.5655 (Ngày làm việc - loại bỏ is_weekend đa cộng tuyến)
+        "days_since_break",   # r_raw = 0.3576, r_partial = 0.3689 (Quán tính phục hồi sản xuất sau kỳ nghỉ)
     ],
     "hydro_high_corr": [
-        "hy_powerhouse_total_m3s", # r = 0.8622 (Lưu lượng xả qua nhà máy)
-        "hy_inflow_total_m3s",     # r = 0.8577, rho = 0.9156 (Tổng lưu lượng nước về hồ)
-        "hy_inflow_da",            # r = 0.7767 (Lưu vực Sông Đà trọng điểm)
-        "hy_inflow_lo_gam",        # r = 0.6375 (Lưu vực Sông Lô - Gâm)
-        "hy_inflow_sesan",         # r = 0.5985 (Lưu vực Sông Sê San)
-        "month_cos",               # r = -0.6401 (Chu kỳ mùa khô / mùa lũ)
-        "month_sin",               # r = -0.5936 (Pha mùa vụ)
-        "wx_humidity_pct",         # r = 0.6236 (Độ ẩm mùa mưa)
-        "wx_precip_mm",            # r = 0.5565 -> 0.6066 ở trễ 7 ngày (Lượng mưa tích tụ)
-        "hy_fill_ratio_mean",      # r = -0.4094 (Tỷ lệ tích nước hồ chứa)
+        # Chú ý: hy_powerhouse_total_m3s chỉ dùng ở độ trễ quá khứ <= t (quán tính lịch xả); không rò rỉ bước t+1
+        "hy_powerhouse_total_m3s", # lag1_r = 0.8677, r_partial = 0.7632 (Quán tính huy động thủy điện quá khứ)
+        "hy_inflow_total_m3s",     # lag1_r = 0.8713, r_partial = 0.5487 (Tổng lưu lượng nước tự nhiên về hồ)
+        "hy_inflow_da",            # lag1_r = 0.7560, r_partial = 0.5382 (Lưu vực Sông Đà trọng điểm)
+        "hy_inflow_lo_gam",        # lag1_r = 0.6617, r_partial = 0.4072 (Lưu vực Sông Lô - Gâm)
+        "hy_inflow_sesan",         # lag1_r = 0.5512, r_partial = 0.2009 (Lưu vực Sông Sê San)
+        "month_cos",               # r_partial = -0.8459 (Chu kỳ mùa khô / mùa lũ điều tiết liên hồ chứa)
+        "month_sin",               # r_partial = -0.7981 (Pha chuyển tiếp mùa vụ)
+        "wx_precip_mm",            # lag1_r = 0.6173 (Lượng mưa tích lũy bổ cập dòng chảy lưu vực)
+        "wx_humidity_pct",         # lag1_r = 0.6490 (Độ ẩm gió mùa)
+        "hy_fill_ratio_mean",      # r_raw = -0.5609 (Tỷ lệ tích nước hiện tại của các hồ chứa)
     ]
 }
 

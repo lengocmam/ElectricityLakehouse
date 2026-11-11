@@ -1,0 +1,123 @@
+{
+  "hydro": {
+    "persistence": {
+      "mae": 22725.53125,
+      "rmse": 29873.6484375,
+      "mape": 11.386093139648438
+    },
+    "pure_ar": {
+      "mae": 14535.364216369311,
+      "mae_std": 0.0,
+      "rmse": 19275.901077709506,
+      "rmse_std": 0.0,
+      "mape": 6.944664668148522,
+      "mape_std": 8.881784197001252e-16
+    },
+    "no_powerhouse": {
+      "mae": 14557.018666273518,
+      "mae_std": 0.0,
+      "rmse": 19276.70680731097,
+      "rmse_std": 0.0,
+      "mape": 6.925973670051579,
+      "mape_std": 0.0
+    },
+    "full_hybrid": {
+      "mae": 14568.596974727614,
+      "mae_std": 0.0,
+      "rmse": 19285.175395504637,
+      "rmse_std": 0.0,
+      "mape": 6.981981403583359,
+      "mape_std": 8.881784197001252e-16
+    },
+    "dm_vs_persistence": {
+      "stat": -7.831853773369802,
+      "p_val": 9.903189379656396e-14
+    },
+    "dm_vs_ar": {
+      "stat": 0.08214093257894843,
+      "p_val": 0.934593121749757
+    }
+  },
+  "load_ablation": [
+    {
+      "name": "Khoi 1: Baseline Lich & Ngay le",
+      "channels": 13,
+      "mae": 1126.168740740079,
+      "mae_std": 0.0,
+      "rmse": 1471.291101748193,
+      "rmse_std": 0.0,
+      "mape": 2.7896570572017505,
+      "mape_std": 0.0
+    },
+    {
+      "name": "Khoi 2: + Nhiet do (wx_temp_c)",
+      "channels": 14,
+      "mae": 973.904625663787,
+      "mae_std": 1.1368683772161603e-13,
+      "rmse": 1322.5712685602982,
+      "rmse_std": 0.0,
+      "mape": 2.438450486946551,
+      "mape_std": 0.0
+    },
+    {
+      "name": "Khoi 3: + Buc xa mat troi (wx_solar_rad_wm2)",
+      "channels": 15,
+      "mae": 882.9825285189478,
+      "mae_std": 0.0,
+      "rmse": 1257.1499051983224,
+      "rmse_std": 0.0,
+      "mape": 2.235445458479852,
+      "mape_std": 0.0
+    },
+    {
+      "name": "Khoi 4: + Luong mua lam mat (wx_precip_mm)",
+      "channels": 16,
+      "mae": 862.051331651551,
+      "mae_std": 1.1368683772161603e-13,
+      "rmse": 1270.8446755182676,
+      "rmse_std": 0.0,
+      "mape": 2.1955651535438108,
+      "mape_std": 0.0
+    },
+    {
+      "name": "Khoi 5: + Toan bo Thoi tiet (Them Do am, Gio)",
+      "channels": 18,
+      "mae": 849.7783298372702,
+      "mae_std": 0.0,
+      "rmse": 1246.4713774008605,
+      "rmse_std": 0.0,
+      "mape": 2.147979778192774,
+      "mape_std": 0.0
+    }
+  ],
+  "nwp_sensitivity": [
+    {
+      "label": "Oracle / ERA5 (Chuan doi chieu)",
+      "mae": 849.7783298372702,
+      "mape": 2.147979778192774,
+      "diff_pt": 0.0,
+      "rel_pct": 0.0
+    },
+    {
+      "label": "NWP Tot (sigma_T = 0.6 C, Rad = 10%, AR(1) phi=0.5)",
+      "mae": 860.1985456272866,
+      "mape": 2.1728175232867426,
+      "diff_pt": 0.024837745093968522,
+      "rel_pct": 1.1563304899856193
+    },
+    {
+      "label": "NWP Tieu chuan (sigma_T = 1.2 C, Rad = 15%, AR(1) phi=0.6)",
+      "mae": 864.9980865089943,
+      "mape": 2.1837408170633443,
+      "diff_pt": 0.03576103887057025,
+      "rel_pct": 1.6648685073124008
+    },
+    {
+      "label": "NWP Bien dong / Bao (sigma_T = 2.0 C, Rad = 25%, AR(1) phi=0.7)",
+      "mae": 876.6674734757053,
+      "mape": 2.211081847124471,
+      "diff_pt": 0.06310206893169701,
+      "rel_pct": 2.937740362937151
+    }
+  ]
+}
