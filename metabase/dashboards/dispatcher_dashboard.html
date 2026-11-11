@@ -3,13 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hệ Thống Hỗ Trợ Điều Độ Viên: Dự Báo Phụ Tải Ngày Mai & Giám Sát Vận Hành</title>
+    <title>Hệ Thống Hỗ Trợ Điều Độ Viên: Dự Báo Phụ Tải & Giám Sát Vận Hành (Chế Độ Chọn Mỗi Ngày)</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Embedded Full 284-Day Dataset -->
+    <script src="dispatcher_data.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
         body { font-family: 'Inter', sans-serif; }
@@ -26,8 +28,8 @@
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen p-4 md:p-6 lg:p-8">
 
-    <!-- Top Navigation Bar -->
-    <header class="flex flex-col lg:flex-row items-start lg:items-center justify-between pb-6 border-b border-slate-800 gap-4">
+    <!-- Top Navigation Bar with Interactive Date Picker -->
+    <header class="flex flex-col xl:flex-row items-start xl:items-center justify-between pb-6 border-b border-slate-800 gap-4">
         <div>
             <div class="flex items-center gap-3">
                 <span class="p-2.5 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-xl">
@@ -37,46 +39,61 @@
                     <div class="flex items-center gap-2">
                         <span class="px-2 py-0.5 text-xs font-semibold bg-blue-900/60 text-blue-300 rounded border border-blue-700/50">DISPATCHER AI SUITE</span>
                         <span class="px-2 py-0.5 text-xs font-semibold bg-emerald-900/60 text-emerald-300 rounded border border-emerald-700/50 flex items-center gap-1">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> TRINO ICEBERG SYNCED
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> 284 NGÀY KIỂM THỬ KHẢ DỤNG
                         </span>
                     </div>
                     <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-white mt-1">
-                        Hệ Thống Hỗ Trợ Điều Độ Viên: Dự Báo Phụ Tải Ngày Mai & Giám Sát Vận Hành
+                        Hệ Thống Hỗ Trợ Điều Độ Viên: Dự Báo Phụ Tải & Giám Sát Vận Hành
                     </h1>
                 </div>
             </div>
             <p class="text-sm text-slate-400 mt-1">
-                Ứng dụng mô hình hóa Ensemble (S4D + S-Mamba + Cây quyết định) • Chống trôi dạt dữ liệu • Cảnh báo nhiệt độ cực đoan
+                Áp dụng học máy Ensemble (S4D + S-Mamba + Cây quyết định) • Chế độ chọn mỗi ngày tương tác thời gian thực
             </p>
         </div>
 
-        <div class="flex items-center gap-3 bg-slate-900 p-2 rounded-xl border border-slate-800">
-            <div class="text-right px-3 py-1">
-                <div class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Ngày Chốt Điều Độ</div>
-                <div class="text-base font-bold text-white font-mono" id="today-date-display">11/10/2026</div>
+        <!-- Interactive Date Controls -->
+        <div class="flex flex-wrap items-center gap-3 bg-slate-900 p-2.5 rounded-2xl border border-slate-800">
+            <div class="flex items-center gap-2">
+                <label for="date-picker-input" class="text-xs text-slate-400 font-semibold uppercase flex items-center gap-1">
+                    <i data-lucide="calendar" class="w-3.5 h-3.5 text-blue-400"></i> Chọn Ngày:
+                </label>
+                <input type="date" id="date-picker-input" min="2026-01-01" max="2026-10-11" value="2026-10-11"
+                       class="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm text-white font-mono focus:outline-none focus:border-blue-500 cursor-pointer">
             </div>
-            <div class="h-8 w-px bg-slate-800"></div>
-            <a href="http://localhost:3000/dashboard/14" target="_blank" class="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition">
-                <i data-lucide="external-link" class="w-4 h-4"></i> Mở trên Metabase
+
+            <!-- Quick Jump Dropdown -->
+            <select id="quick-jump-select" class="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 font-medium focus:outline-none focus:border-blue-500 cursor-pointer">
+                <option value="2026-10-11">📌 Ngày mới nhất (11/10/2026)</option>
+                <option value="2026-10-02">🔥 Ngày phụ tải kỷ lục 2026 (02/10/2026 - 47.8k MW)</option>
+                <option value="2026-05-08">☀️ Đỉnh lịch sử hệ thống (08/05 - 43.6k MW)</option>
+                <option value="2026-02-17">🏮 Đợt nghỉ Tết Nguyên Đán (Đáy phụ tải)</option>
+                <option value="2026-06-15">⚡ Đợt nắng nóng cao điểm miền Bắc</option>
+            </select>
+
+            <a href="http://localhost:3000/dashboard/14" target="_blank" class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition">
+                <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Metabase BI
             </a>
         </div>
     </header>
 
     <!-- KPI Summary Row (4 Key Indicators) -->
     <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 my-6">
-        <!-- KPI 1: Phụ tải ngày mai -->
+        <!-- KPI 1: Phụ tải ngày được chọn -->
         <div class="glass-card rounded-2xl p-5 glow-blue border-l-4 border-l-blue-500">
             <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase">
-                <span>Dự Báo Phụ Tải Ngày Mai (H=1)</span>
+                <span id="kpi-title-pred">Dự Báo Ngày Được Chọn</span>
                 <i data-lucide="trending-up" class="w-4 h-4 text-blue-400"></i>
             </div>
             <div class="mt-2 flex items-baseline gap-2">
-                <span class="text-3xl font-extrabold text-white font-mono" id="kpi-pred-tomorrow">37,751</span>
+                <span class="text-3xl font-extrabold text-white font-mono" id="kpi-pred-val">37,377</span>
                 <span class="text-sm font-semibold text-slate-400">MW</span>
             </div>
             <div class="mt-2 flex items-center justify-between text-xs text-slate-400">
-                <span>MAPE kỳ vọng: <strong class="text-emerald-400 font-mono">2.11% (~2.3%)</strong></span>
-                <span class="text-slate-500">RMSE 1,178 MW</span>
+                <span>Thực tế: <strong class="text-slate-200 font-mono" id="kpi-actual-val">37,412 MW</strong></span>
+                <span id="kpi-error-badge" class="px-1.5 py-0.5 rounded font-mono text-[11px] bg-emerald-950 text-emerald-400 border border-emerald-800">
+                    Sai số: 0.1%
+                </span>
             </div>
         </div>
 
@@ -87,10 +104,10 @@
                 <i data-lucide="shield-check" class="w-4 h-4 text-indigo-400"></i>
             </div>
             <div class="mt-2 flex items-baseline gap-2">
-                <span class="text-2xl font-extrabold text-indigo-300 font-mono" id="kpi-ci-range">[35,450 - 40,050]</span>
+                <span class="text-2xl font-extrabold text-indigo-300 font-mono" id="kpi-ci-range">[35,068 - 39,685]</span>
             </div>
             <div class="mt-2 text-xs text-slate-400 flex items-center justify-between">
-                <span>Biên độ dung sai: <strong class="text-indigo-400 font-mono">±2,300 MW</strong></span>
+                <span>Biên độ: <strong class="text-indigo-400 font-mono" id="kpi-ci-band">±2,308 MW</strong></span>
                 <span class="text-emerald-400 font-medium">95% Confidence</span>
             </div>
         </div>
@@ -105,26 +122,26 @@
                 <span class="px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-950 text-emerald-400 border border-emerald-800" id="kpi-heat-badge">
                     AN TOÀN
                 </span>
-                <span class="text-sm text-slate-300 font-mono">T_max: <strong class="text-white">27.6°C</strong></span>
+                <span class="text-sm text-slate-300 font-mono">T: <strong class="text-white" id="kpi-temp-val">26.8°C</strong></span>
             </div>
             <div class="mt-2 text-xs text-slate-400">
-                Hệ số tải: <strong class="text-amber-400 font-mono">+795.8 MW/°C</strong> • Đỉnh LS: 43,609 MW
+                Tỷ lệ so với Đỉnh LS: <strong class="text-amber-400 font-mono" id="kpi-peak-pct">85.7%</strong> (43.6k MW)
             </div>
         </div>
 
         <!-- KPI 4: Sức khỏe mô hình 30 ngày -->
         <div class="glass-card rounded-2xl p-5 border-l-4 border-l-emerald-500">
             <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase">
-                <span>Giám Sát Trôi Dạt (30d Health)</span>
+                <span>Giám Sát 30 Ngày Tính Đến Ngày Này</span>
                 <i data-lucide="activity" class="w-4 h-4 text-emerald-400"></i>
             </div>
             <div class="mt-2 flex items-baseline gap-2">
                 <span class="text-3xl font-extrabold text-emerald-400 font-mono" id="kpi-30d-mape">1.29%</span>
-                <span class="text-xs font-bold px-2 py-0.5 bg-emerald-900/60 text-emerald-300 rounded border border-emerald-700/50">CHUẨN A+</span>
+                <span class="text-xs font-bold px-2 py-0.5 bg-emerald-900/60 text-emerald-300 rounded border border-emerald-700/50" id="kpi-health-badge">CHUẨN A+</span>
             </div>
             <div class="mt-2 text-xs text-slate-400 flex items-center justify-between">
-                <span>Ngưỡng cảnh báo: <span class="font-mono">3.5%</span></span>
-                <span class="text-emerald-400 font-medium">Không lệch phân phối</span>
+                <span>MAE 30d: <span class="font-mono" id="kpi-30d-mae">537.4 MW</span></span>
+                <span class="text-emerald-400 font-medium">Không lệch mô hình</span>
             </div>
         </div>
     </section>
@@ -133,7 +150,7 @@
     <main class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
         <!-- =================================================================== -->
-        <!-- KHU VỰC 1: DỰ BÁO NGÀY MAI & 7 NGÀY TỚI KÈM DẢI BẤT ĐỊNH (8 Cols) -->
+        <!-- KHU VỰC 1: DỰ BÁO NGÀY ĐƯỢC CHỌN & 7 NGÀY KẾ TIẾP (8 Cols)          -->
         <!-- =================================================================== -->
         <div class="lg:col-span-8 glass-card rounded-2xl p-6 flex flex-col justify-between">
             <div>
@@ -143,15 +160,18 @@
                             <span class="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
                                 <i data-lucide="calendar" class="w-4 h-4"></i>
                             </span>
-                            <h2 class="text-lg font-bold text-white">Khu Vực 1: Dự Báo 7 Ngày Tới & Dải Bất Định 95%</h2>
+                            <h2 class="text-lg font-bold text-white">Khu Vực 1: Chuỗi Dự Báo 7 Ngày Kế Tiếp & Dải Bất Định</h2>
                         </div>
-                        <p class="text-xs text-slate-400 mt-1">
-                            Mô hình Ensemble (trọng số tối ưu giữa State Space Model & Cây quyết định). Ghi rõ MAPE kỳ vọng từng ngày.
+                        <p class="text-xs text-slate-400 mt-1" id="zone1-subtitle">
+                            Áp dụng Ensemble (S4D + S-Mamba + LightGBM). Dải bóng mờ đại diện khoảng tin cậy 95% (±1.96×RMSE).
                         </p>
                     </div>
                     <div class="flex items-center gap-3 text-xs">
                         <span class="flex items-center gap-1.5 text-slate-300">
                             <span class="w-3 h-0.5 bg-blue-400 rounded"></span> Dự báo Ensemble
+                        </span>
+                        <span class="flex items-center gap-1.5 text-emerald-400">
+                            <span class="w-3 h-0.5 bg-emerald-400 rounded"></span> Thực tế đối chiếu
                         </span>
                         <span class="flex items-center gap-1.5 text-slate-400">
                             <span class="w-3 h-3 bg-blue-500/20 border border-blue-400/40 rounded-sm"></span> Dải bất định 95%
@@ -187,26 +207,26 @@
                 </div>
 
                 <!-- Heat Alert Panel -->
-                <div class="mt-4 p-4 rounded-xl bg-slate-900 border border-slate-800">
+                <div class="mt-4 p-4 rounded-xl bg-slate-900 border border-slate-800" id="heat-alert-panel">
                     <div class="flex items-center justify-between">
                         <span class="text-xs uppercase tracking-wider font-semibold text-slate-400">Trạng Thái Điều Độ</span>
-                        <span class="px-2.5 py-0.5 rounded text-xs font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                        <span class="px-2.5 py-0.5 rounded text-xs font-bold bg-emerald-950 text-emerald-400 border border-emerald-800" id="heat-status-tag">
                             BÌNH THƯỜNG
                         </span>
                     </div>
                     <div class="mt-3 flex items-baseline justify-between">
                         <div>
-                            <span class="text-3xl font-extrabold text-white font-mono">27.6</span>
+                            <span class="text-3xl font-extrabold text-white font-mono" id="heat-temp-big">26.8</span>
                             <span class="text-sm font-semibold text-slate-400">°C</span>
-                            <div class="text-[11px] text-slate-400 mt-0.5">Dự báo nhiệt độ ngày mai</div>
+                            <div class="text-[11px] text-slate-400 mt-0.5">Nhiệt độ ngày được chọn</div>
                         </div>
                         <div class="text-right">
                             <span class="text-sm font-bold text-amber-400 font-mono">+795.8 MW</span>
                             <div class="text-[11px] text-slate-400">Độ nhạy trên mỗi +1°C</div>
                         </div>
                     </div>
-                    <div class="mt-3 pt-3 border-t border-slate-800 text-xs text-slate-300 leading-relaxed">
-                        💡 <strong>Khuyến nghị vận hành:</strong> Nhiệt độ dưới ngưỡng 28.0°C. Nhu cầu làm mát chưa tăng đột biến; dự phòng công suất bình quân ổn định.
+                    <div class="mt-3 pt-3 border-t border-slate-800 text-xs text-slate-300 leading-relaxed" id="heat-recommendation-text">
+                        💡 <strong>Khuyến nghị vận hành:</strong> Nhiệt độ an toàn (&lt; 28.0°C). Tải tiêu dùng chưa bùng nổ điều hòa; duy trì lịch chạy nền tiêu chuẩn.
                     </div>
                 </div>
 
@@ -220,11 +240,11 @@
                             <span class="font-bold text-white font-mono">43,609.5 MW</span>
                         </div>
                         <div class="mt-2 flex items-center justify-between text-xs">
-                            <span class="text-slate-400">Dự báo ngày mai so với Đỉnh LS:</span>
-                            <span class="font-bold text-blue-400 font-mono">86.6%</span>
+                            <span class="text-slate-400">Phụ tải so với Đỉnh LS:</span>
+                            <span class="font-bold text-blue-400 font-mono" id="peak-compare-pct">85.7%</span>
                         </div>
                         <div class="w-full bg-slate-800 h-2 rounded-full mt-2 overflow-hidden">
-                            <div class="bg-blue-500 h-full rounded-full" style="width: 86.6%"></div>
+                            <div class="bg-blue-500 h-full rounded-full transition-all duration-500" id="peak-compare-bar" style="width: 85.7%"></div>
                         </div>
                     </div>
 
@@ -233,8 +253,9 @@
                             <span class="text-slate-400">Kỷ Lục Cao Nhất (Tháng 10/2026):</span>
                             <span class="font-bold text-purple-400 font-mono">47,842.2 MW</span>
                         </div>
-                        <div class="mt-1 text-[11px] text-slate-400">
-                            Chênh lệch an toàn so với kỷ lục: <strong class="text-emerald-400 font-mono">+10,091 MW</strong>
+                        <div class="mt-1 text-[11px] text-slate-400 flex items-center justify-between">
+                            <span>Chênh lệch an toàn:</span>
+                            <strong class="text-emerald-400 font-mono" id="peak-diff-mw">+10,465 MW</strong>
                         </div>
                     </div>
                 </div>
@@ -259,7 +280,7 @@
                     </span>
                     <div>
                         <h2 class="text-lg font-bold text-white">Khu Vực 3: What-If Mô Phỏng & Stress-Test NWP</h2>
-                        <p class="text-xs text-slate-400">Thanh trượt độ nhạy nhiệt độ & Khả năng chịu đựng khi dự báo thời tiết sai</p>
+                        <p class="text-xs text-slate-400">Thanh trượt nhiệt độ tương tác xoay quanh ngày được chọn</p>
                     </div>
                 </div>
 
@@ -267,10 +288,10 @@
                 <div class="mt-4 p-4 rounded-xl bg-slate-900 border border-slate-800">
                     <div class="flex items-center justify-between">
                         <label for="temp-slider" class="text-xs uppercase tracking-wider font-semibold text-slate-400">
-                            Mô Phỏng Biến Động Nhiệt Độ (ΔT)
+                            Biến Động Nhiệt Độ Mô Phỏng (ΔT)
                         </label>
                         <span class="text-sm font-extrabold text-blue-400 font-mono px-2 py-0.5 bg-blue-950/80 rounded border border-blue-800" id="slider-val-label">
-                            +0.0°C (Dự báo gốc)
+                            +0.0°C (Gốc)
                         </span>
                     </div>
 
@@ -294,7 +315,7 @@
                         </div>
                         <div class="p-3 bg-slate-950 rounded-lg border border-slate-800">
                             <div class="text-[11px] text-slate-400">Phụ tải mô phỏng mới</div>
-                            <div class="text-lg font-bold text-white font-mono mt-0.5" id="sim-total-mw">37,750.5 MW</div>
+                            <div class="text-lg font-bold text-white font-mono mt-0.5" id="sim-total-mw">37,377.0 MW</div>
                             <div class="text-[10px] text-emerald-400 font-medium" id="sim-status-label">An toàn (&lt; 40k MW)</div>
                         </div>
                     </div>
@@ -316,7 +337,7 @@
                                     <th class="py-2 px-2 text-right">Biến Động</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-slate-800/60 font-mono" id="nwp-table-body">
+                            <tbody class="divide-y divide-slate-800/60 font-mono">
                                 <tr class="hover:bg-slate-900/40">
                                     <td class="py-2 px-3 font-sans font-medium text-white flex items-center gap-1.5">
                                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Oracle (ERA5)
@@ -360,12 +381,12 @@
             </div>
 
             <div class="mt-4 p-3 bg-blue-950/30 rounded-xl border border-blue-900/40 text-xs text-blue-200 leading-relaxed">
-                🛡️ <strong>Kết luận cốt lõi:</strong> Dù dự báo thời tiết sai số lên đến <strong>±2.0°C</strong> trong kịch bản bão, MAPE chỉ tăng <strong>+0.06%</strong>. Khẳng định mô hình học sâu Ensemble cực kỳ bền vững, sẵn sàng đưa vào vận hành thực tiễn!
+                🛡️ <strong>Kết luận cốt lõi:</strong> Dù thời tiết sai lệch đến <strong>±2.0°C</strong> trong kịch bản bão, sai số phụ tải chỉ tăng <strong>+0.06%</strong>. Khẳng định mô hình Ensemble cực kỳ bền bỉ và đáng tin cậy.
             </div>
         </div>
 
         <!-- =================================================================== -->
-        <!-- KHU VỰC 4: GIÁM SÁT MÔ HÌNH 30 NGÀY & MODEL DRIFT (6 Cols)          -->
+        <!-- KHU VỰC 4: GIÁM SÁT MÔ HÌNH 30 NGÀY TÍNH ĐẾN NGÀY ĐƯỢC CHỌN (6 Cols) -->
         <!-- =================================================================== -->
         <div class="lg:col-span-6 glass-card rounded-2xl p-6 flex flex-col justify-between">
             <div>
@@ -376,10 +397,10 @@
                         </span>
                         <div>
                             <h2 class="text-lg font-bold text-white">Khu Vực 4: Giám Sát Vận Hành & Độ Lệch Mô Hình</h2>
-                            <p class="text-xs text-slate-400">So sánh thực tế vs dự báo 30 ngày gần nhất & Báo động Model Drift</p>
+                            <p class="text-xs text-slate-400" id="zone4-subtitle">So sánh thực tế vs dự báo 30 ngày tính đến ngày được chọn</p>
                         </div>
                     </div>
-                    <span class="px-2 py-1 text-xs font-semibold rounded bg-emerald-950 text-emerald-300 border border-emerald-700">
+                    <span class="px-2 py-1 text-xs font-semibold rounded bg-emerald-950 text-emerald-300 border border-emerald-700" id="zone4-rolling-badge">
                         ROLLING MAPE: 1.29%
                     </span>
                 </div>
@@ -395,10 +416,10 @@
                 <div>
                     <div class="flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                        <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Trạng Thái Sức Khỏe Mô Hình</span>
+                        <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Kiểm Toán Phân Phối (Model Drift)</span>
                     </div>
-                    <p class="text-xs text-slate-300 mt-1">
-                        30/30 ngày đạt MAPE &lt; 3.0% (Chuẩn xuất sắc A+). Không phát hiện hiện tượng trôi dạt dữ liệu (Concept Drift).
+                    <p class="text-xs text-slate-300 mt-1" id="health-description-text">
+                        Mô hình đạt chuẩn xuất sắc A+. Sai số ổn định dưới ngưỡng 3.5%; không bị trôi dạt phân phối.
                     </p>
                 </div>
                 <div class="flex items-center gap-2">
@@ -423,147 +444,303 @@
         </div>
         <div class="flex items-center gap-4">
             <span>Mô hình: <strong class="text-slate-400">Ensemble (S4D + S-Mamba + LightGBM)</strong></span>
-            <span>Dữ liệu: <strong class="text-slate-400">Apache Iceberg + Trino</strong></span>
-            <span>Trạng thái: <strong class="text-emerald-400">Hoạt động bình thường</strong></span>
+            <span>Kho dữ liệu: <strong class="text-slate-400">Apache Iceberg + Trino</strong></span>
+            <span>Chế độ: <strong class="text-blue-400">Chọn mỗi ngày tương tác</strong></span>
         </div>
     </footer>
 
-    <!-- JavaScript Application Logic -->
+    <!-- JavaScript Application Logic (Interactive Date Filtering & Visualizations) -->
     <script>
-        // Khởi tạo Lucide Icons
         lucide.createIcons();
 
-        // Dữ liệu nhúng trực tiếp từ kết quả huấn luyện đã được kiểm toán nghiêm ngặt
-        const FORECAST_DATA = {
-            today: "2026-10-11",
-            pred_tomorrow: 37750.5,
-            slope_mw: 795.8,
-            horizon_days: [
-                { step: 1, name: "Ngày mai (H=1)", date: "12/10", day: "Thứ Hai", pred: 38128.0, lower: 36113, upper: 40143, mape: 2.11 },
-                { step: 2, name: "Ngày +2", date: "13/10", day: "Thứ Ba", pred: 38505.5, lower: 36178, upper: 40833, mape: 2.45 },
-                { step: 3, name: "Ngày +3", date: "14/10", day: "Thứ Tư", pred: 38128.0, lower: 35433, upper: 40823, mape: 2.80 },
-                { step: 4, name: "Ngày +4", date: "15/10", day: "Thứ Năm", pred: 37373.0, lower: 34311, upper: 40435, mape: 3.15 },
-                { step: 5, name: "Ngày +5", date: "16/10", day: "Thứ Sáu", pred: 37373.0, lower: 33943, upper: 40803, mape: 3.50 },
-                { step: 6, name: "Ngày +6", date: "17/10", day: "Thứ Bảy", pred: 33975.5, lower: 30252, upper: 37699, mape: 3.80 },
-                { step: 7, name: "Ngày +7", date: "18/10", day: "Chủ Nhật", pred: 33975.5, lower: 29949, upper: 38002, mape: 4.07 }
-            ],
-            series_30d: [
-                { date: "12/09", actual: 39420, pred: 39150, mape: 0.69 },
-                { date: "15/09", actual: 41250, pred: 41800, mape: 1.33 },
-                { date: "18/09", actual: 42100, pred: 41650, mape: 1.07 },
-                { date: "21/09", actual: 40800, pred: 41200, mape: 0.98 },
-                { date: "24/09", actual: 43500, pred: 42900, mape: 1.38 },
-                { date: "27/09", actual: 39223, pred: 39233, mape: 0.03 },
-                { date: "30/09", actual: 47453, pred: 45894, mape: 3.28 },
-                { date: "02/10", actual: 47842, pred: 47419, mape: 0.88 },
-                { date: "05/10", actual: 41516, pred: 42922, mape: 3.39 },
-                { date: "08/10", actual: 42071, pred: 41712, mape: 0.85 },
-                { date: "10/10", actual: 41744, pred: 40970, mape: 1.85 },
-                { date: "11/10", actual: 37412, pred: 37377, mape: 0.09 }
-            ]
-        };
+        // Kiểm tra dữ liệu nạp từ dispatcher_data.js
+        const DB = window.DISPATCHER_ALL_DAYS;
+        if (!DB) {
+            console.error("Không tìm thấy dữ liệu DISPATCHER_ALL_DAYS!");
+        }
 
-        // 1. Render Strip Thẻ 7 Ngày
-        const stripContainer = document.getElementById('forecast-cards-strip');
-        FORECAST_DATA.horizon_days.forEach(d => {
-            const el = document.createElement('div');
-            el.className = `p-2.5 rounded-xl border ${d.step === 1 ? 'bg-blue-950/40 border-blue-600/50' : 'bg-slate-900/50 border-slate-800'}`;
-            el.innerHTML = `
-                <div class="text-[10px] text-slate-400 font-medium">${d.day} (${d.date})</div>
-                <div class="text-sm font-bold text-white font-mono mt-1">${(d.pred/1000).toFixed(1)}k <span class="text-[10px] font-normal text-slate-400">MW</span></div>
-                <div class="text-[10px] text-emerald-400 font-mono mt-0.5">±${((d.upper - d.pred)/1000).toFixed(1)}k (MAPE ${d.mape}%)</div>
-            `;
-            stripContainer.appendChild(el);
-        });
+        let chart7dInstance = null;
+        let chart30dInstance = null;
+        let currentDayRecord = null;
 
-        // 2. Chart Khu Vực 1: Dự Báo 7 Ngày & Dải Bất Định
-        const ctx7d = document.getElementById('chart-forecast-7d').getContext('2d');
-        new Chart(ctx7d, {
-            type: 'line',
-            data: {
-                labels: FORECAST_DATA.horizon_days.map(d => `${d.day} (${d.date})`),
-                datasets: [
-                    {
-                        label: 'Dự Báo Ensemble (MW)',
-                        data: FORECAST_DATA.horizon_days.map(d => d.pred),
-                        borderColor: '#3b82f6',
-                        backgroundColor: '#3b82f6',
-                        borderWidth: 3,
-                        pointRadius: 4,
-                        pointBackgroundColor: '#60a5fa',
-                        tension: 0.25,
-                        zIndex: 10
-                    },
-                    {
-                        label: 'Cận Trên 95% (MW)',
-                        data: FORECAST_DATA.horizon_days.map(d => d.upper),
-                        borderColor: 'transparent',
-                        backgroundColor: 'rgba(59, 130, 246, 0.15)',
-                        fill: '+1',
-                        pointRadius: 0,
-                        tension: 0.25
-                    },
-                    {
-                        label: 'Cận Dưới 95% (MW)',
-                        data: FORECAST_DATA.horizon_days.map(d => d.lower),
-                        borderColor: 'transparent',
-                        backgroundColor: 'transparent',
-                        pointRadius: 0,
-                        tension: 0.25
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false,
-                        backgroundColor: '#0f172a',
-                        titleColor: '#e2e8f0',
-                        bodyColor: '#94a3b8',
-                        borderColor: '#334155',
-                        borderWidth: 1
-                    }
+        // Hàm cập nhật toàn bộ Dashboard khi chọn một ngày
+        function renderDashboardForDate(dateStr) {
+            const dayData = DB.days[dateStr];
+            if (!dayData) {
+                console.warn("Không tìm thấy dữ liệu cho ngày:", dateStr);
+                return;
+            }
+            currentDayRecord = dayData;
+
+            // 1. Cập nhật ngày trên thanh điều khiển
+            document.getElementById('date-picker-input').value = dateStr;
+
+            // 2. Cập nhật Hàng KPI
+            document.getElementById('kpi-title-pred').textContent = `Dự Báo: ${dayData.day_name} (${dateStr})`;
+            document.getElementById('kpi-pred-val').textContent = dayData.pred_mw.toLocaleString('en-US');
+            document.getElementById('kpi-actual-val').textContent = `${dayData.actual_mw.toLocaleString('en-US')} MW`;
+            
+            const errBadge = document.getElementById('kpi-error-badge');
+            errBadge.textContent = `Sai số: ${dayData.mape_pct}% (${dayData.error_mw > 0 ? '+' : ''}${dayData.error_mw.toFixed(1)} MW)`;
+            if (dayData.mape_pct <= 3.0) {
+                errBadge.className = 'px-1.5 py-0.5 rounded font-mono text-[11px] bg-emerald-950 text-emerald-400 border border-emerald-800';
+            } else if (dayData.mape_pct <= 4.5) {
+                errBadge.className = 'px-1.5 py-0.5 rounded font-mono text-[11px] bg-amber-950 text-amber-400 border border-amber-800';
+            } else {
+                errBadge.className = 'px-1.5 py-0.5 rounded font-mono text-[11px] bg-red-950 text-red-400 border border-red-800';
+            }
+
+            document.getElementById('kpi-ci-range').textContent = `[${Math.round(dayData.ci_lower_mw).toLocaleString('en-US')} - ${Math.round(dayData.ci_upper_mw).toLocaleString('en-US')}]`;
+            document.getElementById('kpi-ci-band').textContent = `±${Math.round(dayData.uncertainty_band_mw).toLocaleString('en-US')} MW`;
+
+            // Cập nhật Cảnh báo ngày nóng KPI
+            document.getElementById('kpi-temp-val').textContent = `${dayData.temp_c}°C`;
+            document.getElementById('kpi-peak-pct').textContent = `${dayData.pct_of_historical_peak}%`;
+            const heatBadge = document.getElementById('kpi-heat-badge');
+            if (dayData.heat_status.includes("BÁO ĐỘNG ĐỎ")) {
+                heatBadge.textContent = "BÁO ĐỘNG ĐỎ";
+                heatBadge.className = "px-2.5 py-1 text-xs font-bold rounded-lg bg-red-950 text-red-400 border border-red-800 animate-pulse";
+            } else if (dayData.heat_status.includes("CẢNH BÁO VÀNG")) {
+                heatBadge.textContent = "CẢNH BÁO VÀNG";
+                heatBadge.className = "px-2.5 py-1 text-xs font-bold rounded-lg bg-amber-950 text-amber-400 border border-amber-800";
+            } else {
+                heatBadge.textContent = "AN TOÀN";
+                heatBadge.className = "px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-950 text-emerald-400 border border-emerald-800";
+            }
+
+            // Sức khỏe mô hình 30 ngày
+            document.getElementById('kpi-30d-mape').textContent = `${dayData.rolling_30d_mape}%`;
+            document.getElementById('kpi-30d-mae').textContent = `${dayData.rolling_30d_mae} MW`;
+
+            // 3. Cập nhật Khu Vực 1: Strip 7 ngày
+            const stripContainer = document.getElementById('forecast-cards-strip');
+            stripContainer.innerHTML = '';
+            dayData.next_7d.forEach(d => {
+                const el = document.createElement('div');
+                el.className = `p-2.5 rounded-xl border ${d.step === 1 ? 'bg-blue-950/40 border-blue-600/50' : 'bg-slate-900/50 border-slate-800'}`;
+                el.innerHTML = `
+                    <div class="text-[10px] text-slate-400 font-medium">${d.dow} (${d.date.slice(5)})</div>
+                    <div class="text-sm font-bold text-white font-mono mt-1">${(d.pred_mw/1000).toFixed(1)}k <span class="text-[10px] font-normal text-slate-400">MW</span></div>
+                    <div class="text-[10px] text-emerald-400 font-mono mt-0.5">±${((d.ci_upper_mw - d.pred_mw)/1000).toFixed(1)}k (MAPE ${d.expected_mape}%)</div>
+                `;
+                stripContainer.appendChild(el);
+            });
+
+            // Re-render Biểu đồ Khu Vực 1 (7 Ngày)
+            renderChart7d(dayData.next_7d);
+
+            // 4. Cập nhật Khu Vực 2: Cảnh báo ngày nóng & Đối chiếu đỉnh
+            document.getElementById('heat-temp-big').textContent = dayData.temp_c;
+            document.getElementById('heat-status-tag').textContent = dayData.heat_status.split(':')[0];
+            document.getElementById('peak-compare-pct').textContent = `${dayData.pct_of_historical_peak}%`;
+            document.getElementById('peak-compare-bar').style.width = `${Math.min(100, dayData.pct_of_historical_peak)}%`;
+            
+            const diffPeak = 47842.2 - dayData.actual_mw;
+            document.getElementById('peak-diff-mw').textContent = `+${Math.round(diffPeak).toLocaleString('en-US')} MW`;
+
+            const recoText = document.getElementById('heat-recommendation-text');
+            if (dayData.temp_c >= 30.0 || dayData.pct_of_historical_peak >= 100) {
+                recoText.innerHTML = `🚨 <strong>BÁO ĐỘNG ĐỎ:</strong> Nhiệt độ cực đoan (${dayData.temp_c}°C) kích hoạt phụ tải chạm đỉnh! Cần huy động 100% tuabin khí linh hoạt và thủy điện tích năng.`;
+            } else if (dayData.temp_c >= 28.0) {
+                recoText.innerHTML = `⚠️ <strong>CẢNH BÁO VÀNG:</strong> Nhiệt độ chạm ngưỡng kích hoạt điều hòa (${dayData.temp_c}°C). Dự phòng nguồn khởi động nhanh và theo dõi biểu đồ phụ tải ròng chiều tối.`;
+            } else {
+                recoText.innerHTML = `💡 <strong>Khuyến nghị vận hành:</strong> Nhiệt độ an toàn (${dayData.temp_c}°C). Nhu cầu làm mát chưa tăng đột biến; duy trì lịch chạy nền tiêu chuẩn.`;
+            }
+
+            // 5. Cập nhật Khu Vực 3: Reset What-If Slider xoay quanh ngày được chọn
+            document.getElementById('temp-slider').value = 0.0;
+            document.getElementById('slider-val-label').textContent = "+0.0°C (Gốc)";
+            document.getElementById('sim-delta-mw').textContent = "+0.0 MW";
+            document.getElementById('sim-total-mw').textContent = `${dayData.pred_mw.toLocaleString('en-US')} MW`;
+            document.getElementById('sim-status-label').textContent = dayData.pred_mw >= 43609.5 ? "Cảnh báo: Vượt đỉnh" : "An toàn (< 40k MW)";
+
+            // 6. Cập nhật Khu Vực 4: Giám sát 30 ngày tính đến ngày được chọn
+            document.getElementById('zone4-rolling-badge').textContent = `ROLLING MAPE: ${dayData.rolling_30d_mape}%`;
+            document.getElementById('zone4-subtitle').textContent = `So sánh thực tế vs dự báo 30 ngày tính đến ngày ${dateStr}`;
+            renderChart30d(dayData.monitor_30d);
+        }
+
+        // Vẽ biểu đồ 7 ngày Khu Vực 1
+        function renderChart7d(next7dList) {
+            const ctx = document.getElementById('chart-forecast-7d').getContext('2d');
+            if (chart7dInstance) {
+                chart7dInstance.destroy();
+            }
+
+            const labels = next7dList.map(d => `${d.dow} (${d.date.slice(5)})`);
+            const preds = next7dList.map(d => d.pred_mw);
+            const actuals = next7dList.map(d => d.actual_mw);
+            const uppers = next7dList.map(d => d.ci_upper_mw);
+            const lowers = next7dList.map(d => d.ci_lower_mw);
+
+            chart7dInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Dự Báo Ensemble (MW)',
+                            data: preds,
+                            borderColor: '#3b82f6',
+                            backgroundColor: '#3b82f6',
+                            borderWidth: 3,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#60a5fa',
+                            tension: 0.25,
+                            zIndex: 10
+                        },
+                        {
+                            label: 'Thực Tế Đối Chiếu (MW)',
+                            data: actuals,
+                            borderColor: '#10b981',
+                            borderDash: [3, 3],
+                            borderWidth: 2,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#34d399',
+                            tension: 0.25,
+                            zIndex: 9
+                        },
+                        {
+                            label: 'Cận Trên 95% (MW)',
+                            data: uppers,
+                            borderColor: 'transparent',
+                            backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                            fill: '+1',
+                            pointRadius: 0,
+                            tension: 0.25
+                        },
+                        {
+                            label: 'Cận Dưới 95% (MW)',
+                            data: lowers,
+                            borderColor: 'transparent',
+                            backgroundColor: 'transparent',
+                            pointRadius: 0,
+                            tension: 0.25
+                        }
+                    ]
                 },
-                scales: {
-                    x: {
-                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                        ticks: { color: '#94a3b8', font: { size: 11 } }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: '#0f172a',
+                            titleColor: '#e2e8f0',
+                            bodyColor: '#94a3b8',
+                            borderColor: '#334155',
+                            borderWidth: 1
+                        }
                     },
-                    y: {
-                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                        ticks: { color: '#94a3b8', font: { size: 11 } },
-                        suggestedMin: 28000,
-                        suggestedMax: 43000
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#94a3b8', font: { size: 11 } }
+                        },
+                        y: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#94a3b8', font: { size: 11 } }
+                        }
                     }
                 }
+            });
+        }
+
+        // Vẽ biểu đồ 30 ngày Khu Vực 4
+        function renderChart30d(monitorList) {
+            const ctx = document.getElementById('chart-monitoring-30d').getContext('2d');
+            if (chart30dInstance) {
+                chart30dInstance.destroy();
             }
+
+            const labels = monitorList.map(d => d.date.slice(5));
+            const actuals = monitorList.map(d => d.actual_mw);
+            const preds = monitorList.map(d => d.pred_mw);
+
+            chart30dInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Thực Tế (MW)',
+                            data: actuals,
+                            borderColor: '#10b981',
+                            backgroundColor: '#10b981',
+                            borderWidth: 2,
+                            pointRadius: 2.5,
+                            tension: 0.2
+                        },
+                        {
+                            label: 'Dự Báo Ensemble (MW)',
+                            data: preds,
+                            borderColor: '#60a5fa',
+                            borderDash: [4, 4],
+                            borderWidth: 2,
+                            pointRadius: 2,
+                            tension: 0.2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: { color: '#94a3b8', boxWidth: 12, font: { size: 10 } }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: '#0f172a'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#94a3b8', font: { size: 10 } }
+                        },
+                        y: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#94a3b8', font: { size: 10 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Sự kiện Date Picker Input
+        document.getElementById('date-picker-input').addEventListener('change', function(e) {
+            renderDashboardForDate(e.target.value);
         });
 
-        // 3. Interactive What-If Simulator Logic
+        // Sự kiện Quick Jump Select
+        document.getElementById('quick-jump-select').addEventListener('change', function(e) {
+            renderDashboardForDate(e.target.value);
+        });
+
+        // Sự kiện Slider What-If
         const tempSlider = document.getElementById('temp-slider');
-        const sliderLabel = document.getElementById('slider-val-label');
-        const simDeltaEl = document.getElementById('sim-delta-mw');
-        const simTotalEl = document.getElementById('sim-total-mw');
-        const simStatusEl = document.getElementById('sim-status-label');
-
         tempSlider.addEventListener('input', function() {
+            if (!currentDayRecord) return;
             const dt = parseFloat(this.value);
-            const deltaMW = dt * FORECAST_DATA.slope_mw;
-            const simLoad = FORECAST_DATA.pred_tomorrow + deltaMW;
+            const deltaMW = dt * DB.slope_heat_mw_per_c;
+            const simLoad = currentDayRecord.pred_mw + deltaMW;
 
-            sliderLabel.textContent = (dt > 0 ? `+${dt.toFixed(1)}°C` : `${dt.toFixed(1)}°C`) + (dt === 0 ? ' (Chuẩn)' : '');
-            simDeltaEl.textContent = (deltaMW >= 0 ? `+${deltaMW.toFixed(1)}` : `${deltaMW.toFixed(1)}`) + ' MW';
-            simTotalEl.textContent = simLoad.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' MW';
+            document.getElementById('slider-val-label').textContent = (dt > 0 ? `+${dt.toFixed(1)}°C` : `${dt.toFixed(1)}°C`) + (dt === 0 ? ' (Gốc)' : '');
+            document.getElementById('sim-delta-mw').textContent = (deltaMW >= 0 ? `+${deltaMW.toFixed(1)}` : `${deltaMW.toFixed(1)}`) + ' MW';
+            document.getElementById('sim-total-mw').textContent = simLoad.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' MW';
 
-            if (simLoad >= 43609.5) {
+            const simStatusEl = document.getElementById('sim-status-label');
+            if (simLoad >= DB.historical_peak_mw) {
                 simStatusEl.textContent = 'BÁO ĐỘNG: Vượt đỉnh lịch sử!';
                 simStatusEl.className = 'text-[10px] text-red-400 font-bold';
             } else if (simLoad >= 40000.0) {
-                simStatusEl.textContent = 'CẢNH BÁO: Phụ tải chạm ngưỡng cao';
+                simStatusEl.textContent = 'CẢNH BÁO: Tiệm cận đỉnh cao tải';
                 simStatusEl.className = 'text-[10px] text-amber-400 font-bold';
             } else {
                 simStatusEl.textContent = 'An toàn (< 40k MW)';
@@ -571,59 +748,9 @@
             }
         });
 
-        // 4. Chart Khu Vực 4: Giám Sát 30 Ngày Thực Tế vs Dự Báo
-        const ctx30d = document.getElementById('chart-monitoring-30d').getContext('2d');
-        new Chart(ctx30d, {
-            type: 'line',
-            data: {
-                labels: FORECAST_DATA.series_30d.map(d => d.date),
-                datasets: [
-                    {
-                        label: 'Thực Tế (MW)',
-                        data: FORECAST_DATA.series_30d.map(d => d.actual),
-                        borderColor: '#10b981',
-                        backgroundColor: '#10b981',
-                        borderWidth: 2,
-                        pointRadius: 3,
-                        tension: 0.2
-                    },
-                    {
-                        label: 'Dự Báo Ensemble (MW)',
-                        data: FORECAST_DATA.series_30d.map(d => d.pred),
-                        borderColor: '#60a5fa',
-                        borderDash: [4, 4],
-                        borderWidth: 2,
-                        pointRadius: 2,
-                        tension: 0.2
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: true,
-                        position: 'top',
-                        labels: { color: '#94a3b8', boxWidth: 12, font: { size: 10 } }
-                    },
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false,
-                        backgroundColor: '#0f172a'
-                    }
-                },
-                scales: {
-                    x: {
-                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                        ticks: { color: '#94a3b8', font: { size: 10 } }
-                    },
-                    y: {
-                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                        ticks: { color: '#94a3b8', font: { size: 10 } }
-                    }
-                }
-            }
+        // Khởi động dashboard với ngày mặc định
+        window.addEventListener('DOMContentLoaded', () => {
+            renderDashboardForDate(DB.default_date);
         });
     </script>
 </body>
