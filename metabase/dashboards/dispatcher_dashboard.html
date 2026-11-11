@@ -39,7 +39,7 @@
                     <div class="flex items-center gap-2">
                         <span class="px-2 py-0.5 text-xs font-semibold bg-blue-900/60 text-blue-300 rounded border border-blue-700/50">DISPATCHER AI SUITE</span>
                         <span class="px-2 py-0.5 text-xs font-semibold bg-emerald-900/60 text-emerald-300 rounded border border-emerald-700/50 flex items-center gap-1">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> 284 NGÀY KIỂM THỬ KHẢ DỤNG
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> <span id="header-dataset-badge">288 NGÀY ĐIỀU ĐỘ (ĐẾN NGÀY MAX TẦNG GOLD: 15/10/2026)</span>
                         </span>
                     </div>
                     <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-white mt-1">
@@ -58,13 +58,14 @@
                 <label for="date-picker-input" class="text-xs text-slate-400 font-semibold uppercase flex items-center gap-1">
                     <i data-lucide="calendar" class="w-3.5 h-3.5 text-blue-400"></i> Chọn Ngày:
                 </label>
-                <input type="date" id="date-picker-input" min="2026-01-01" max="2026-10-11" value="2026-10-11"
+                <input type="date" id="date-picker-input" min="2026-01-01" max="2026-10-15" value="2026-10-15"
                        class="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm text-white font-mono focus:outline-none focus:border-blue-500 cursor-pointer">
             </div>
 
             <!-- Quick Jump Dropdown -->
             <select id="quick-jump-select" class="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 font-medium focus:outline-none focus:border-blue-500 cursor-pointer">
-                <option value="2026-10-11">📌 Ngày mới nhất (11/10/2026)</option>
+                <option value="2026-10-15">📌 Ngày mới nhất tầng Gold (15/10/2026)</option>
+                <option value="2026-10-11">📊 Ngày 11/10/2026 (Chuyển tiếp vận hành)</option>
                 <option value="2026-10-02">🔥 Ngày phụ tải kỷ lục 2026 (02/10/2026 - 47.8k MW)</option>
                 <option value="2026-05-08">☀️ Đỉnh lịch sử hệ thống (08/05 - 43.6k MW)</option>
                 <option value="2026-02-17">🏮 Đợt nghỉ Tết Nguyên Đán (Đáy phụ tải)</option>
@@ -748,8 +749,22 @@
             }
         });
 
-        // Khởi động dashboard với ngày mặc định
+        // Khởi động dashboard với ngày mặc định từ DB (ngày max tầng Gold)
         window.addEventListener('DOMContentLoaded', () => {
+            if (DB && DB.dates_available && DB.dates_available.length > 0) {
+                const dates = DB.dates_available;
+                const minD = dates[0];
+                const maxD = dates[dates.length - 1];
+                const picker = document.getElementById('date-picker-input');
+                picker.min = minD;
+                picker.max = maxD;
+                picker.value = DB.default_date || maxD;
+
+                const badge = document.getElementById('header-dataset-badge');
+                if (badge) {
+                    badge.textContent = `${dates.length} NGÀY ĐIỀU ĐỘ (ĐẾN NGÀY MAX TẦNG GOLD: ${maxD})`;
+                }
+            }
             renderDashboardForDate(DB.default_date);
         });
     </script>
