@@ -1,8 +1,11 @@
 from pyspark.sql import DataFrame
-import pyspark.sql.functions as F
 from pyspark.sql.window import Window
 
 from gold.gold_utils import build_date_key, build_time_key
+from pyspark.sql.functions import (
+    abs, avg, broadcast, col, dense_rank, expr, hash, lag,
+    lower, max, min, minute, round, second, trim, when,
+)
 
 
 def transform_fact_load_hourly(
@@ -12,49 +15,53 @@ def transform_fact_load_hourly(
     """Transform silver load data into fact_load_hourly."""
     enriched = (
         load_df.filter(
-            (F.minute("observation_timestamp") == 0) &
-            (F.second("observation_timestamp") == 0)
+            (minute("observation_timestamp") == 0) &
+            (second("observation_timestamp") == 0)
         )
         .join(
-            F.broadcast(dim_region_df),
-            F.trim(F.lower(load_df.region)) == F.trim(F.lower(dim_region_df.region_name)),
+            broadcast(dim_region_df),
+            trim(lower(load_df.region)) == trim(lower(dim_region_df.region_name)),
             "inner",
         )
-        .withColumn("date_key", build_date_key(F.col("data_date")))
-        .withColumn("time_key", build_time_key(F.col("observation_timestamp")))
+        .withColumn("date_key", build_date_key(col("data_date")))
+        .withColumn("time_key", build_time_key(col("observation_timestamp")))
     )
 
     day_region_window = Window.partitionBy("date_key", "region_key")
     ts_window = Window.partitionBy("region_key").orderBy("observation_timestamp")
     # Deterministic surrogate key: parallel O(1), eliminates single-partition shuffle bottleneck
-    surrogate_key = F.abs(F.hash(F.col("date_key"), F.col("time_key"), F.col("region_key"))).cast("int")
+    surrogate_key = abs(hash(col("date_key"), col("time_key"), col("region_key"))).cast("int")
 
     result = (
         enriched
-        .withColumn("load_mw", F.col("load_mw").cast("float"))
+        .withColumn("load_mw", col("load_mw").cast("float"))
         .withColumn(
             "daily_avg_load_mw",
-            F.round(F.avg("load_mw").over(day_region_window), 2).cast("float"),
+            round(avg("load_mw").over(day_region_window), 2).cast("float"),
         )
         .withColumn(
             "daily_min_load_mw",
-            F.min("load_mw").over(day_region_window).cast("float"),
+            min("load_mw").over(day_region_window).cast("float"),
         )
         .withColumn(
             "daily_peak_load_mw",
-            F.max("load_mw").over(day_region_window).cast("float"),
+            max("load_mw").over(day_region_window).cast("float"),
         )
+        .withColumn("_previous_timestamp", lag("observation_timestamp").over(ts_window))
         .withColumn(
             "previous_hour_load_mw",
-            F.lag("load_mw", 1).over(ts_window).cast("float"),
+            when(
+                col("observation_timestamp") == col("_previous_timestamp") + expr("INTERVAL 1 HOUR"),
+                lag("load_mw", 1).over(ts_window),
+            ).cast("float"),
         )
         .withColumn(
             "load_change_mw",
-            F.round(F.col("load_mw") - F.col("previous_hour_load_mw"), 2).cast("float"),
+            round(col("load_mw") - col("previous_hour_load_mw"), 2).cast("float"),
         )
         .withColumn(
             "load_rank_in_day",
-            F.dense_rank().over(day_region_window.orderBy(F.col("load_mw").desc())).cast("int"),
+            dense_rank().over(day_region_window.orderBy(col("load_mw").desc())).cast("int"),
         )
         .withColumn(
             "load_key",

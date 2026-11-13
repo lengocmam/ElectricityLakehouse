@@ -6,7 +6,7 @@ from gold.dim_time import generate_dim_time
 from gold.dim_region import generate_dim_region
 from gold.dim_location import generate_dim_location
 from gold.dim_plant import generate_dim_plant
-from gold.dim_energy_source import generate_dim_energy_source
+from gold.dim_energy_source import generate_dim_energy_source, require_energy_source_dimension
 from gold.dim_period import generate_dim_period
 
 from gold.fact_load_hourly import transform_fact_load_hourly
@@ -46,6 +46,7 @@ def load_hourly(spark: SparkSession, source_df: DataFrame) -> DataFrame:
 
 
 def generation_power_hourly(spark: SparkSession, source_df: DataFrame) -> DataFrame:
+    require_energy_source_dimension(spark)
     return transform_fact_generation_power_hourly(source_df)
 
 
@@ -65,8 +66,10 @@ def hydro_status(spark: SparkSession, source_df: DataFrame) -> DataFrame:
 
 
 def generation_daily(spark: SparkSession, source_df: DataFrame) -> DataFrame:
+    require_energy_source_dimension(spark)
     return transform_fact_generation_daily(source_df)
 
 
 def generation_power_daily(spark: SparkSession, source_df: DataFrame) -> DataFrame:
+    require_energy_source_dimension(spark)
     return transform_fact_generation_power_daily(source_df)

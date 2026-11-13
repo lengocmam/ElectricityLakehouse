@@ -1,5 +1,8 @@
 from pyspark.sql import DataFrame
-from pyspark.sql.functions import array, col, explode, from_json, lit, struct, to_timestamp
+from pyspark.sql.functions import (
+    array, col, explode, from_json,
+    lit, struct, to_timestamp,
+)
 from pyspark.sql.types import ArrayType, DoubleType, StringType, StructField, StructType
 
 LOAD_SCHEMA = StructType([StructField("result", StructType([StructField("data", StructType([StructField("phuTais", ArrayType(StructType([

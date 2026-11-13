@@ -4,10 +4,10 @@ from dataclasses import dataclass
 from datetime import date
 
 from pyspark.sql import SparkSession
-import pyspark.sql.functions as F
 
-from bronze.control import _get_connection
+from utils.control_db import get_connection
 from utils.logging import create_logger
+from pyspark.sql.functions import col
 
 logger = create_logger(__name__)
 
@@ -33,7 +33,7 @@ def _ensure_checkpoint_table(cur) -> None:
 
 def get_gold_snapshot_checkpoint(fact_name: str, silver_table: str) -> int | None:
     """Read the last Silver snapshot fully published by this Gold fact."""
-    with _get_connection() as conn:
+    with get_connection() as conn:
         with conn.cursor() as cur:
             _ensure_checkpoint_table(cur)
             cur.execute(
@@ -54,7 +54,7 @@ def advance_gold_snapshot_checkpoint(
     snapshot_id: int,
 ) -> None:
     """Advance only after all writes for the selected Silver snapshot succeed."""
-    with _get_connection() as conn:
+    with get_connection() as conn:
         with conn.cursor() as cur:
             _ensure_checkpoint_table(cur)
             cur.execute(
@@ -106,7 +106,7 @@ def get_changed_partitions(
     checkpoint_id = get_gold_snapshot_checkpoint(fact_name, silver_table)
     history = (
         spark.table(f"{silver_table}.history")
-        .where(F.col("is_current_ancestor"))
+        .where(col("is_current_ancestor"))
         .orderBy("made_current_at")
         .select("snapshot_id")
         .collect()
@@ -139,8 +139,8 @@ def get_changed_partitions(
     partition_rows = (
         spark.table(f"{silver_table}.partitions")
         .select(
-            F.col("partition.report_date").alias("report_date"),
-            F.col("last_updated_snapshot_id").alias("updated_snapshot_id"),
+            col("partition.report_date").alias("report_date"),
+            col("last_updated_snapshot_id").alias("updated_snapshot_id"),
         )
         .collect()
     )
@@ -154,8 +154,8 @@ def get_changed_partitions(
         # partition needs a separate, explicitly approved deletion policy.
         deleted_rows = (
             spark.table(f"{silver_table}.all_entries")
-            .where((F.col("status") == 2) & F.col("snapshot_id").isin(list(pending_ids)))
-            .select(F.col("data_file.partition.report_date").alias("report_date"))
+            .where((col("status") == 2) & col("snapshot_id").isin(list(pending_ids)))
+            .select(col("data_file.partition.report_date").alias("report_date"))
             .distinct()
             .collect()
         )

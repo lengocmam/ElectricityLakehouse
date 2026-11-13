@@ -9,7 +9,8 @@ import time
 import requests
 
 from bronze.bronze_utils import write_raw_bronze
-from bronze.control import get_watermark, start_ingestion_log, finish_ingestion_log
+from bronze.control import get_watermark
+from utils.audit import finish_ingestion_log, start_ingestion_log
 from utils.spark import create_spark_session
 from utils.logging import create_logger
 

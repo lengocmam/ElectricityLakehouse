@@ -2,19 +2,8 @@ from collections.abc import Iterable
 
 from pyspark.sql import Column, DataFrame, Window
 from pyspark.sql.functions import (
-    col,
-    concat_ws,
-    count,
-    current_timestamp,
-    lit,
-    nullif,
-    regexp_replace,
-    row_number,
-    sha2,
-    struct,
-    to_json,
-    trim,
-    when,
+    col, concat_ws, count, current_timestamp, lit, nullif, regexp_replace,
+    row_number, sha2, struct, to_json, trim, when,
 )
 
 

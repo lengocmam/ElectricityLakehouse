@@ -1,250 +1,183 @@
-"""Canonical generation source names and keys for Gold."""
+"""Energy-source members retain provider and published labels; groups are descriptive."""
 
 from functools import reduce
 
-from pyspark.sql import DataFrame, SparkSession
-import pyspark.sql.functions as F
 from pyspark.errors import AnalysisException
-from pyspark.sql.window import Window
+from pyspark.sql import DataFrame, SparkSession
 
 from bronze.nsmo_power import EXPECTED_SOURCES
-from silver.silver_utils import normalize_text, stable_hash
+from silver.silver_utils import normalize_text
+from pyspark.sql.functions import (
+    Column, coalesce, col, conv, create_map, element_at, lit, lower, min, 
+    regexp_replace, sha2, struct, substring, to_json, trim, upper, when,
+)
 
 
-# Exact aliases only; distinct fuels, estimates and totals remain separate.
-SOURCE_ALIASES = {
-    "Nhiệt điện dầu:": "Nhiệt điện dầu",
-    "Nhiệt điện than:": "Nhiệt điện than",
-    "Thủy điện:": "Thủy điện",
-    "Điện gió:": "Điện gió",
-    "Gió": "Điện gió",
-    "Điện mặt trời:": "Điện mặt trời",
-    "Nhập khẩu điện:": "Nhập khẩu điện",
-    "Mặt trời farm": "ĐMT trang trại",
-    "Tuabin khí (GAS + Dầu DO)": "Tuabin khí (Gas + Dầu DO)",
-    "Tuabin khí (Gas + Dầu DO):": "Tuabin khí (Gas + Dầu DO)",
-    "Tuabin khí (Gas + dầu DO)": "Tuabin khí (Gas + Dầu DO)",
-    "*Tuabin khí (Chạy dầu)": "*Tuabin khí (Chạy Dầu)",
-    "Toàn quốc": "Toàn Quốc",
-    "Quốc gia": "Toàn Quốc",
-    "ĐMTMN (ĐC)": "ĐMT mái nhà (ước tính đầu cực)",
-    "Loại khác:": "Loại khác",
+DIMENSION_COLUMNS = [
+    "energy_source_key", "data_provider", "source_name",
+    "source_group", "reporting_basis", "row_type",
+]
+UNKNOWN = "Chưa rõ"
+
+# These rules describe labels, not equivalence of measurements across providers.
+# Tuple: reporting group, reporting basis, role within the published breakdown.
+SOURCE_CLASSIFICATIONS = {
+    "Thủy điện": ("Thủy điện", UNKNOWN, "Chi tiết"),
+    "Nhiệt điện than": ("Nhiệt điện than", UNKNOWN, "Chi tiết"),
+    "Gió": ("Điện gió", UNKNOWN, "Chi tiết"),
+    "Điện gió": ("Điện gió", UNKNOWN, "Chi tiết"),
+    "Điện mặt trời": ("Điện mặt trời", UNKNOWN, "Tổng nhóm"),
+    "Mặt trời farm": ("Điện mặt trời trang trại", UNKNOWN, "Chi tiết"),
+    "ĐMT trang trại": ("Điện mặt trời trang trại", UNKNOWN, "Chi tiết"),
+    "ĐMT mái nhà": ("Điện mặt trời mái nhà", UNKNOWN, "Chi tiết"),
+    "ĐMTMN (ĐC)": ("Điện mặt trời mái nhà", "Ước tính đầu cực", "Chi tiết"),
+    "ĐMT mái nhà (ước tính đầu cực)": (
+        "Điện mặt trời mái nhà", "Ước tính đầu cực", "Chi tiết",
+    ),
+    "ĐMT mái nhà (ước tính thương phẩm)": (
+        "Điện mặt trời mái nhà", "Ước tính thương phẩm", "Chi tiết",
+    ),
+    "Tuabin khí": ("Tuabin khí", UNKNOWN, "Tổng nhóm"),
+    "Tuabin khí (Gas + Dầu DO)": ("Tuabin khí", UNKNOWN, "Tổng nhóm"),
+    "Tuabin khí (GAS)": ("Tuabin khí", UNKNOWN, "Chi tiết"),
+    "Tuabin khí (DO)": ("Tuabin khí", UNKNOWN, "Chi tiết"),
+    "Tuabin khí (Chạy GAS)": ("Tuabin khí", UNKNOWN, "Chi tiết"),
+    "Tuabin khí (Chạy Dầu)": ("Tuabin khí", UNKNOWN, "Chi tiết"),
+    "Nhiệt điện dầu": ("Nhiệt điện dầu", UNKNOWN, "Tổng nhóm"),
+    "Nhiệt điện dầu DO": ("Nhiệt điện dầu", UNKNOWN, "Chi tiết"),
+    "Nhiệt điện dầu FO": ("Nhiệt điện dầu", UNKNOWN, "Chi tiết"),
+    "Nhiệt điện khác": ("Nhiệt điện khác", UNKNOWN, "Tổng nhóm"),
+    "Sinh khối": ("Sinh khối", UNKNOWN, "Chi tiết"),
+    "Nhập khẩu điện": ("Điện nhập khẩu", UNKNOWN, "Tổng nhóm"),
+    "Mua TQ": ("Chưa xác định", UNKNOWN, UNKNOWN),
+    "Loại khác": ("Nguồn khác", UNKNOWN, "Tổng nhóm"),
+    "Toàn quốc": ("Toàn hệ thống", UNKNOWN, "Tổng hệ thống"),
+    "Quốc gia": ("Toàn hệ thống", UNKNOWN, "Tổng hệ thống"),
+    "Quốc gia + ĐMT mái nhà (ước tính thương phẩm)": (
+        "Toàn hệ thống", "Ước tính thương phẩm", "Tổng hệ thống",
+    ),
+    "Quốc gia + ĐMT mái nhà (ước tính đầu cực)": (
+        "Toàn hệ thống", "Ước tính đầu cực", "Tổng hệ thống",
+    ),
 }
 
-# A null renewable flag means the label does not establish the energy mix.
-SOURCE_CATEGORIES = {
-    "Nhiệt điện dầu": ("OIL", False),
-    "Nhiệt điện dầu DO": ("OIL_DO", False),
-    "Nhiệt điện dầu FO": ("OIL_FO", False),
-    "Nhiệt điện than": ("COAL", False),
-    "Nhiệt điện khác": ("THERMAL_OTHER", None),
-    "Thủy điện": ("HYDRO", True),
-    "Điện gió": ("WIND", True),
-    "Điện mặt trời": ("SOLAR_UNSPECIFIED", True),
-    "ĐMT trang trại": ("SOLAR_FARM", True),
-    "ĐMT mái nhà": ("SOLAR_ROOFTOP", True),
-    "ĐMT mái nhà (ước tính thương phẩm)": ("SOLAR_ROOFTOP_COMMERCIAL", True),
-    "ĐMT mái nhà (ước tính đầu cực)": ("SOLAR_ROOFTOP_TERMINAL", True),
-    "Sinh khối": ("BIOMASS", True),
-    "Tuabin khí": ("GAS_TURBINE", False),
-    "Tuabin khí (GAS)": ("GAS_TURBINE", False),
-    "Tuabin khí (DO)": ("OIL_TURBINE", False),
-    "Tuabin khí (Gas + Dầu DO)": ("GAS_OIL_TURBINE", False),
-    "*Tuabin khí (Chạy GAS)": ("GAS_TURBINE", False),
-    "*Tuabin khí (Chạy Dầu)": ("OIL_TURBINE", False),
-    "Nhập khẩu điện": ("IMPORT_UNSPECIFIED", None),
-    "Mua TQ": ("PURCHASE_UNRESOLVED", None),
-    "Loại khác": ("OTHER_SOURCE", None),
-    "Toàn Quốc": ("SYSTEM_TOTAL", None),
-    "Quốc gia + ĐMT mái nhà (ước tính thương phẩm)": ("SYSTEM_TOTAL", None),
-    "Quốc gia + ĐMT mái nhà (ước tính đầu cực)": ("SYSTEM_TOTAL", None),
-    "Công suất lớn nhất trong ngày:": ("REPORT_METRIC", None),
-    "Sản lượng điện sản xuất và nhập khẩu:": ("REPORT_METRIC", None),
-    "UNKNOWN_SOURCE": ("UNKNOWN", None),
-}
+
+def source_identity(source_name: Column) -> Column:
+    """Ignore case and extra whitespace without collapsing published source labels."""
+    return lower(normalize_text(source_name))
 
 
-def _lookup(entries: dict, identity: F.Column) -> F.Column:
-    normalized = {key.lower(): item for key, item in entries.items()}
-    pairs = [value for key, item in normalized.items()
-             for value in (F.lit(key), F.lit(item))]
-    return F.element_at(F.create_map(*pairs), identity)
+def source_key_from_name(
+    source_name: Column, data_provider: str | Column,
+) -> Column:
+    """Hash provider and original label; grouping rules never affect this key."""
+    provider = lit(data_provider) if isinstance(data_provider, str) else data_provider
+    identity = to_json(struct(
+        upper(trim(provider)).alias("data_provider"),
+        source_identity(source_name).alias("source_name"),
+    ))
+    digest = sha2(identity, 256)
+    return when(
+        source_name.isNotNull(),
+        conv(substring(digest, 1, 15), 16, 10).cast("long"),
+    )
 
 
-def source_display_name(source_name: F.Column) -> F.Column:
-    """Resolve documented aliases and retain blank historical labels."""
-    cleaned = normalize_text(source_name)
-    cleaned = F.when(cleaned.isNull() | (cleaned == ""), F.lit("UNKNOWN_SOURCE")).otherwise(cleaned)
-    canonical = {name: name for name in SOURCE_CATEGORIES}
-    canonical.update(SOURCE_ALIASES)
-    return F.when(
-        F.lower(cleaned).rlike(r"^khác\s*\(.*\):?$"), F.lit("Loại khác")
-    ).otherwise(F.coalesce(_lookup(canonical, F.lower(cleaned)), cleaned))
+def _classification(source_name: Column) -> Column:
+    """Normalize punctuation only for metadata lookup, keeping the source identity."""
+    label = lower(regexp_replace(
+        regexp_replace(normalize_text(source_name), r"^\*\s*", ""), r":$", "",
+    ))
+    pairs = []
+    for name, (group, basis, row_type) in SOURCE_CLASSIFICATIONS.items():
+        pairs.extend((
+            lit(name.lower()),
+            struct(
+                lit(group).alias("source_group"),
+                lit(basis).alias("reporting_basis"),
+                lit(row_type).alias("row_type"),
+            ),
+        ))
+    return when(
+        label.rlike(r"^khác\s*\(.*\)$"),
+        struct(
+            lit("Nguồn khác").alias("source_group"),
+            lit(UNKNOWN).alias("reporting_basis"),
+            lit("Tổng nhóm").alias("row_type"),
+        ),
+    ).otherwise(element_at(create_map(*pairs), label))
 
 
-def source_identity(source_name: F.Column) -> F.Column:
-    """Use the canonical name to identify one business source."""
-    return F.lower(source_display_name(source_name))
+def build_energy_source_dimension(names: DataFrame) -> DataFrame:
+    """Build one member per provider and source label, including unclassified labels."""
+    members = (
+        names.withColumn("source_name", normalize_text(col("source_name")))
+        .withColumn("data_provider", upper(trim(col("data_provider"))))
+        .where(col("source_name").isNotNull())
+        .withColumn("_identity", source_identity(col("source_name")))
+        .groupBy("data_provider", "_identity")
+        .agg(min("source_name").alias("source_name"))
+    )
+    members = (
+        members.withColumn("energy_source_key", source_key_from_name(
+            col("source_name"), col("data_provider"),
+        ))
+        .withColumn("_classification", _classification(col("source_name")))
+        .withColumn("source_group", coalesce(
+            col("_classification.source_group"), lit("Chưa xác định"),
+        ))
+        .withColumn("reporting_basis", coalesce(
+            col("_classification.reporting_basis"), lit(UNKNOWN),
+        ))
+        .withColumn("row_type", coalesce(
+            col("_classification.row_type"), lit(UNKNOWN),
+        ))
+        .select(*DIMENSION_COLUMNS)
+    )
+    if members.groupBy("energy_source_key").count().where(col("count") > 1).limit(1).count():
+        raise ValueError("Energy source hash collision; choose a wider source key")
+    return members
 
 
-def source_key_from_name(source_name: F.Column) -> F.Column:
-    """Use the first 60 bits of the canonical name's SHA-256 hash."""
-    digest = F.sha2(source_identity(source_name), 256)
-    return F.conv(F.substring(digest, 1, 15), 16, 10).cast("long")
+def require_energy_source_dimension(spark: SparkSession) -> None:
+    """Do not mix provider-specific fact keys with the previous dimension layout."""
+    table = "nessie.gold.dim_energy_source"
+    if not spark.catalog.tableExists(table):
+        raise ValueError("Build dim_energy_source before running generation facts")
+    if spark.table(table).columns != DIMENSION_COLUMNS:
+        raise ValueError(
+            "Existing energy-source keys require a coordinated rebuild. "
+            "Run maintenance/rebuild_energy_sources.py to preview, then --apply; "
+            "original Gold tables are retained as backups."
+        )
 
 
 def generate_dim_energy_source(spark: SparkSession) -> DataFrame:
-    """Build distinct source members from EVN reports and NSMO source labels."""
+    """Read observed labels from Silver and seed the known NSMO chart labels."""
     names = [spark.createDataFrame(
-        [(name,) for name in sorted(EXPECTED_SOURCES)], ["source_name"]
+        [("NSMO", name) for name in sorted(EXPECTED_SOURCES)],
+        ["data_provider", "source_name"],
     )]
-    for table, column in (
-        ("nessie.silver.generation", "energy_source"),
-        ("nessie.silver.power_daily", "generation_source"),
+    for table, column, provider in (
+        ("nessie.silver.generation", "energy_source", "EVN"),
+        ("nessie.silver.power_daily", "generation_source", "EVN"),
+        ("nessie.silver.power_hourly", "generation_source_name", "NSMO"),
     ):
         try:
             if spark.catalog.tableExists(table):
                 names.append(
                     spark.read.option("vectorization-enabled", "false").table(table)
-                    .select(F.col(column).alias("source_name"))
-                    .distinct()
+                    .select(
+                        lit(provider).alias("data_provider"),
+                        col(column).alias("source_name"),
+                    ).distinct()
                 )
         except AnalysisException as exc:
-            missing_catalog = ("CATALOG_NOT_FOUND", "SCHEMA_NOT_FOUND",
-                               "REQUIRES_SINGLE_PART_NAMESPACE")
+            missing_catalog = (
+                "CATALOG_NOT_FOUND", "SCHEMA_NOT_FOUND", "REQUIRES_SINGLE_PART_NAMESPACE",
+            )
             if not any(code in str(exc) for code in missing_catalog):
                 raise
-
-    categories = {name: category for name, (category, _) in SOURCE_CATEGORIES.items()}
-    renewables = {name: renewable for name, (_, renewable) in SOURCE_CATEGORIES.items()
-                  if renewable is not None}
-    distinct = (
-        reduce(lambda left, right: left.unionByName(right), names)
-        .withColumn("source_name", source_display_name(F.col("source_name")))
-        .withColumn("identity", F.lower("source_name"))
-        .groupBy("identity")
-        .agg(F.min("source_name").alias("source_name"))
-        .withColumn("source_code", F.sha2(F.col("identity"), 256))
-        .withColumn("energy_source_key", source_key_from_name(F.col("source_name")))
-        .withColumn("renewable_flag", _lookup(renewables, F.col("identity")).cast("boolean"))
-        .withColumn("source_category", F.coalesce(
-            _lookup(categories, F.col("identity")), F.lit("UNCLASSIFIED")))
-    )
-    if distinct.groupBy("energy_source_key").count().where(F.col("count") > 1).limit(1).count():
-        raise ValueError("Energy source hash collision; choose a wider source key")
-    distinct = (distinct.withColumn("canonical_energy_source_key", F.col("energy_source_key"))
-                .withColumn("is_active", F.lit(True)))
-    return distinct.select("energy_source_key", "source_code", "source_name",
-                           "renewable_flag", "source_category",
-                           "canonical_energy_source_key", "is_active")
-
-
-def migrate_energy_source_aliases(spark: SparkSession) -> None:
-    """Repoint related facts; preserve old dimension rows as historical aliases."""
-    dim_table = "nessie.gold.dim_energy_source"
-    members = spark.table(dim_table)
-    aliases = (members.where(F.col("is_active").isNull() | F.col("is_active"))
-               .select(F.col("energy_source_key").alias("_old_key"), "source_name")
-               .withColumn("_new_key", source_key_from_name(F.col("source_name")))
-               .where(F.col("_old_key") != F.col("_new_key"))
-               .select("_old_key", "_new_key"))
-    mapping = aliases.collect()
-    if not mapping:
-        return
-    if aliases.join(members.select(F.col("energy_source_key").alias("_new_key")),
-                    "_new_key", "left_anti").limit(1).count():
-        raise ValueError("Canonical energy source member missing; migration aborted")
-    old_keys = [row._old_key for row in mapping]
-
-    for fact_name, keys in (
-        ("fact_generation_daily", ("date_key", "energy_source_key")),
-        ("fact_generation_power_daily", ("date_key", "period_key", "energy_source_key")),
-        ("fact_generation_power_hourly", ("date_key", "generation_mix_key")),
-    ):
-        table = f"nessie.gold.{fact_name}"
-        if not spark.catalog.tableExists(table):
-            continue
-        original = spark.table(table)
-        mapped = (original.join(F.broadcast(aliases),
-                                original.energy_source_key == aliases._old_key, "left")
-                  .drop("_old_key")
-                  .withColumn("_original_energy_key", F.col("energy_source_key"))
-                  .withColumn("energy_source_key",
-                              F.coalesce(F.col("_new_key"), F.col("energy_source_key")))
-                  .drop("_new_key"))
-        if fact_name != "fact_generation_power_hourly":
-            if mapped.groupBy(*keys).count().where(F.col("count") > 1).limit(1).count():
-                raise ValueError(f"Canonical source duplicates the grain of {fact_name}")
-            if fact_name == "fact_generation_daily":
-                previous = F.lag("generation_mwh").over(
-                    Window.partitionBy("energy_source_key").orderBy("date_key"))
-                mapped = (mapped.withColumn("previous_day_generation_mwh", previous.cast("float"))
-                          .withColumn("generation_change_mwh", F.round(
-                              F.col("generation_mwh") - F.col("previous_day_generation_mwh"), 2).cast("float"))
-                          .withColumn("generation_growth_pct", F.when(
-                              F.col("previous_day_generation_mwh").isNotNull() &
-                              (F.col("previous_day_generation_mwh") != 0),
-                              F.round(F.col("generation_change_mwh") /
-                                      F.col("previous_day_generation_mwh") * 100, 2)
-                          ).otherwise(None).cast("float"))
-                          .withColumn("generation_fact_key", F.abs(F.hash(
-                              "date_key", "energy_source_key")).cast("int")))
-            else:
-                previous = F.lag("capacity_mw").over(
-                    Window.partitionBy("energy_source_key", "period_key").orderBy("date_key"))
-                mapped = (mapped.withColumn("previous_capacity_mw", previous.cast("float"))
-                          .withColumn("capacity_change_mw", F.round(
-                              F.col("capacity_mw") - F.col("previous_capacity_mw"), 2).cast("float"))
-                          .withColumn("capacity_growth_pct", F.when(
-                              F.col("previous_capacity_mw").isNotNull() &
-                              (F.col("previous_capacity_mw") != 0),
-                              F.round(F.col("capacity_change_mw") /
-                                      F.col("previous_capacity_mw") * 100, 2)
-                          ).otherwise(None).cast("float"))
-                          .withColumn("capacity_key", F.abs(F.hash(
-                              "date_key", "period_key", "energy_source_key")).cast("int")))
-        else:
-            mapped = mapped.withColumn("mapping_version", F.lit("SOURCE_NAME_KEY_V3"))
-            mapped = mapped.withColumn("gold_row_hash", stable_hash([
-                "generation_mix_key", "row_hash", "mapping_version",
-                "energy_source_key", "sampling_policy",
-            ]))
-
-        # This migration reads and writes the same fact, requiring a lineage break.
-        staged = mapped.localCheckpoint(eager=True)
-        view = f"_energy_alias_migration_{fact_name}"
-        staged.createOrReplaceTempView(view)
-        try:
-            match = " AND ".join(
-                f"target.{key} = source.{key}" if key != "energy_source_key"
-                else "target.energy_source_key = source._original_energy_key"
-                for key in keys
-            )
-            updates = ", ".join(
-                f"target.{column} = source.{column}" for column in original.columns)
-            spark.sql(f"MERGE INTO {table} target USING {view} source ON {match} "
-                      f"WHEN MATCHED THEN UPDATE SET {updates}")
-        finally:
-            spark.catalog.dropTempView(view)
-            staged.unpersist()
-        if spark.table(table).where(F.col("energy_source_key").isin(old_keys)).limit(1).count():
-            raise ValueError(f"Old energy source keys remain in {fact_name}")
-
-    for fact_name in ("fact_generation_daily", "fact_generation_power_daily",
-                      "fact_generation_power_hourly"):
-        table = f"nessie.gold.{fact_name}"
-        if (spark.catalog.tableExists(table) and
-                spark.table(table).where(F.col("energy_source_key").isin(old_keys)).limit(1).count()):
-            raise ValueError(f"Historical alias still referenced by {fact_name}")
-
-    # Keep alias names and keys for audit; flatten older alias pointers too.
-    for row in mapping:
-        spark.sql(
-            f"UPDATE {dim_table} SET canonical_energy_source_key = {row._new_key} "
-            f"WHERE is_active = false AND canonical_energy_source_key = {row._old_key}"
-        )
-        spark.sql(
-            f"UPDATE {dim_table} SET canonical_energy_source_key = {row._new_key}, "
-            f"is_active = false, source_category = 'HISTORICAL_ALIAS' "
-            f"WHERE energy_source_key = {row._old_key}"
-        )
+    return build_energy_source_dimension(reduce(
+        lambda left, right: left.unionByName(right), names,
+    ))

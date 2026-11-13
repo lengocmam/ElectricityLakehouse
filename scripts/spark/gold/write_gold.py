@@ -3,7 +3,6 @@ from datetime import date, datetime, timedelta
 from functools import reduce
 from zoneinfo import ZoneInfo
 from pyspark.sql import DataFrame
-import pyspark.sql.functions as F
 
 from utils.spark import create_spark_session
 from utils.logging import create_logger
@@ -14,10 +13,14 @@ from gold.dim_time import generate_dim_time
 from gold.dim_region import generate_dim_region
 from gold.dim_location import generate_dim_location
 from gold.dim_plant import generate_dim_plant
-from gold.dim_energy_source import generate_dim_energy_source, migrate_energy_source_aliases
+from gold.dim_energy_source import generate_dim_energy_source
 from gold.dim_period import generate_dim_period
 from gold import gold_pipeline
 from gold.gold_control import advance_gold_snapshot_checkpoint, get_changed_partitions
+from pyspark.sql.functions import (
+    col, count, expr, lit,
+    minute, second, to_date,
+)
 
 logger = create_logger(__name__)
 
@@ -48,7 +51,7 @@ FACT_GRAINS = {
     "fact_hydro_status": ("date_key", "observation_time_key", "plant_key"),
     "fact_generation_daily": ("date_key", "energy_source_key"),
     "fact_generation_power_daily": ("date_key", "period_key", "energy_source_key"),
-    "fact_generation_power_hourly": ("date_key", "generation_mix_key"),
+    "fact_generation_power_hourly": ("date_key", "time_key", "energy_source_key"),
 }
 
 EXACT_HOUR_SOURCE_COLUMNS = {
@@ -68,18 +71,7 @@ def write_dimension_table(spark, dim_name: str, generator_func) -> None:
         logger.warning(f"Dimension {dim_name} has 0 records. Skipping write to avoid blank tables.")
         return
 
-    if dim_name == "dim_energy_source" and spark.catalog.tableExists(table_name):
-        existing = set(spark.table(table_name).columns)
-        for column, dtype in (
-            ("source_category", "STRING"),
-            ("canonical_energy_source_key", "BIGINT"),
-            ("is_active", "BOOLEAN"),
-        ):
-            if column not in existing:
-                spark.sql(f"ALTER TABLE {table_name} ADD COLUMNS ({column} {dtype})")
     _merge_gold_rows(spark, table_name, dim_df, (f"{dim_name[4:]}_key",))
-    if dim_name == "dim_energy_source":
-        migrate_energy_source_aliases(spark)
 
     logger.info(f"  -> Wrote {dim_count} records to {table_name}")
     try:
@@ -99,17 +91,17 @@ def write_dimension_table(spark, dim_name: str, generator_func) -> None:
 def validate_fact_invariants(fact_name: str, fact_df: DataFrame) -> None:
     """Check measures calculated in Gold; raw value rules belong to Silver."""
     if fact_name == "fact_load_hourly":
-        tolerance_mw = F.lit(0.01)
+        tolerance_mw = lit(0.01)
         inv_load = fact_df.filter(
-            (F.col("daily_min_load_mw") > F.col("daily_avg_load_mw") + tolerance_mw) |
-            (F.col("daily_avg_load_mw") > F.col("daily_peak_load_mw") + tolerance_mw)
+            (col("daily_min_load_mw") > col("daily_avg_load_mw") + tolerance_mw) |
+            (col("daily_avg_load_mw") > col("daily_peak_load_mw") + tolerance_mw)
         ).count()
         if inv_load > 0:
             raise ValueError(f"Integrity violation in fact_load_hourly: {inv_load} rows violate min <= avg <= peak!")
 
-    elif fact_name in ("fact_generation_daily", "fact_generation_power_daily"):
-        share_col = "generation_share_pct" if fact_name == "fact_generation_daily" else "capacity_share_pct"
-        invalid_share = fact_df.filter((F.col(share_col) < 0) | (F.col(share_col) > 100)).count()
+    elif fact_name in ("fact_generation_daily", "fact_generation_power_daily", "fact_generation_power_hourly"):
+        share_col = "generation_share_pct" if fact_name == "fact_generation_daily" else "generation_power_share_pct"
+        invalid_share = fact_df.filter((col(share_col) < 0) | (col(share_col) > 100)).count()
         if invalid_share > 0:
             raise ValueError(f"Integrity violation in {fact_name}: {invalid_share} rows with invalid share percentage!")
 
@@ -124,17 +116,17 @@ def audit_row_conservation(
     sample_timestamp = EXACT_HOUR_SOURCE_COLUMNS.get(fact_name)
     if sample_timestamp:
         source_df = source_df.where(
-            (F.minute(sample_timestamp) == 0) &
-            (F.second(sample_timestamp) == 0)
+            (minute(sample_timestamp) == 0) &
+            (second(sample_timestamp) == 0)
         )
     silver_counts = {
         str(r["data_date"]): r["count"]
-        for r in source_df.filter(F.col("data_date").cast("string").isin(changed_partitions))
-        .groupBy("data_date").agg(F.count(F.lit(1)).alias("count")).collect()
+        for r in source_df.filter(col("data_date").cast("string").isin(changed_partitions))
+        .groupBy("data_date").agg(count(lit(1)).alias("count")).collect()
     }
     gold_counts = {
         f"{str(r['date_key'])[:4]}-{str(r['date_key'])[4:6]}-{str(r['date_key'])[6:8]}": r["count"]
-        for r in fact_df.groupBy("date_key").agg(F.count(F.lit(1)).alias("count")).collect()
+        for r in fact_df.groupBy("date_key").agg(count(lit(1)).alias("count")).collect()
     }
 
     for p_date in changed_partitions:
@@ -153,11 +145,17 @@ def _merge_gold_rows(spark, table_name: str, rows: DataFrame,
                      keys: tuple[str, ...], partition_col: str | None = None) -> None:
     """Create a Gold table on first publication; otherwise upsert by its grain."""
     if not spark.catalog.tableExists(table_name):
+        if partition_col:
+            # Keep one partition writer open at a time when rebuilding years of data.
+            rows = rows.repartition(partition_col).sortWithinPartitions(partition_col)
         writer = (rows.writeTo(table_name)
                   .tableProperty("write.format.default", "parquet")
                   .tableProperty("format-version", "2"))
         if partition_col:
-            writer = writer.tableProperty("write.distribution-mode", "hash").partitionedBy(partition_col)
+            writer = (writer.option("fanout-enabled", "false")
+                      .tableProperty("write.spark.fanout.enabled", "false")
+                      .tableProperty("write.distribution-mode", "hash")
+                      .partitionedBy(partition_col))
         writer.using("iceberg").create()
         return
 
@@ -228,30 +226,42 @@ def write_fact_table(
 
     changed_report_dates = {date.fromisoformat(d) for d in changes.report_dates}
     silver_snapshot = spark.read.option("versionAsOf", str(changes.snapshot_id)).table(source_table)
-    changed_source = silver_snapshot.where(F.col("report_date").isin(sorted(changed_report_dates)))
+    changed_source = silver_snapshot.where(col("report_date").isin(sorted(changed_report_dates)))
     target_dates = {row.data_date for row in changed_source.select("data_date").distinct().collect()}
     if not target_dates or None in target_dates:
         raise ValueError(f"Missing data_date in changed Silver reports for {fact_name}")
     read_report_dates = set(changed_report_dates)
-    if fact_name in {"fact_load_hourly", "fact_generation_daily",
-                     "fact_generation_power_daily"}:
+    if fact_name in {"fact_generation_daily", "fact_generation_power_daily"}:
         read_report_dates.update(
             d + timedelta(days=offset)
             for d in changed_report_dates for offset in (-1, 1)
         )
-    if fact_name in {"fact_generation_daily", "fact_generation_power_daily"}:
         target_dates.update(d + timedelta(days=1) for d in tuple(target_dates))
+    sample_timestamp = EXACT_HOUR_SOURCE_COLUMNS.get(fact_name)
+    if sample_timestamp:
+        # A corrected HH:00 also changes the following hour's lag metrics.
+        # NSMO's D+1 00:00 belongs to report D; recompute D+1 01:00 too.
+        successors = changed_source.where(
+            (minute(sample_timestamp) == 0) &
+            (second(sample_timestamp) == 0)
+        ).select(to_date(col(sample_timestamp) + expr("INTERVAL 1 HOUR")).alias("next_date"))
+        target_dates.update(row.next_date for row in successors.distinct().collect())
+        # Complete event days plus their 23:00 predecessor. Report D covers
+        # D 00:30 through D+1 00:00, so event day T needs reports T-1 and T.
+        read_report_dates.update(
+            d + timedelta(days=offset) for d in target_dates for offset in (-1, 0)
+        )
     changed_partitions = sorted(d.isoformat() for d in target_dates)
     logger.info("Silver changed report dates for %s: %s", fact_name, changes.report_dates)
 
     min_date = min(changed_partitions)
     max_date = max(changed_partitions)
-    source_df = silver_snapshot.where(F.col("report_date").isin(sorted(read_report_dates)))
+    source_df = silver_snapshot.where(col("report_date").isin(sorted(read_report_dates)))
 
     fact_df = pipeline_func(spark, source_df)
 
     target_date_keys = [int(d.replace("-", "")) for d in changed_partitions]
-    fact_df = fact_df.where(F.col("date_key").isin(target_date_keys))
+    fact_df = fact_df.where(col("date_key").isin(target_date_keys))
 
     fact_df = fact_df.persist()
 
@@ -263,18 +273,13 @@ def write_fact_table(
 
         keys = FACT_GRAINS[fact_name]
         null_key = reduce(lambda left, right: left | right,
-                          (F.col(key).isNull() for key in keys))
+                          (col(key).isNull() for key in keys))
         if fact_df.where(null_key).limit(1).count():
             raise ValueError(f"Integrity check failed: NULL merge key in {fact_name}")
-        if fact_df.groupBy(*keys).count().where(F.col("count") > 1).limit(1).count():
+        if fact_df.groupBy(*keys).count().where(col("count") > 1).limit(1).count():
             raise ValueError(f"Integrity check failed: duplicate merge key in {fact_name}")
 
         validate_fact_invariants(fact_name, fact_df)
-
-        if "energy_source_key" in fact_df.columns:
-            dimension_keys = spark.table("nessie.gold.dim_energy_source").select("energy_source_key")
-            if fact_df.join(dimension_keys, "energy_source_key", "left_anti").limit(1).count():
-                raise ValueError(f"Orphan energy_source_key in {fact_name}")
 
         audit_row_conservation(fact_name, source_df, fact_df, changed_partitions)
 

@@ -218,6 +218,9 @@ def test_gold_merge_writer():
             return self
 
         def tableProperty(self, *args): return self
+        def option(self, *args): return self
+        def repartition(self, *args): return self
+        def sortWithinPartitions(self, *args): return self
         def using(self, *args): return self
 
         def partitionedBy(self, column):
@@ -256,7 +259,7 @@ def test_gold_merge_writer():
     assert "DELETE" not in sql
     assert spark.dropped_views == [load.view]
 
-    mix = FakeFrame(["generation_mix_key", "report_date", "date_key", "generation_power_mw"])
+    mix = FakeFrame(["generation_power_key", "date_key", "time_key", "energy_source_key", "generation_power_mw"])
     spark = FakeSpark(False, mix.columns)
     _merge_gold_rows(spark, "nessie.gold.fact_generation_power_hourly", mix,
                      FACT_GRAINS["fact_generation_power_hourly"], "date_key")
@@ -269,7 +272,8 @@ def test_gold_merge_writer():
                      FACT_GRAINS["fact_generation_power_hourly"], "date_key")
     sql = spark.statements[0]
     assert "target.`report_date` = source.`report_date`" not in sql
-    assert "target.`generation_mix_key` = source.`generation_mix_key`" in sql
+    assert "target.`time_key` = source.`time_key`" in sql
+    assert "target.`energy_source_key` = source.`energy_source_key`" in sql
     assert "target.`date_key` = source.`date_key`" in sql
 
     dim = FakeFrame(["energy_source_key", "source_name"])

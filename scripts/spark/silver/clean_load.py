@@ -1,5 +1,8 @@
 from pyspark.sql import DataFrame
-from pyspark.sql.functions import col, date_add, lit, lower, to_date, to_timestamp
+from pyspark.sql.functions import (
+    col, date_add, lit,
+    lower, to_date, to_timestamp,
+)
 
 from silver.silver_utils import add_dq, normalize_text
 

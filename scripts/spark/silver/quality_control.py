@@ -7,9 +7,9 @@ Protections:
 from datetime import datetime
 from typing import Optional
 from pyspark.sql import DataFrame, SparkSession
-import pyspark.sql.functions as F
 
 from utils.logging import create_logger
+from pyspark.sql.functions import col, count, lit, to_date
 
 logger = create_logger(__name__)
 
@@ -98,13 +98,13 @@ def detect_volume_skew(
 
         hist_df = table_df
         if run_date:
-            hist_df = hist_df.filter(F.col("data_date") < F.to_date(F.lit(run_date)))
+            hist_df = hist_df.filter(col("data_date") < to_date(lit(run_date)))
 
         # Group by data_date and get last 7 distinct days
         daily_counts = (
             hist_df.groupBy("data_date")
-            .agg(F.count(F.lit(1)).alias("day_count"))
-            .orderBy(F.col("data_date").desc())
+            .agg(count(lit(1)).alias("day_count"))
+            .orderBy(col("data_date").desc())
             .limit(7)
             .collect()
         )

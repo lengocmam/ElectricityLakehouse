@@ -111,18 +111,14 @@ def test_nsmo_power_contract_and_grain():
         assert valid.where(F.col("data_date") == F.lit(report_date + timedelta(days=1))).count() == 12
         fact = transform_fact_generation_power_hourly(valid)
         assert fact.count() == 288
-        assert fact.select("generation_source_name", "energy_source_key").distinct().count() == 12
         assert fact.select("energy_source_key").distinct().count() == 12
-        assert fact.filter(F.minute("observation_timestamp_local") != 0).count() == 0
-        boundary = fact.where(F.col("observation_timestamp_local") == F.lit("2026-11-06 00:00:00"))
+        boundary = fact.where((F.col("date_key") == 20261106) & (F.col("time_key") == 0))
         assert boundary.count() == 12
-        assert boundary.select("report_date", "data_date", "date_key", "time_key").first() == (
-            report_date, report_date + timedelta(days=1), 20261106, 0
-        )
+        assert boundary.select("date_key", "time_key").first() == (20261106, 0)
         assert {row.date_key for row in fact.select("date_key").distinct().collect()} == {
             20261105, 20261106
         }
-        assert fact.where(F.col("observation_timestamp_local") == F.lit("2026-11-05 01:00:00")).select(
+        assert fact.where((F.col("date_key") == 20261105) & (F.col("time_key") == 1)).select(
             "generation_power_mw").first()[0] == 1.0
 
         payload["result"]["data"][0]["congSuat"][stamps[1]] = -0.5

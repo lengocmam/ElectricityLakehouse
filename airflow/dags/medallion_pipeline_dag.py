@@ -475,7 +475,7 @@ with DAG(
     bronze_nsmo_power >> silver_power_hourly
     bronze_open_meteo >> [silver_weather_daily, silver_weather_hourly]
 
-    [silver_hydro, silver_generation, silver_power_daily] >> gold_dimensions
+    [silver_hydro, silver_generation, silver_power_daily, silver_power_hourly] >> gold_dimensions
 
     [silver_load, gold_dimensions] >> gold_load_hourly
     [silver_power_hourly, gold_dimensions] >> gold_generation_power_hourly

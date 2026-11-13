@@ -139,7 +139,17 @@ location vật lý cũ và lịch sử audit được giữ nguyên.
 Silver `nessie.silver.load`, `nessie.silver.power_daily` va `nessie.silver.power_hourly` giu du cac
 diem 30 phut. Gold `nessie.gold.fact_load_hourly` va
 `nessie.gold.fact_generation_power_hourly` chi giu gia tri goc tai HH:00, gom ca
-D+1 00:00. Gold khong lay trung binh va khong tinh MWh hoac tong 12 nguon.
+D+1 00:00. Gold không lấy trung bình và không tính MWh.
+`fact_generation_power_hourly` có 10 cột: `generation_power_key` (INT), `date_key`,
+`time_key`, `energy_source_key`, `generation_power_mw`, `generation_power_share_pct`,
+`previous_generation_power_mw`, `generation_power_change_mw`, `generation_power_growth_pct`,
+`generation_power_rank_in_hour`. Tỷ trọng tính trên các nguồn NSMO có dữ liệu tại cùng giờ;
+previous/change/growth dùng đúng giờ liền trước, thiếu giờ thì NULL. Khóa số nguyên được tạo từ
+ngày, giờ và nguồn điện; giá trị công suất thay đổi không làm đổi khóa.
+Quy ước tên cột và cách đổi tên các bảng đang lưu được ghi tại
+[Tên cột ba bảng phát điện](docs/generation_column_names.md).
+Hướng dẫn nâng cấp schema hourly và tính lại lịch sử:
+[Chỉ số công suất theo giờ](docs/hourly_power_metrics.md).
 Moi bang Silver valid/reject dung partition `report_date` va cung mot writer.
 NSMO Load/Power lay `report_date` tu ngay bao cao; EVN, Hydro va thoi tiet dat
 `report_date = data_date` sau extract. `data_date`/timestamp cua diem do van
@@ -153,22 +163,34 @@ Gold lay `report_date` thay doi tu metadata snapshot/partition cua Silver,
 khong so row Silver voi Gold. PostgreSQL `gold_silver_snapshot_checkpoint`
 giu snapshot Silver cuoi cung da duoc tung fact Gold xu ly thanh cong. Gold
 doc `data_date` cua cac report thay doi de chon partition Gold can MERGE;
-Load va hai fact EVN doc them report lien ke de tinh lag. Checkpoint chi tien
+Hai fact EVN đọc thêm report liền kề để tính lag. Load hourly và Power hourly đọc đầy đủ
+report của các ngày sự kiện cần ghi và report ngày trước, tính lại cả ngày chứa
+giờ kế tiếp bị ảnh hưởng khi sửa dữ liệu cũ, kể cả khi report kết thúc ở 23:00 và thiếu 00:00.
+Cả hai fact hourly chỉ dùng giá trị đúng một giờ trước; thiếu giờ thì previous/change
+là NULL. Load vẫn tính avg/min/peak/rank theo ngày và vùng trên các điểm HH:00 có dữ liệu.
+Thay đổi logic không tự cập nhật lịch sử đã ghi: chạy backfill `fact_load_hourly`
+cho phạm vi report cần tính lại; schema Load không đổi. Checkpoint chỉ tiến
 sau khi Gold ghi xong; backfill
 theo ngay khong day checkpoint. Neu snapshot checkpoint da het han, Gold
 refresh toan bo partition Silver hien tai. Silver overwrite cung ngay van tao
 snapshot moi va co the khien Gold xu ly lai, du du lieu khong doi.
 Moi fact Gold duoc partition theo `date_key` cua ngay su kien va MERGE theo
-grain (ngay/gio/doi tuong). Mix match theo `date_key` va `generation_mix_key`;
+grain (ngay/gio/doi tuong). Gold Power hourly match theo `date_key`, `time_key`, `energy_source_key`;
 report D ghi vao ca partition D va D+1 neu co diem 00:00. MERGE cap nhat hoac them diem co trong
 Silver, khong tu dong xoa diem cu neu nguon sau nay bo mot dong.
-`dim_energy_source` cap mot `energy_source_key` rieng cho moi ten nguon sau
-chuan hoa chu hoa/chu thuong va khoang trang. Hai nguon `ĐMT mái nhà (ước tính thương phẩm)`
-va `ĐMT mái nhà (ước tính đầu cực)` co hai key khac nhau; key
-khong dai dien cho nhom nguon. Ten nguon rong lich su duoc gan nhan
-`UNKNOWN_SOURCE`. Hai fact EVN Generation/Power Daily giu key cua tung nguon de
-MERGE theo grain duy nhat. Dimension va hai fact da duoc dung lai tu Silver;
-checkpoint da cap nhat va code migrate mot lan da duoc xoa sau khi kiem chung.
+`dim_energy_source` có sáu cột: `energy_source_key`, `data_provider`, `source_name`,
+`source_group`, `reporting_basis`, `row_type`; không có ngày hiệu lực. Mã nguồn
+được tạo từ nơi cung cấp (EVN/NSMO) và tên được công bố, chỉ bỏ khác biệt về
+chữ hoa/thường và khoảng trắng. Tên `Gió`, `Điện gió` và các tên `Khác (...)`
+được giữ riêng; `source_group` chỉ phân nhóm báo cáo, không quyết định mã nguồn.
+Ước tính đầu cực/thương phẩm và dòng tổng/thành phần được phân biệt bằng hai
+cột mô tả. Nguồn chưa rõ được giữ lại với nhóm `Chưa xác định`.
+Ba fact Generation Daily, Generation Power Daily và Generation Power Hourly
+dùng cùng cách tạo mã, với nơi cung cấp tương ứng EVN, EVN và NSMO.
+Khi nâng cấp từ cấu trúc cũ, cần chuyển đồng bộ dim và ba fact trước khi chạy
+job mới. `maintenance/rebuild_energy_sources.py` xem trước theo mặc định;
+`--apply` dựng lại từ Silver và giữ nguyên bảng cũ dưới tên sao lưu.
+Chi tiết cấu trúc và cách chuyển đổi ở [energy_source_redesign.md](docs/energy_source_redesign.md).
 Moi bang Gold dimension duoc MERGE theo khoa cua no; nguon vang mat trong lan
 chay moi khong xoa dong dimension cu. `dim_plant` giu khoa cua ho da co theo
 ten ho va chi cap khoa moi cho ho moi, tranh doi khoa khi Silver thieu mot ho.

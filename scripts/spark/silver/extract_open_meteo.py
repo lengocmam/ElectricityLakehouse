@@ -1,6 +1,8 @@
 from pyspark.sql import DataFrame
-from pyspark.sql.functions import (arrays_zip, col, posexplode, from_json, inline, to_date, to_timestamp, broadcast, 
-abs as spark_abs, when, lit)
+from pyspark.sql.functions import (
+    arrays_zip, col, posexplode, from_json, inline, to_date,
+    to_timestamp, broadcast, abs as spark_abs, when, lit,
+)
 from pyspark.sql.types import ArrayType, DoubleType, IntegerType, StringType, StructField, StructType
 
 from utils.locations import LOCATIONS

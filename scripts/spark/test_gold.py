@@ -31,7 +31,7 @@ from gold.dim_time import generate_dim_time
 from gold.dim_region import generate_dim_region
 from gold.dim_location import generate_dim_location
 from gold.dim_plant import generate_dim_plant
-from gold.dim_energy_source import generate_dim_energy_source
+from gold.dim_energy_source import DIMENSION_COLUMNS, generate_dim_energy_source
 from bronze.nsmo_power import EXPECTED_SOURCES
 from gold.dim_period import generate_dim_period
 
@@ -79,6 +79,8 @@ def main():
     assert refreshed_locations.where(F.col("province") == "Ha Noi").first().location_key == 9
     assert refreshed_locations.select("location_key").distinct().count() == 34
     dim_energy_df = generate_dim_energy_source(spark)
+    assert dim_energy_df.columns == DIMENSION_COLUMNS
+    assert {row.data_provider for row in dim_energy_df.select("data_provider").distinct().collect()} == {"NSMO"}
     dim_period_df = generate_dim_period(spark)
 
     mock_hydro_df = spark.createDataFrame(
@@ -255,9 +257,9 @@ def main():
     passed_tests += 1
 
     # =========================================================================
-    # TEST 5: FACT_GENERATION_DAILY & FACT_GENERATION_CAPACITY_DAILY
+    # TEST 5: FACT_GENERATION_DAILY & FACT_GENERATION_POWER_DAILY
     # =========================================================================
-    print("\n[TEST 5/6] Verifying Generation & Capacity Facts (Share % & Lags)...")
+    print("\n[TEST 5/6] Verifying Generation & Power Facts (Share % & Lags)...")
     gen_raw = [
         (date(2024, 1, 1), "Thủy điện", 250.5),
         (date(2024, 1, 1), "Nhiệt điện than", 400.0),
@@ -290,14 +292,14 @@ def main():
         StructField("dispatched_power_mw", DoubleType()),
     ])
     silver_power_df = spark.createDataFrame(power_raw, power_schema)
-    fact_cap_df = transform_fact_generation_power_daily(silver_power_df)
-    assert fact_cap_df.count() == silver_power_df.count(), "Row conservation failed in fact_generation_power_daily"
-    period_shares = fact_cap_df.groupBy("date_key", "period_key").agg(F.round(F.sum("capacity_share_pct"), 1).alias("tot")).collect()
+    fact_power_df = transform_fact_generation_power_daily(silver_power_df)
+    assert fact_power_df.count() == silver_power_df.count(), "Row conservation failed in fact_generation_power_daily"
+    period_shares = fact_power_df.groupBy("date_key", "period_key").agg(F.round(F.sum("generation_power_share_pct"), 1).alias("tot")).collect()
     for row in period_shares:
-        assert abs(row.tot - 100.0) <= 0.2, f"Total capacity share for period {row.period_key} is not 100%"
+        assert abs(row.tot - 100.0) <= 0.2, f"Total generation power share for period {row.period_key} is not 100%"
 
     print("  ✓ Daily Generation: 100% row conservation, sum(generation_share_pct) = 100.0%")
-    print("  ✓ Daily Capacity: 100% row conservation, sum(capacity_share_pct) = 100.0%")
+    print("  ✓ Daily Power: 100% row conservation, sum(generation_power_share_pct) = 100.0%")
     passed_tests += 1
 
     # =========================================================================
@@ -321,7 +323,7 @@ def main():
     # 1. Valid transformed data passes invariant validations
     validate_fact_invariants("fact_load_hourly", fact_load_df)
     validate_fact_invariants("fact_generation_daily", fact_gen_df)
-    validate_fact_invariants("fact_generation_power_daily", fact_cap_df)
+    validate_fact_invariants("fact_generation_power_daily", fact_power_df)
 
     # 2. Gold validates a measure it calculates from clean Silver values.
     bad_load_df = fact_load_df.withColumn(
@@ -338,7 +340,7 @@ def main():
     silver_load_with_date = silver_load_df.withColumn("data_date", F.to_date("observation_timestamp"))
     audit_row_conservation("fact_load_hourly", silver_load_with_date, fact_load_df, ["2024-01-01"])
 
-    print("  ✓ Gold-derived invariants verified for Load, Generation and Capacity")
+    print("  ✓ Gold-derived invariants verified for Load, Generation and Power")
     print("  ✓ Invalid Gold-derived metrics correctly blocked before Iceberg commit")
     print("  ✓ End-to-end row conservation audit validated between Silver and Gold")
     passed_tests += 1

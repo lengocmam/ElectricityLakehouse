@@ -1,19 +1,7 @@
 from pyspark.sql import DataFrame, functions as F
 from pyspark.sql.functions import (
-    array,
-    element_at,
-    explode,
-    lit,
-    lower,
-    nullif,
-    regexp_extract,
-    regexp_extract_all,
-    regexp_replace,
-    size,
-    struct,
-    to_date,
-    transform,
-    trim,
+    array, element_at, explode, filter, lit, lower, nullif, regexp_extract,
+    regexp_extract_all, regexp_replace, size, struct, to_date, transform, trim, when,
 )
 
 
@@ -27,7 +15,7 @@ def _decimal(column):
     normalized = regexp_replace(trim(column), r"\s+", "")
     normalized = regexp_replace(normalized, ",", ".")
     is_number = normalized.rlike(r"^[-+]?[0-9]*\.?[0-9]+$")
-    return F.when(is_number, normalized.cast("double")).otherwise(F.lit(None).cast("double"))
+    return when(is_number, normalized.cast("double")).otherwise(lit(None).cast("double"))
 
 
 def extract_evn_power(df: DataFrame) -> DataFrame:
@@ -39,8 +27,8 @@ def extract_evn_power(df: DataFrame) -> DataFrame:
     )
     rows = regexp_extract_all(power_table, lit("(?is)<tr[^>]*>(.*?)</tr>"), 1)
     cells = transform(rows, lambda row: transform(regexp_extract_all(row, lit("(?is)<t[dh][^>]*>(.*?)</t[dh]>"), 1), _html_text))
-    rows_with_power_values = F.filter(cells, lambda row: size(row) >= lit(3))
-    data_rows = F.filter(
+    rows_with_power_values = filter(cells, lambda row: size(row) >= lit(3))
+    data_rows = filter(
         rows_with_power_values,
         lambda row: lower(element_at(row, 1)) != lit("ngu\u1ed3n")
     )
