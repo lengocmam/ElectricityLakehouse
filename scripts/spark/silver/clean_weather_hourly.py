@@ -9,6 +9,7 @@ def clean_weather_hourly(df: DataFrame) -> tuple[DataFrame, DataFrame]:
     prepared = (
         df.withColumn("timezone", normalize_text("timezone"))
         .withColumn("data_date", to_date("observation_timestamp"))
+        .withColumn("report_date", col("data_date"))
     )
     ranges = [
         ((col("latitude") < -90) | (col("latitude") > 90), "LATITUDE_INVALID"),

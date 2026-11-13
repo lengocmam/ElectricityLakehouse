@@ -17,7 +17,7 @@ def transform_fact_weather_hourly(
             F.trim(F.lower(weather_hourly_df.location_name)) == F.trim(F.lower(dim_location_df.province)),
             "inner",
         )
-        .withColumn("date_key", build_date_key(F.col("observation_timestamp")))
+        .withColumn("date_key", build_date_key(F.col("data_date")))
         .withColumn("time_key", build_time_key(F.col("observation_timestamp")))
     )
 

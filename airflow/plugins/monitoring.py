@@ -179,7 +179,15 @@ def init_monitoring_tables():
                     CREATE INDEX IF NOT EXISTS idx_data_lineage_source ON data_lineage(source_name, created_at DESC);
                     CREATE INDEX IF NOT EXISTS idx_data_lineage_dag_run ON data_lineage(dag_id, run_id);
 
-                    -- 5. Reconciliation view for incomplete or abnormal audits
+                    -- 5. Last Silver snapshot fully published by each Gold fact
+                    CREATE TABLE IF NOT EXISTS gold_silver_snapshot_checkpoint (
+                        fact_name VARCHAR(128) PRIMARY KEY,
+                        silver_table VARCHAR(255) NOT NULL,
+                        last_processed_snapshot_id BIGINT NOT NULL,
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    );
+
+                    -- 6. Reconciliation view for incomplete or abnormal audits
                     DROP VIEW IF EXISTS v_incomplete_task_audits;
                     CREATE VIEW v_incomplete_task_audits AS
                     SELECT
@@ -240,23 +248,26 @@ TASK_DATASET_MAP: dict[str, str] = {
     # Bronze layer tasks
     "bronze_ingestion.ingest_evn": "evn",
     "bronze_ingestion.ingest_evn_hydro": "evn_hydro",
-    "bronze_ingestion.ingest_nsmo": "nsmo",
+    "bronze_ingestion.ingest_nsmo_load": "nsmo_load",
+    "bronze_ingestion.ingest_nsmo_power": "nsmo_power",
     "bronze_ingestion.ingest_open_meteo": "open_meteo",
     # Silver layer tasks
-    "silver_processing.silver_power": "power",
+    "silver_processing.silver_power_daily": "power_daily",
     "silver_processing.silver_generation": "generation",
     "silver_processing.silver_hydro": "hydro",
-    "silver_processing.silver_load": "load",
+    "silver_processing.silver_load": "nsmo_load",
+    "silver_processing.silver_power_hourly": "power_hourly",
     "silver_processing.silver_weather_daily": "weather_daily",
     "silver_processing.silver_weather_hourly": "weather_hourly",
     # Gold layer tasks
     "gold_processing.gold_dimensions": "dims",
-    "gold_processing.gold_load_hourly": "fact_load_hourly",
+    "gold_processing.gold_load_hourly": "nsmo_load",
+    "gold_processing.gold_generation_power_hourly": "fact_generation_power_hourly",
     "gold_processing.gold_weather_hourly": "fact_weather_hourly",
     "gold_processing.gold_weather_daily": "fact_weather_daily",
     "gold_processing.gold_hydro_status": "fact_hydro_status",
     "gold_processing.gold_generation_daily": "fact_generation_daily",
-    "gold_processing.gold_generation_capacity_daily": "fact_generation_capacity_daily",
+    "gold_processing.gold_generation_power_daily": "fact_generation_power_daily",
 }
 
 LINEAGE_REGISTRY: dict[str, list[tuple[str, str, str, str, str]]] = {
@@ -267,16 +278,19 @@ LINEAGE_REGISTRY: dict[str, list[tuple[str, str, str, str, str]]] = {
     "bronze_ingestion.ingest_evn_hydro": [
         ("api.evn.com.vn/hydro", "SOURCE", "nessie.bronze.evn_hydro", "BRONZE", "bronze/ingest_bronze.py:evn_hydro")
     ],
-    "bronze_ingestion.ingest_nsmo": [
-        ("nldc.evn.com.vn", "SOURCE", "nessie.bronze.nsmo", "BRONZE", "bronze/ingest_bronze.py:nsmo")
+    "bronze_ingestion.ingest_nsmo_load": [
+        ("www.nsmo.vn", "SOURCE", "nessie.bronze.nsmo_load", "BRONZE", "bronze/ingest_bronze.py:nsmo_load")
+    ],
+    "bronze_ingestion.ingest_nsmo_power": [
+        ("www.nsmo.vn", "SOURCE", "nessie.bronze.nsmo_power", "BRONZE", "bronze/nsmo_power.py")
     ],
     "bronze_ingestion.ingest_open_meteo": [
         ("archive-api.open-meteo.com", "SOURCE", "nessie.bronze.open_meteo", "BRONZE", "bronze/ingest_bronze.py:open_meteo")
     ],
     # Silver layer tasks
-    "silver_processing.silver_power": [
-        ("nessie.bronze.evn", "BRONZE", "nessie.silver.power", "SILVER", "silver/write_silver.py:power"),
-        ("nessie.bronze.evn", "BRONZE", "nessie.silver.power_reject", "SILVER", "silver/write_silver.py:power_reject"),
+    "silver_processing.silver_power_daily": [
+        ("nessie.bronze.evn", "BRONZE", "nessie.silver.power_daily", "SILVER", "silver/write_silver.py:power_daily"),
+        ("nessie.bronze.evn", "BRONZE", "nessie.silver.power_daily_reject", "SILVER", "silver/write_silver.py:power_daily_reject"),
     ],
     "silver_processing.silver_generation": [
         ("nessie.bronze.evn", "BRONZE", "nessie.silver.generation", "SILVER", "silver/write_silver.py:generation"),
@@ -287,8 +301,12 @@ LINEAGE_REGISTRY: dict[str, list[tuple[str, str, str, str, str]]] = {
         ("nessie.bronze.evn_hydro", "BRONZE", "nessie.silver.hydro_reject", "SILVER", "silver/write_silver.py:hydro_reject"),
     ],
     "silver_processing.silver_load": [
-        ("nessie.bronze.nsmo", "BRONZE", "nessie.silver.load", "SILVER", "silver/write_silver.py:load"),
-        ("nessie.bronze.nsmo", "BRONZE", "nessie.silver.load_reject", "SILVER", "silver/write_silver.py:load_reject"),
+        ("nessie.bronze.nsmo_load", "BRONZE", "nessie.silver.load", "SILVER", "silver/write_silver.py:load"),
+        ("nessie.bronze.nsmo_load", "BRONZE", "nessie.silver.load_reject", "SILVER", "silver/write_silver.py:load_reject"),
+    ],
+    "silver_processing.silver_power_hourly": [
+        ("nessie.bronze.nsmo_power", "BRONZE", "nessie.silver.power_hourly", "SILVER", "silver/write_silver.py:power_hourly"),
+        ("nessie.bronze.nsmo_power", "BRONZE", "nessie.silver.power_hourly_reject", "SILVER", "silver/write_silver.py:power_hourly_reject"),
     ],
     "silver_processing.silver_weather_daily": [
         ("nessie.bronze.open_meteo", "BRONZE", "nessie.silver.weather_daily", "SILVER", "silver/write_silver.py:weather_daily"),
@@ -311,6 +329,9 @@ LINEAGE_REGISTRY: dict[str, list[tuple[str, str, str, str, str]]] = {
     "gold_processing.gold_load_hourly": [
         ("nessie.silver.load", "SILVER", "nessie.gold.fact_load_hourly", "GOLD", "gold/write_gold.py:fact_load_hourly"),
     ],
+    "gold_processing.gold_generation_power_hourly": [
+        ("nessie.silver.power_hourly", "SILVER", "nessie.gold.fact_generation_power_hourly", "GOLD", "gold/write_gold.py:fact_generation_power_hourly"),
+    ],
     "gold_processing.gold_weather_hourly": [
         ("nessie.silver.weather_hourly", "SILVER", "nessie.gold.fact_weather_hourly", "GOLD", "gold/write_gold.py:fact_weather_hourly"),
     ],
@@ -323,14 +344,16 @@ LINEAGE_REGISTRY: dict[str, list[tuple[str, str, str, str, str]]] = {
     "gold_processing.gold_generation_daily": [
         ("nessie.silver.generation", "SILVER", "nessie.gold.fact_generation_daily", "GOLD", "gold/write_gold.py:fact_generation_daily"),
     ],
-    "gold_processing.gold_generation_capacity_daily": [
-        ("nessie.silver.power", "SILVER", "nessie.gold.fact_generation_capacity_daily", "GOLD", "gold/write_gold.py:fact_generation_capacity_daily"),
+    "gold_processing.gold_generation_power_daily": [
+        ("nessie.silver.power_daily", "SILVER", "nessie.gold.fact_generation_power_daily", "GOLD", "gold/write_gold.py:fact_generation_power_daily"),
     ],
 }
 
 
-def record_task_lineage(dag_id: str, task_id: str, run_id: Optional[str]) -> None:
-    """Record verified table-level lineage for a completed task."""
+def record_task_lineage(dag_id: str, task_id: str, run_id: Optional[str],
+                        records_written: Optional[int] = None,
+                        records_rejected: Optional[int] = None) -> None:
+    """Record registered table lineage for a completed task with committed rows."""
     entries = LINEAGE_REGISTRY.get(task_id)
     if not entries and "." in task_id:
         entries = LINEAGE_REGISTRY.get(task_id.split(".")[-1])
@@ -345,6 +368,10 @@ def record_task_lineage(dag_id: str, task_id: str, run_id: Optional[str]) -> Non
         with conn:
             with conn.cursor() as cur:
                 for src_name, src_layer, tgt_name, tgt_layer, transform in entries:
+                    if tgt_name.endswith("_reject") and records_rejected == 0:
+                        continue
+                    if not tgt_name.endswith("_reject") and records_written == 0:
+                        continue
                     cur.execute(
                         """
                         INSERT INTO data_lineage (
@@ -989,6 +1016,32 @@ def check_duration_anomaly_and_audit(context: dict[str, Any]) -> None:
     if not dataset_name and "." in task_id:
         dataset_name = TASK_DATASET_MAP.get(task_id.split(".")[-1])
 
+    # Airflow owns the final task state. Spark metrics only signal NO_DATA and
+    # identify which registered lineage targets actually received rows.
+    nsmo_tasks = {
+        "bronze_ingestion.ingest_nsmo_power",
+        "silver_processing.silver_power_hourly",
+        "gold_processing.gold_generation_power_hourly",
+        "silver_processing.silver_load",
+        "gold_processing.gold_load_hourly",
+    }
+    app_state = None
+    records_written = records_rejected = None
+    if task_id in nsmo_tasks:
+        conn = _get_db_connection()
+        if conn:
+            try:
+                with conn:
+                    with conn.cursor() as cur:
+                        cur.execute("SELECT state, records_written, records_rejected FROM pipeline_task_audit WHERE dag_id=%s AND task_id=%s "
+                                    "AND run_id=%s AND try_number=%s",
+                                    (dag_id, task_id, run_id, ti.try_number if ti else 1))
+                        row = cur.fetchone()
+                        if row:
+                            app_state, records_written, records_rejected = row
+            finally:
+                conn.close()
+
     # Check for duration anomaly
     is_anomaly, reason, baseline_mean = check_duration_anomaly(task_id, dag_id, duration_sec)
 
@@ -996,7 +1049,7 @@ def check_duration_anomaly_and_audit(context: dict[str, Any]) -> None:
         dag_id=dag_id,
         task_id=task_id,
         run_id=run_id,
-        state="SUCCESS",
+        state="NO_DATA" if app_state == "NO_DATA" else "SUCCESS",
         logical_date=context.get("logical_date") or context.get("execution_date"),
         start_time=ti.start_date if ti else None,
         end_time=ti.end_date if ti else None,
@@ -1012,7 +1065,13 @@ def check_duration_anomaly_and_audit(context: dict[str, Any]) -> None:
     )
 
     # Record data lineage for table-level transformation
-    record_task_lineage(dag_id=dag_id, task_id=task_id, run_id=run_id)
+    if task_id in nsmo_tasks:
+        if records_written is not None or records_rejected is not None:
+            record_task_lineage(dag_id=dag_id, task_id=task_id, run_id=run_id,
+                                records_written=records_written,
+                                records_rejected=records_rejected)
+    else:
+        record_task_lineage(dag_id=dag_id, task_id=task_id, run_id=run_id)
 
     if is_anomaly and baseline_mean:
         spike_pct = ((duration_sec / baseline_mean) - 1.0) * 100.0

@@ -8,7 +8,9 @@ import requests
 import urllib3
 
 from bronze.bronze_utils import write_raw_bronze
-from bronze.control import get_watermark, start_ingestion_log, finish_ingestion_log
+from bronze.control import (
+    get_watermark, start_ingestion_log, finish_ingestion_log,
+)
 from utils.spark import create_spark_session
 from utils.logging import create_logger
 
@@ -20,8 +22,9 @@ BASE_URL = "https://www.nsmo.vn"
 API_PATH = "/api/services/app/Pages/GetChartPhuTaiVM"
 
 SOURCE_NAME = "nsmo"
+DATASET_NAME = "nsmo_load"
 NAMESPACE = "nessie.bronze"
-TABLE_NAME = "nessie.bronze.nsmo"
+TABLE_NAME = "nessie.bronze.nsmo_load"
 
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 START_DATE_DEFAULT = date(2023, 1, 1)
@@ -206,7 +209,7 @@ def write_bronze(
         ingest_date=ingest_date,
         last_successful_data_date=last_successful_data_date,
         namespace=NAMESPACE,
-        dataset_name=SOURCE_NAME,
+        dataset_name=DATASET_NAME,
         update_watermark_after_write=(
             update_watermark_after_write
         ),
@@ -246,7 +249,7 @@ def main(
         last_successful_data_date = None
 
     else:
-        last_successful_data_date = get_watermark(SOURCE_NAME)
+        last_successful_data_date = get_watermark(DATASET_NAME)
 
         if last_successful_data_date:
             crawl_start_date = (last_successful_data_date + timedelta(days=1))
@@ -260,7 +263,7 @@ def main(
 
     start_ingestion_log(
         run_id=batch_id,
-        dataset_name=SOURCE_NAME,
+        dataset_name=DATASET_NAME,
         run_mode=run_mode,
         start_date=crawl_start_date,
         end_date=crawl_end_date,
@@ -274,6 +277,7 @@ def main(
 
     spark = None
     try:
+        spark = create_spark_session("ingest_nsmo_load")
         if crawl_start_date > crawl_end_date:
             logger.info("No new dates to crawl. Dataset is up to date.")
             return
@@ -305,21 +309,25 @@ def main(
             logger.warning("No NSMO records were crawled. Nothing to write to Bronze.")
             if not error_msg:
                 error_msg = "No records were crawled."
-            return
+            raise RuntimeError(error_msg)
 
         successful_dates = [
             date.fromisoformat(r["source_data_date"])
             for r in records
             if r.get("source_data_date")
         ]
-        last_successful_data_date = max(successful_dates) if successful_dates else None
+        # Do not advance past a failed report date in an incremental range.
+        successful_set = set(successful_dates)
+        contiguous = crawl_start_date
+        last_successful_data_date = None
+        while contiguous in successful_set:
+            last_successful_data_date = contiguous
+            contiguous += timedelta(days=1)
 
         logger.info(
             f"Run status: {status}. Records written: {records_count}. "
             f"Furthest successful date: {last_successful_data_date}"
         )
-
-        spark = create_spark_session("ingest_nsmo")
 
         logger.info(f"Creating namespace if needed: {NAMESPACE}")
 
@@ -335,8 +343,10 @@ def main(
             last_successful_data_date=(
                 last_successful_data_date if run_mode == "incremental" else None
             ),
-            update_watermark_after_write=(run_mode == "incremental")
+            update_watermark_after_write=(run_mode == "incremental" and last_successful_data_date is not None)
         )
+        if failed_dates:
+            raise RuntimeError(f"NSMO Load partial ingestion: {error_msg}")
 
     except Exception as exc:
         status = "FAILED"
@@ -362,7 +372,7 @@ def main(
             records_read=read_count,
             records_written=written_count,
             records_rejected=failed_count,
-            dataset_name="nsmo",
+            dataset_name=DATASET_NAME,
         )
 
 

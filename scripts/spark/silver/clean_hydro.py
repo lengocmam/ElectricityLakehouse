@@ -11,6 +11,7 @@ def clean_hydro(df: DataFrame) -> tuple[DataFrame, DataFrame]:
             "plant_name",
             normalize_text(regexp_replace("plant_name", r"(?iu)\s*[đĐ]\u1ed3ng\s*b\u1ed9\s*l\u00fac.*$", "")),
         )
+        .withColumn("report_date", col("data_date"))
         .withColumn("spillway_discharge_m3_per_s", coalesce(col("spillway_discharge_m3_per_s"), lit(0.0)))
         .withColumn("powerhouse_discharge_m3_per_s", coalesce(col("powerhouse_discharge_m3_per_s"), lit(0.0)))
         .withColumn("deep_discharge_gate_count", coalesce(col("deep_discharge_gate_count"), lit(0)))

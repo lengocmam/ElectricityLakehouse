@@ -131,6 +131,7 @@ def create_backup_dump(conn) -> bytes:
 
     tables = [
         "pipeline_watermark",
+        "gold_silver_snapshot_checkpoint",
         "bronze_ingestion_log",
         "pipeline_task_audit",
         "pipeline_dag_audit",

@@ -14,6 +14,7 @@ def clean_load(
     prepared = (
         df.withColumn("region", normalize_text(lower("region")))
         .withColumn("data_date", to_date("observation_timestamp"))
+        .withColumn("report_date", to_date("source_data_date"))
     )
 
     range_conditions = [
@@ -24,7 +25,7 @@ def clean_load(
         start_ts = to_timestamp(col("source_data_date"))
         end_ts = to_timestamp(date_add(to_date(col("source_data_date")), 1))
         range_conditions.append((
-            (col("observation_timestamp") < start_ts) | (col("observation_timestamp") >= end_ts),
+            (col("observation_timestamp") <= start_ts) | (col("observation_timestamp") > end_ts),
             "EVENT_TIME_OUT_OF_RANGE",
         ))
     if start_date is not None:

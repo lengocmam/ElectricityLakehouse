@@ -2,6 +2,7 @@ from pyspark.sql import DataFrame, SparkSession
 import pyspark.sql.functions as F
 from pyspark.sql.functions import col, dense_rank, lit, regexp_replace, when
 from pyspark.sql.window import Window
+from pyspark.errors import AnalysisException
 
 
 RIVER_BASIN_RULES = [
@@ -40,8 +41,26 @@ def generate_dim_plant(spark: SparkSession, hydro_df: DataFrame | None = None) -
         .filter(col("plant_name").isNotNull() & (col("plant_name") != ""))
         .withColumn("norm_name", F.lower(col("plant_name")))
         .dropDuplicates(["norm_name"])
-        .drop("norm_name")
     )
+
+    try:
+        has_existing = spark.catalog.tableExists("nessie.gold.dim_plant")
+    except AnalysisException as exc:
+        missing_catalog = ("CATALOG_NOT_FOUND", "SCHEMA_NOT_FOUND",
+                           "REQUIRES_SINGLE_PART_NAMESPACE")
+        if not any(code in str(exc) for code in missing_catalog):
+            raise
+        has_existing = False
+    if has_existing:
+        existing = spark.table("nessie.gold.dim_plant")
+        max_key = existing.agg(F.max("plant_key")).first()[0] or 0
+        existing_keys = existing.select(
+            F.lower(F.trim("plant_name")).alias("norm_name"), "plant_key"
+        )
+    else:
+        max_key = 0
+        existing_keys = (distinct_plants.select("norm_name").limit(0)
+                         .withColumn("plant_key", F.lit(None).cast("int")))
 
     # Build basin column using regex / matching rules
     basin_col = lit("Lưu vực khác")
@@ -53,10 +72,14 @@ def generate_dim_plant(spark: SparkSession, hydro_df: DataFrame | None = None) -
             cond = cond | lower_plant.rlike(f"(?i){kw}")
         basin_col = when(cond, lit(basin_name)).otherwise(basin_col)
 
-    window = Window.orderBy("plant_name")
+    window = Window.orderBy("norm_name")
     return (
         distinct_plants
-        .withColumn("plant_key", dense_rank().over(window).cast("int"))
+        .join(F.broadcast(existing_keys), "norm_name", "left")
+        .withColumn("plant_key", F.coalesce(
+            F.col("plant_key"),
+            (F.lit(max_key) + dense_rank().over(window)).cast("int"),
+        ))
         .withColumn("river_basin", basin_col)
         .select("plant_key", "plant_name", "river_basin")
     )

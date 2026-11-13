@@ -3,23 +3,7 @@ import pyspark.sql.functions as F
 from pyspark.sql.window import Window
 
 from gold.gold_utils import build_date_key
-
-
-def map_energy_source_key(col: F.Column) -> F.Column:
-    """Map raw energy source string to Dim_energy_source key."""
-    lower_s = F.lower(F.trim(col))
-    return (
-        F.when(lower_s.rlike("thủy điện|hydro"), 1)
-        .when(lower_s.rlike("than|coal"), 2)
-        .when(lower_s.rlike("khí|gas|tua bin khí"), 3)
-        .when(lower_s.rlike("mặt trời|solar"), 4)
-        .when(lower_s.rlike("gió|wind"), 5)
-        .when(lower_s.rlike("sinh khối|biomass"), 6)
-        .when(lower_s.rlike("nhập khẩu|import"), 7)
-        .when(lower_s.rlike("dầu|oil"), 8)
-        .when(lower_s.rlike("năng lượng tái tạo"), 9)
-        .otherwise(10)
-    ).cast("int")
+from gold.dim_energy_source import source_key_from_name
 
 
 def transform_fact_generation_daily(
@@ -29,7 +13,7 @@ def transform_fact_generation_daily(
     enriched = (
         generation_df
         .withColumn("date_key", build_date_key(F.col("data_date")))
-        .withColumn("energy_source_key", map_energy_source_key(F.col("energy_source")))
+        .withColumn("energy_source_key", source_key_from_name(F.col("energy_source")))
         .withColumn("generation_mwh", F.round(F.col("generation_million_kwh") * 1000.0, 2).cast("float"))
     )
 

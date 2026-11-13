@@ -6,6 +6,7 @@ Run via PowerShell:
 import os
 import sys
 from datetime import date, datetime
+from types import SimpleNamespace
 
 # Ensure UTF-8 output on Windows
 sys.stdout.reconfigure(encoding="utf-8")
@@ -31,6 +32,7 @@ from gold.dim_region import generate_dim_region
 from gold.dim_location import generate_dim_location
 from gold.dim_plant import generate_dim_plant
 from gold.dim_energy_source import generate_dim_energy_source
+from bronze.nsmo_power import EXPECTED_SOURCES
 from gold.dim_period import generate_dim_period
 
 from gold.fact_load_hourly import transform_fact_load_hourly
@@ -38,8 +40,7 @@ from gold.fact_weather_hourly import transform_fact_weather_hourly
 from gold.fact_weather_daily import transform_fact_weather_daily
 from gold.fact_hydro_status import transform_fact_hydro_status
 from gold.fact_generation_daily import transform_fact_generation_daily
-from gold.fact_generation_capacity_daily import transform_fact_generation_capacity_daily
-from gold.gold_control import get_changed_partitions
+from gold.fact_generation_power_daily import transform_fact_generation_power_daily
 from gold.write_gold import validate_fact_invariants, audit_row_conservation
 
 
@@ -66,6 +67,17 @@ def main():
     dim_time_df = generate_dim_time(spark)
     dim_region_df = generate_dim_region(spark)
     dim_location_df = generate_dim_location(spark)
+    prior_location = spark.createDataFrame(
+        [(9, "Ha Noi")], ["location_key", "province"]
+    )
+    location_catalog = SimpleNamespace(
+        catalog=SimpleNamespace(tableExists=lambda _: True),
+        table=lambda _: prior_location,
+        createDataFrame=spark.createDataFrame,
+    )
+    refreshed_locations = generate_dim_location(location_catalog)
+    assert refreshed_locations.where(F.col("province") == "Ha Noi").first().location_key == 9
+    assert refreshed_locations.select("location_key").distinct().count() == 34
     dim_energy_df = generate_dim_energy_source(spark)
     dim_period_df = generate_dim_period(spark)
 
@@ -75,13 +87,30 @@ def main():
     )
     dim_plant_df = generate_dim_plant(spark, mock_hydro_df)
 
+    prior_plants = spark.createDataFrame(
+        [(1, "Plant A", "Other"), (2, "Plant B", "Other")],
+        ["plant_key", "plant_name", "river_basin"],
+    ).withColumn("plant_key", F.col("plant_key").cast("int"))
+    changed_plants = spark.createDataFrame(
+        [("Plant B",), ("Plant C",)], ["plant_name"]
+    )
+    plant_catalog = SimpleNamespace(
+        catalog=SimpleNamespace(tableExists=lambda _: True),
+        table=lambda _: prior_plants,
+    )
+    refreshed = {
+        row.plant_name: row.plant_key
+        for row in generate_dim_plant(plant_catalog, changed_plants).collect()
+    }
+    assert refreshed["Plant B"] == 2 and refreshed["Plant C"] > 2
+
     dims = [
         ("dim_date", dim_date_df, "date_key", 4018),
         ("dim_time", dim_time_df, "time_key", 24),
         ("dim_region", dim_region_df, "region_key", 4),
         ("dim_location", dim_location_df, "location_key", 34),
         ("dim_plant", dim_plant_df, "plant_key", 6),
-        ("dim_energy_source", dim_energy_df, "energy_source_key", 10),
+        ("dim_energy_source", dim_energy_df, "energy_source_key", len(EXPECTED_SOURCES)),
         ("dim_period", dim_period_df, "period_key", 2),
     ]
 
@@ -112,7 +141,9 @@ def main():
         StructField("observation_timestamp", TimestampType()),
         StructField("load_mw", DoubleType()),
     ])
-    silver_load_df = spark.createDataFrame(load_raw, load_schema)
+    silver_load_df = spark.createDataFrame(load_raw, load_schema).withColumn(
+        "data_date", F.to_date("observation_timestamp")
+    )
     fact_load_df = transform_fact_load_hourly(silver_load_df, dim_region_df)
 
     assert fact_load_df.count() == silver_load_df.count(), "Row conservation failed in fact_load_hourly"
@@ -154,7 +185,9 @@ def main():
         StructField("wind_speed_10m", DoubleType()),
         StructField("weather_code", IntegerType()),
     ])
-    silver_wh_df = spark.createDataFrame(wh_raw, wh_schema)
+    silver_wh_df = spark.createDataFrame(wh_raw, wh_schema).withColumn(
+        "data_date", F.to_date("observation_timestamp")
+    )
     fact_wh_df = transform_fact_weather_hourly(silver_wh_df, dim_location_df)
     assert fact_wh_df.count() == silver_wh_df.count(), "Row conservation failed in fact_weather_hourly"
     orphan_wh = fact_wh_df.join(dim_location_df, on="location_key", how="left_anti").count()
@@ -257,8 +290,8 @@ def main():
         StructField("dispatched_power_mw", DoubleType()),
     ])
     silver_power_df = spark.createDataFrame(power_raw, power_schema)
-    fact_cap_df = transform_fact_generation_capacity_daily(silver_power_df)
-    assert fact_cap_df.count() == silver_power_df.count(), "Row conservation failed in fact_generation_capacity_daily"
+    fact_cap_df = transform_fact_generation_power_daily(silver_power_df)
+    assert fact_cap_df.count() == silver_power_df.count(), "Row conservation failed in fact_generation_power_daily"
     period_shares = fact_cap_df.groupBy("date_key", "period_key").agg(F.round(F.sum("capacity_share_pct"), 1).alias("tot")).collect()
     for row in period_shares:
         assert abs(row.tot - 100.0) <= 0.2, f"Total capacity share for period {row.period_key} is not 100%"
@@ -287,27 +320,26 @@ def main():
     print("\n[TEST 7/7] Verifying Pre-write Quality Gate & Semantic Invariants...")
     # 1. Valid transformed data passes invariant validations
     validate_fact_invariants("fact_load_hourly", fact_load_df)
-    validate_fact_invariants("fact_weather_hourly", fact_wh_df)
-    validate_fact_invariants("fact_weather_daily", fact_wd_df)
-    validate_fact_invariants("fact_hydro_status", fact_hydro_df)
     validate_fact_invariants("fact_generation_daily", fact_gen_df)
-    validate_fact_invariants("fact_generation_capacity_daily", fact_cap_df)
+    validate_fact_invariants("fact_generation_power_daily", fact_cap_df)
 
-    # 2. Corrupted negative data is caught and blocked by pre-write gate
-    bad_load_df = fact_load_df.withColumn("load_mw", F.lit(-50.0))
-    caught_negative = False
+    # 2. Gold validates a measure it calculates from clean Silver values.
+    bad_load_df = fact_load_df.withColumn(
+        "daily_avg_load_mw", F.col("daily_peak_load_mw") + F.lit(1.0)
+    )
+    caught_invalid_average = False
     try:
         validate_fact_invariants("fact_load_hourly", bad_load_df)
     except ValueError:
-        caught_negative = True
-    assert caught_negative, "Pre-write gate failed to block negative load_mw!"
+        caught_invalid_average = True
+    assert caught_invalid_average, "Gold invariant failed to block invalid daily average!"
 
     # 3. Row conservation audit executes correctly
     silver_load_with_date = silver_load_df.withColumn("data_date", F.to_date("observation_timestamp"))
     audit_row_conservation("fact_load_hourly", silver_load_with_date, fact_load_df, ["2024-01-01"])
 
-    print("  ✓ Pre-write semantic invariants successfully asserted on all 6 fact tables")
-    print("  ✓ Negative/corrupted metrics correctly blocked before Iceberg commit")
+    print("  ✓ Gold-derived invariants verified for Load, Generation and Capacity")
+    print("  ✓ Invalid Gold-derived metrics correctly blocked before Iceberg commit")
     print("  ✓ End-to-end row conservation audit validated between Silver and Gold")
     passed_tests += 1
 

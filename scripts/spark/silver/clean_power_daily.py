@@ -4,11 +4,12 @@ from pyspark.sql.functions import col, lower
 from silver.silver_utils import add_dq, normalize_text
 
 
-def clean_power(df: DataFrame) -> tuple[DataFrame, DataFrame]:
-    """Execute clean power logic."""
+def clean_power_daily(df: DataFrame) -> tuple[DataFrame, DataFrame]:
+    """Execute clean power daily logic."""
     prepared = (
         df.withColumn("period", normalize_text(lower("period")))
         .withColumn("generation_source", normalize_text("generation_source"))
+        .withColumn("report_date", col("data_date"))
     )
     return add_dq(
         prepared, key_name="evn_power_key", key_columns=["data_date", "generation_source", "period"],

@@ -1,7 +1,6 @@
 
 import os
 import time
-from datetime import date, datetime
 from typing import Any, Optional
 
 import psycopg
@@ -59,8 +58,8 @@ def record_task_metrics(
 ) -> None:
     """Record execution metrics from Silver/Gold Spark tasks into pipeline_task_audit.
 
-    Uses UPSERT on (dag_id, task_id, run_id, try_number) to update metrics without
-    overwriting Airflow-controlled lifecycle states or duration baselines.
+    Uses UPSERT on (dag_id, task_id, run_id, try_number) to update metrics.
+    NO_DATA is a processing hint; the Airflow callback owns the final state.
     """
     dag_id = os.environ.get("AIRFLOW_DAG_ID", "electricity_lakehouse_pipeline")
     task_id = os.environ.get("AIRFLOW_TASK_ID")
@@ -98,6 +97,8 @@ def record_task_metrics(
                         %s, %s, %s, %s
                     )
                     ON CONFLICT (dag_id, task_id, run_id, try_number) DO UPDATE SET
+                        state = CASE WHEN EXCLUDED.state = 'NO_DATA' THEN 'NO_DATA'
+                                     ELSE pipeline_task_audit.state END,
                         records_read = EXCLUDED.records_read,
                         records_written = EXCLUDED.records_written,
                         records_rejected = EXCLUDED.records_rejected,

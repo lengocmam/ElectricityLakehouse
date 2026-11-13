@@ -2,7 +2,8 @@ import argparse
 
 from bronze.evn import main as ingest_evn
 from bronze.hydro import main as ingest_hydro
-from bronze.nsmo import main as ingest_nsmo
+from bronze.nsmo_load import main as ingest_nsmo_load
+from bronze.nsmo_power import main as ingest_nsmo_power
 from bronze.open_meteo import main as ingest_open_meteo
 
 
@@ -10,7 +11,8 @@ INGESTIONS = {
     "evn": ingest_evn,
     "evn_hydro": ingest_hydro,
     "open_meteo": ingest_open_meteo,
-    "nsmo": ingest_nsmo,
+    "nsmo_load": ingest_nsmo_load,
+    "nsmo_power": ingest_nsmo_power,
 }
 
 
@@ -28,7 +30,7 @@ def main():
     start_date = args.start_date if args.start_date not in (None, "", "None") else None
     end_date = args.end_date if args.end_date not in (None, "", "None") else None
 
-    if args.dataset in {"open_meteo", "evn", "evn_hydro", "nsmo"}:
+    if args.dataset in {"open_meteo", "evn", "evn_hydro", "nsmo_load", "nsmo_power"}:
         INGESTIONS[args.dataset](run_mode=args.run_mode, start_date=start_date, end_date=end_date)
     else:
         INGESTIONS[args.dataset]()

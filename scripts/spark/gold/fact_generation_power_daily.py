@@ -3,7 +3,7 @@ import pyspark.sql.functions as F
 from pyspark.sql.window import Window
 
 from gold.gold_utils import build_date_key
-from gold.fact_generation_daily import map_energy_source_key
+from gold.dim_energy_source import source_key_from_name
 
 
 def map_period_key(col: F.Column) -> F.Column:
@@ -15,14 +15,14 @@ def map_period_key(col: F.Column) -> F.Column:
     ).cast("int")
 
 
-def transform_fact_generation_capacity_daily(
+def transform_fact_generation_power_daily(
     power_df: DataFrame,
 ) -> DataFrame:
-    """Transform silver dispatched power data into fact_generation_capacity_daily."""
+    """Transform silver dispatched power data into fact_generation_power_daily."""
     enriched = (
         power_df
         .withColumn("date_key", build_date_key(F.col("data_date")))
-        .withColumn("energy_source_key", map_energy_source_key(F.col("generation_source")))
+        .withColumn("energy_source_key", source_key_from_name(F.col("generation_source")))
         .withColumn("period_key", map_period_key(F.col("period")))
         .withColumn("capacity_mw", F.col("dispatched_power_mw").cast("float"))
     )

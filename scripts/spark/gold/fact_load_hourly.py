@@ -11,13 +11,16 @@ def transform_fact_load_hourly(
 ) -> DataFrame:
     """Transform silver load data into fact_load_hourly."""
     enriched = (
-        load_df
+        load_df.filter(
+            (F.minute("observation_timestamp") == 0) &
+            (F.second("observation_timestamp") == 0)
+        )
         .join(
             F.broadcast(dim_region_df),
             F.trim(F.lower(load_df.region)) == F.trim(F.lower(dim_region_df.region_name)),
             "inner",
         )
-        .withColumn("date_key", build_date_key(F.col("observation_timestamp")))
+        .withColumn("date_key", build_date_key(F.col("data_date")))
         .withColumn("time_key", build_time_key(F.col("observation_timestamp")))
     )
 

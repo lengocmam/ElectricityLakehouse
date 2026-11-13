@@ -1,5 +1,6 @@
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.types import FloatType, IntegerType, StringType, StructField, StructType
+from pyspark.errors import AnalysisException
 
 from utils.locations import LOCATIONS
 
@@ -26,9 +27,28 @@ def generate_dim_location(spark: SparkSession) -> DataFrame:
         StructField("region_key", IntegerType(), False),
     ])
 
+    try:
+        has_existing = spark.catalog.tableExists("nessie.gold.dim_location")
+    except AnalysisException as exc:
+        missing_catalog = ("CATALOG_NOT_FOUND", "SCHEMA_NOT_FOUND",
+                           "REQUIRES_SINGLE_PART_NAMESPACE")
+        if not any(code in str(exc) for code in missing_catalog):
+            raise
+        has_existing = False
+    existing_keys = (
+        {row.province.strip().casefold(): int(row.location_key)
+         for row in spark.table("nessie.gold.dim_location").select("province", "location_key").collect()}
+        if has_existing else {}
+    )
+    next_key = max(existing_keys.values(), default=0)
+
     data = []
-    for idx, loc in enumerate(LOCATIONS, start=1):
+    for loc in LOCATIONS:
         name = loc["location_name"]
+        location_key = existing_keys.get(name.strip().casefold())
+        if location_key is None:
+            next_key += 1
+            location_key = next_key
         if name in NORTH_PROVINCES:
             region_key = 1
         elif name in CENTRAL_PROVINCES:
@@ -37,7 +57,7 @@ def generate_dim_location(spark: SparkSession) -> DataFrame:
             region_key = 3
 
         data.append((
-            idx,
+            location_key,
             float(loc["latitude"]),
             float(loc["longitude"]),
             name,

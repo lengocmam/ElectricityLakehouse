@@ -10,11 +10,12 @@ from gold.dim_energy_source import generate_dim_energy_source
 from gold.dim_period import generate_dim_period
 
 from gold.fact_load_hourly import transform_fact_load_hourly
+from gold.fact_generation_power_hourly import transform_fact_generation_power_hourly
 from gold.fact_weather_hourly import transform_fact_weather_hourly
 from gold.fact_weather_daily import transform_fact_weather_daily
 from gold.fact_hydro_status import transform_fact_hydro_status
 from gold.fact_generation_daily import transform_fact_generation_daily
-from gold.fact_generation_capacity_daily import transform_fact_generation_capacity_daily
+from gold.fact_generation_power_daily import transform_fact_generation_power_daily
 
 
 def get_dimension(spark: SparkSession, dim_name: str) -> DataFrame:
@@ -44,6 +45,10 @@ def load_hourly(spark: SparkSession, source_df: DataFrame) -> DataFrame:
     return transform_fact_load_hourly(source_df, dim_region_df)
 
 
+def generation_power_hourly(spark: SparkSession, source_df: DataFrame) -> DataFrame:
+    return transform_fact_generation_power_hourly(source_df)
+
+
 def weather_hourly(spark: SparkSession, source_df: DataFrame) -> DataFrame:
     dim_location_df = get_dimension(spark, "dim_location")
     return transform_fact_weather_hourly(source_df, dim_location_df)
@@ -63,5 +68,5 @@ def generation_daily(spark: SparkSession, source_df: DataFrame) -> DataFrame:
     return transform_fact_generation_daily(source_df)
 
 
-def generation_capacity_daily(spark: SparkSession, source_df: DataFrame) -> DataFrame:
-    return transform_fact_generation_capacity_daily(source_df)
+def generation_power_daily(spark: SparkSession, source_df: DataFrame) -> DataFrame:
+    return transform_fact_generation_power_daily(source_df)

@@ -1,4 +1,4 @@
-﻿# Lakehouse Docker Stack
+# Lakehouse Docker Stack
 
 Stack local de dung lakehouse voi MinIO, Spark, Apache Iceberg, Nessie,
 Trino, Airflow va Metabase.
@@ -125,3 +125,78 @@ docker compose down -v
 - Airflow Docker Compose: https://airflow.apache.org/docs/apache-airflow/stable/howto/docker-compose/index.html
 - Metabase Docker: https://www.metabase.com/docs/latest/installation-and-operation/running-metabase-on-docker
 - Metabase Starburst/Trino connection: https://github.com/metabase/metabase/blob/master/docs/databases/connections/starburst.md
+
+## NSMO Load va NSMO Power
+
+NSMO Load va NSMO Power la hai dataset rieng: `nsmo_load` va
+`nsmo_power`. Hai bang Bronze la `nessie.bronze.nsmo_load` va
+`nessie.bronze.nsmo_power`. Cac bang nay dung Nessie REST catalog,
+MinIO endpoint `http://minio:9000` va warehouse `s3://warehouse/` trong
+`docker-compose.yml`; Iceberg tu quan ly location rieng cho tung bang.
+Bảng Load hiện có đã được đổi tên trong catalog thành `nessie.bronze.nsmo_load`;
+location vật lý cũ và lịch sử audit được giữ nguyên.
+
+Silver `nessie.silver.load`, `nessie.silver.power_daily` va `nessie.silver.power_hourly` giu du cac
+diem 30 phut. Gold `nessie.gold.fact_load_hourly` va
+`nessie.gold.fact_generation_power_hourly` chi giu gia tri goc tai HH:00, gom ca
+D+1 00:00. Gold khong lay trung binh va khong tinh MWh hoac tong 12 nguon.
+Moi bang Silver valid/reject dung partition `report_date` va cung mot writer.
+NSMO Load/Power lay `report_date` tu ngay bao cao; EVN, Hydro va thoi tiet dat
+`report_date = data_date` sau extract. `data_date`/timestamp cua diem do van
+duoc giu de Gold tao `date_key` theo ngay su kien. Cac bang Silver cu duoc giu
+duoi ten `*_data_date_backup_20261107` sau khi chuyen partition.
+Silver Power hourly cung dat `data_date` theo thoi diem do: diem D+1 00:00 co
+`report_date = D` va `data_date = D+1`.
+Gia tri `generation_power_mw` am duoc ghi vao Silver reject voi ma
+`POWER_NEGATIVE`; Gold chi doc cac dong Silver hop le.
+Gold lay `report_date` thay doi tu metadata snapshot/partition cua Silver,
+khong so row Silver voi Gold. PostgreSQL `gold_silver_snapshot_checkpoint`
+giu snapshot Silver cuoi cung da duoc tung fact Gold xu ly thanh cong. Gold
+doc `data_date` cua cac report thay doi de chon partition Gold can MERGE;
+Load va hai fact EVN doc them report lien ke de tinh lag. Checkpoint chi tien
+sau khi Gold ghi xong; backfill
+theo ngay khong day checkpoint. Neu snapshot checkpoint da het han, Gold
+refresh toan bo partition Silver hien tai. Silver overwrite cung ngay van tao
+snapshot moi va co the khien Gold xu ly lai, du du lieu khong doi.
+Moi fact Gold duoc partition theo `date_key` cua ngay su kien va MERGE theo
+grain (ngay/gio/doi tuong). Mix match theo `date_key` va `generation_mix_key`;
+report D ghi vao ca partition D va D+1 neu co diem 00:00. MERGE cap nhat hoac them diem co trong
+Silver, khong tu dong xoa diem cu neu nguon sau nay bo mot dong.
+`dim_energy_source` cap mot `energy_source_key` rieng cho moi ten nguon sau
+chuan hoa chu hoa/chu thuong va khoang trang. Hai nguon `ĐMT mái nhà (ước tính thương phẩm)`
+va `ĐMT mái nhà (ước tính đầu cực)` co hai key khac nhau; key
+khong dai dien cho nhom nguon. Ten nguon rong lich su duoc gan nhan
+`UNKNOWN_SOURCE`. Hai fact EVN Generation/Power Daily giu key cua tung nguon de
+MERGE theo grain duy nhat. Dimension va hai fact da duoc dung lai tu Silver;
+checkpoint da cap nhat va code migrate mot lan da duoc xoa sau khi kiem chung.
+Moi bang Gold dimension duoc MERGE theo khoa cua no; nguon vang mat trong lan
+chay moi khong xoa dong dimension cu. `dim_plant` giu khoa cua ho da co theo
+ten ho va chi cap khoa moi cho ho moi, tranh doi khoa khi Silver thieu mot ho.
+`dim_location` cung giu khoa theo ten dia diem neu danh sach dia diem doi thu tu.
+Neu Silver xoa het mot partition bao cao, Gold dung va giu checkpoint cu de
+khong bo qua ngay do; can xu ly xoa Gold theo chinh sach duoc phe duyet.
+`generation_power_mw` co `unit_status=ASSUMED_MW`: MW la gia dinh duoc
+doi chieu, chua co metadata chinh thuc tu NSMO. Timestamp Mix la thoi gian
+local khong co offset (`TIMESTAMP_NTZ`); chua duoc chuyen thanh UTC instant.
+
+NSMO Power lay API
+`GetTongHopCongSuatBcsxTheoLoaiHinh?ngay=YYYY-MM-DD`. Bronze append raw,
+Silver clean/reject partition theo ngay bao cao, Gold partition theo ngay
+su kien. Watermark NSMO Power ghi ngay bao cao lon nhat da ghi vao Bronze ngay sau
+khi Bronze commit; ngay thieu o giua xu ly bang backfill thu cong. Ngay pilot
+mac dinh `2026-11-04`; thay doi bang bien moi truong
+`NSMO_MIX_START_DATE` truoc lan chay dau neu can lich su som hon. `backfill`
+can `start_date` va `end_date` theo **ngay bao cao**. Backfill ngay cu giu nguyen
+watermark; ngay moi xa hon se nang watermark sau khi Bronze ghi. DAG dung
+`params.run_mode`, `params.start_date`, `params.end_date`.
+Silver doc partition Bronze theo `ingest_date` cua ngay chay (co the chi dinh
+`--run-date`), ke ca khi Bronze vua backfill ngay bao cao cu.
+
+Chay backfill qua DAG `electricity_lakehouse_pipeline` voi
+`params.run_mode=backfill`, `params.start_date` va `params.end_date` theo ngay
+bao cao. DAG cung cap cau hinh Spark, Iceberg va Nessie cho cac task.
+
+NSMO Load dung cung pattern backfill voi `nsmo_load`, `load` va
+`fact_load_hourly`. Replay Bronze Load la can thiet de khoi phuc cac diem
+`:30` da bi bo o Silver truoc day. Khi replay theo mot report date, kiem tra
+ca hai event dates D va D+1 truoc khi tiep tuc pham vi rong hon.

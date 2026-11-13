@@ -63,6 +63,7 @@ SPARK_CONF = {
     "spark.executorEnv.AWS_ACCESS_KEY_ID": "minioadmin",
     "spark.executorEnv.AWS_SECRET_ACCESS_KEY": "minioadmin",
     "spark.executorEnv.AWS_REGION": "us-east-1",
+    "spark.executorEnv.PYTHONPATH": SPARK_APP_DIR,
     "spark.sql.session.timeZone": "Asia/Ho_Chi_Minh",
 }
 
@@ -174,11 +175,11 @@ with DAG(
             verbose=True,
         )
         
-        bronze_nsmo = SparkSubmitOperator(
-            task_id="ingest_nsmo",
+        bronze_nsmo_load = SparkSubmitOperator(
+            task_id="ingest_nsmo_load",
             application=f"{SPARK_APP_DIR}/bronze/ingest_bronze.py",
             application_args=[
-                "nsmo",
+                "nsmo_load",
                 "--run-mode",
                 "{{ params.run_mode }}",
                 "--start-date",
@@ -187,13 +188,27 @@ with DAG(
                 "{{ params.end_date }}",
             ],
             conn_id="spark_default",
-            name="bronze_nsmo",
+            name="bronze_nsmo_load",
             conf=SPARK_CONF,
             packages=ICEBERG_PACKAGES,
             env_vars=SPARK_ENV,
             **SPARK_RESOURCES,
             execution_timeout=timedelta(minutes=45),
             verbose=True,
+        )
+
+        bronze_nsmo_power = SparkSubmitOperator(
+            task_id="ingest_nsmo_power",
+            retries=0,
+            application=f"{SPARK_APP_DIR}/bronze/ingest_bronze.py",
+            application_args=[
+                "nsmo_power", "--run-mode", "{{ params.run_mode }}",
+                "--start-date", "{{ params.start_date }}",
+                "--end-date", "{{ params.end_date }}",
+            ],
+            conn_id="spark_default", name="bronze_nsmo_power",
+            conf=SPARK_CONF, packages=ICEBERG_PACKAGES, env_vars=SPARK_ENV,
+            **SPARK_RESOURCES, execution_timeout=timedelta(minutes=45), verbose=True,
         )
         
         bronze_open_meteo = SparkSubmitOperator(
@@ -220,12 +235,12 @@ with DAG(
 
     with TaskGroup(group_id="silver_processing"):
 
-        silver_power = SparkSubmitOperator(
-            task_id="silver_power",
+        silver_power_daily = SparkSubmitOperator(
+            task_id="silver_power_daily",
             application=f"{SPARK_APP_DIR}/silver/write_silver.py",
-            application_args=["--dataset", "power"],
+            application_args=["--dataset", "power_daily"],
             conn_id="spark_default",
-            name="silver_power",
+            name="silver_power_daily",
             conf=SPARK_CONF,
             packages=ICEBERG_PACKAGES,
             env_vars=SPARK_ENV,
@@ -274,6 +289,15 @@ with DAG(
             **SPARK_RESOURCES,
             execution_timeout=timedelta(minutes=45),
             verbose=True,
+        )
+
+        silver_power_hourly = SparkSubmitOperator(
+            task_id="silver_power_hourly",
+            application=f"{SPARK_APP_DIR}/silver/write_silver.py",
+            application_args=["--dataset", "power_hourly"],
+            conn_id="spark_default", name="silver_power_hourly",
+            conf=SPARK_CONF, packages=ICEBERG_PACKAGES, env_vars=SPARK_ENV,
+            **SPARK_RESOURCES, execution_timeout=timedelta(hours=1), verbose=True,
         )
 
         silver_weather_daily = SparkSubmitOperator(
@@ -336,6 +360,18 @@ with DAG(
             **SPARK_RESOURCES,
             execution_timeout=timedelta(minutes=45),
             verbose=True,
+        )
+
+        gold_generation_power_hourly = SparkSubmitOperator(
+            task_id="gold_generation_power_hourly",
+            application=f"{SPARK_APP_DIR}/gold/write_gold.py",
+            application_args=["--dataset", "fact_generation_power_hourly",
+                              "--run-mode", "{{ params.run_mode }}",
+                              "--start-date", "{{ params.start_date }}",
+                              "--end-date", "{{ params.end_date }}"],
+            conn_id="spark_default", name="gold_fact_generation_power_hourly",
+            conf=SPARK_CONF, packages=ICEBERG_PACKAGES, env_vars=SPARK_ENV,
+            **SPARK_RESOURCES, execution_timeout=timedelta(hours=1), verbose=True,
         )
 
         gold_weather_hourly = SparkSubmitOperator(
@@ -410,16 +446,16 @@ with DAG(
             verbose=True,
         )
 
-        gold_generation_capacity_daily = SparkSubmitOperator(
-            task_id="gold_generation_capacity_daily",
+        gold_generation_power_daily = SparkSubmitOperator(
+            task_id="gold_generation_power_daily",
             application=f"{SPARK_APP_DIR}/gold/write_gold.py",
             application_args=[
-                "--dataset", "fact_generation_capacity_daily",
+                "--dataset", "fact_generation_power_daily",
                 "--start-date", "{{ params.start_date }}",
                 "--end-date", "{{ params.end_date }}",
             ],
             conn_id="spark_default",
-            name="gold_fact_generation_capacity_daily",
+            name="gold_fact_generation_power_daily",
             conf=SPARK_CONF,
             packages=ICEBERG_PACKAGES,
             env_vars=SPARK_ENV,
@@ -431,27 +467,30 @@ with DAG(
 
     end = EmptyOperator(task_id="end")
 
-    start >> [bronze_evn, bronze_evn_hydro, bronze_nsmo, bronze_open_meteo]
+    start >> [bronze_evn, bronze_evn_hydro, bronze_nsmo_load, bronze_nsmo_power, bronze_open_meteo]
 
-    bronze_evn >> [silver_power, silver_generation]
+    bronze_evn >> [silver_power_daily, silver_generation]
     bronze_evn_hydro >> silver_hydro
-    bronze_nsmo >> silver_load
+    bronze_nsmo_load >> silver_load
+    bronze_nsmo_power >> silver_power_hourly
     bronze_open_meteo >> [silver_weather_daily, silver_weather_hourly]
 
-    silver_hydro >> gold_dimensions
+    [silver_hydro, silver_generation, silver_power_daily] >> gold_dimensions
 
     [silver_load, gold_dimensions] >> gold_load_hourly
+    [silver_power_hourly, gold_dimensions] >> gold_generation_power_hourly
     [silver_weather_hourly, gold_dimensions] >> gold_weather_hourly
     [silver_weather_daily, gold_dimensions] >> gold_weather_daily
     [silver_hydro, gold_dimensions] >> gold_hydro_status
     [silver_generation, gold_dimensions] >> gold_generation_daily
-    [silver_power, gold_dimensions] >> gold_generation_capacity_daily
+    [silver_power_daily, gold_dimensions] >> gold_generation_power_daily
 
     [
         gold_load_hourly,
+        gold_generation_power_hourly,
         gold_weather_hourly,
         gold_weather_daily,
         gold_hydro_status,
         gold_generation_daily,
-        gold_generation_capacity_daily,
+        gold_generation_power_daily,
     ] >> end

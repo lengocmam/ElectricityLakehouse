@@ -15,27 +15,30 @@ from utils.logging import create_logger
 logger = create_logger(__name__)
 
 SILVER_TABLES = [
-    "nessie.silver.power",
+    "nessie.silver.power_daily",
     "nessie.silver.generation",
     "nessie.silver.hydro",
     "nessie.silver.load",
+    "nessie.silver.power_hourly",
     "nessie.silver.weather_daily",
     "nessie.silver.weather_hourly",
-    "nessie.silver.power_reject",
+    "nessie.silver.power_daily_reject",
     "nessie.silver.generation_reject",
     "nessie.silver.hydro_reject",
     "nessie.silver.load_reject",
+    "nessie.silver.power_hourly_reject",
     "nessie.silver.weather_daily_reject",
     "nessie.silver.weather_hourly_reject",
 ]
 
 GOLD_TABLES = [
     "nessie.gold.fact_load_hourly",
+    "nessie.gold.fact_generation_power_hourly",
     "nessie.gold.fact_weather_hourly",
     "nessie.gold.fact_weather_daily",
     "nessie.gold.fact_hydro_status",
     "nessie.gold.fact_generation_daily",
-    "nessie.gold.fact_generation_capacity_daily",
+    "nessie.gold.fact_generation_power_daily",
     "nessie.gold.dim_date",
     "nessie.gold.dim_time",
     "nessie.gold.dim_region",
