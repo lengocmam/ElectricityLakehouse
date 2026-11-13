@@ -1,0 +1,524 @@
+{
+  "generated_at": "2026-11-11T09:36:19.617477",
+  "today_date": "2026-10-11",
+  "kpi_summary": {
+    "pred_tomorrow_mw": 37750.5,
+    "expected_mape_h1": 2.11,
+    "expected_mae_h1": 822.5,
+    "expected_mape_h7": 4.07,
+    "expected_mae_h7": 1643.4,
+    "rolling_30d_mape": 1.29,
+    "rolling_30d_mae": 546.0,
+    "model_health_status": "XANH TỐT: MÔ HÌNH HOẠT ĐỘNG ỔN ĐỊNH",
+    "model_health_color": "emerald",
+    "model_health_action": "Mô hình duy trì độ tin cậy chuẩn A+ cho điều độ."
+  },
+  "zone1_forecast": {
+    "title": "Dự Báo Phụ Tải Ngày Mai & 7 Ngày Tới (Ensemble + Dải Bất Định)",
+    "description": "Đường dự báo Ensemble kết hợp chuỗi thời gian & thời tiết, kèm dải bất định 95% tin cậy.",
+    "expected_mape_tomorrow": "2.11% (khoảng 2.3%)",
+    "expected_mape_day7": "4.07% (khoảng 4.0%)",
+    "horizon_days": [
+      {
+        "horizon_step": 1,
+        "horizon_name": "Ngày mai (H=1)",
+        "date": "2026-10-12",
+        "day_name": "Thứ Hai",
+        "pred_mw": 37750.5,
+        "ci_lower_mw": 35735.4,
+        "ci_upper_mw": 39765.6,
+        "uncertainty_band_mw": 2015.1,
+        "expected_mape_pct": 2.11,
+        "expected_mae_mw": 822.5,
+        "is_weekend": false
+      },
+      {
+        "horizon_step": 2,
+        "horizon_name": "Ngày +2",
+        "date": "2026-10-13",
+        "day_name": "Thứ Ba",
+        "pred_mw": 37750.5,
+        "ci_lower_mw": 35423.0,
+        "ci_upper_mw": 40078.0,
+        "uncertainty_band_mw": 2327.5,
+        "expected_mape_pct": 2.45,
+        "expected_mae_mw": 950.0,
+        "is_weekend": false
+      },
+      {
+        "horizon_step": 3,
+        "horizon_name": "Ngày +3",
+        "date": "2026-10-14",
+        "day_name": "Thứ Tư",
+        "pred_mw": 37750.5,
+        "ci_lower_mw": 35055.5,
+        "ci_upper_mw": 40445.5,
+        "uncertainty_band_mw": 2695.0,
+        "expected_mape_pct": 2.8,
+        "expected_mae_mw": 1100.0,
+        "is_weekend": false
+      },
+      {
+        "horizon_step": 4,
+        "horizon_name": "Ngày +4",
+        "date": "2026-10-15",
+        "day_name": "Thứ Năm",
+        "pred_mw": 37003.0,
+        "ci_lower_mw": 33940.5,
+        "ci_upper_mw": 40065.5,
+        "uncertainty_band_mw": 3062.5,
+        "expected_mape_pct": 3.15,
+        "expected_mae_mw": 1250.0,
+        "is_weekend": false
+      },
+      {
+        "horizon_step": 5,
+        "horizon_name": "Ngày +5",
+        "date": "2026-10-16",
+        "day_name": "Thứ Sáu",
+        "pred_mw": 37003.0,
+        "ci_lower_mw": 33573.0,
+        "ci_upper_mw": 40433.0,
+        "uncertainty_band_mw": 3430.0,
+        "expected_mape_pct": 3.5,
+        "expected_mae_mw": 1400.0,
+        "is_weekend": false
+      },
+      {
+        "horizon_step": 6,
+        "horizon_name": "Ngày +6",
+        "date": "2026-10-17",
+        "day_name": "Thứ Bảy",
+        "pred_mw": 33639.1,
+        "ci_lower_mw": 29915.1,
+        "ci_upper_mw": 37363.1,
+        "uncertainty_band_mw": 3724.0,
+        "expected_mape_pct": 3.8,
+        "expected_mae_mw": 1520.0,
+        "is_weekend": true
+      },
+      {
+        "horizon_step": 7,
+        "horizon_name": "Ngày +7",
+        "date": "2026-10-18",
+        "day_name": "Chủ Nhật",
+        "pred_mw": 33639.1,
+        "ci_lower_mw": 29612.8,
+        "ci_upper_mw": 37665.4,
+        "uncertainty_band_mw": 4026.3,
+        "expected_mape_pct": 4.07,
+        "expected_mae_mw": 1643.4,
+        "is_weekend": true
+      }
+    ]
+  },
+  "zone2_heat_alert": {
+    "title": "Cảnh Báo Ngày Nóng & Nguy Cơ Chạm Đỉnh Phụ Tải",
+    "temp_correlation_r": 0.4408,
+    "temp_forecast_tomorrow_c": 27.6,
+    "threshold_warning_c": 28.0,
+    "threshold_critical_c": 30.0,
+    "heat_status": "BÌNH THƯỜNG",
+    "heat_color": "green",
+    "heat_message": "Nhiệt độ trong ngưỡng an toàn, phụ tải duy trì ổn định.",
+    "historical_peak_mw": 43609.5,
+    "historical_peak_date": "2025-05-08",
+    "pct_of_historical_peak": 86.6,
+    "all_time_high_2026_mw": 47842.2
+  },
+  "zone3_what_if": {
+    "title": "What-If Mô Phỏng Độ Nhạy Thời Tiết & Stress-Test NWP",
+    "slope_overall_mw_per_c": 795.8,
+    "slope_hot_days_mw_per_c": 628.4,
+    "what_if_matrix": [
+      {
+        "delta_temp_c": -2.0,
+        "delta_mw": -1591.6,
+        "simulated_load_mw": 36158.9,
+        "risk_level": "An toàn"
+      },
+      {
+        "delta_temp_c": -1.0,
+        "delta_mw": -795.8,
+        "simulated_load_mw": 36954.7,
+        "risk_level": "An toàn"
+      },
+      {
+        "delta_temp_c": -0.5,
+        "delta_mw": -397.9,
+        "simulated_load_mw": 37352.6,
+        "risk_level": "An toàn"
+      },
+      {
+        "delta_temp_c": 0.0,
+        "delta_mw": 0.0,
+        "simulated_load_mw": 37750.5,
+        "risk_level": "An toàn"
+      },
+      {
+        "delta_temp_c": 0.5,
+        "delta_mw": 397.9,
+        "simulated_load_mw": 38148.4,
+        "risk_level": "An toàn"
+      },
+      {
+        "delta_temp_c": 1.0,
+        "delta_mw": 795.8,
+        "simulated_load_mw": 38546.3,
+        "risk_level": "An toàn"
+      },
+      {
+        "delta_temp_c": 1.5,
+        "delta_mw": 1193.7,
+        "simulated_load_mw": 38944.2,
+        "risk_level": "An toàn"
+      },
+      {
+        "delta_temp_c": 2.0,
+        "delta_mw": 1591.6,
+        "simulated_load_mw": 39342.1,
+        "risk_level": "An toàn"
+      },
+      {
+        "delta_temp_c": 2.5,
+        "delta_mw": 1989.5,
+        "simulated_load_mw": 39740.0,
+        "risk_level": "An toàn"
+      },
+      {
+        "delta_temp_c": 3.0,
+        "delta_mw": 2387.4,
+        "simulated_load_mw": 40137.9,
+        "risk_level": "Cần chú ý"
+      }
+    ],
+    "nwp_stress_scenarios": [
+      {
+        "scenario_code": "oracle",
+        "name": "Chuẩn Đối Chiếu (Oracle / ERA5)",
+        "temp_error": "0.0°C (Không nhiễu)",
+        "radiation_error": "0%",
+        "mae_mw": 849.8,
+        "mape_pct": 2.15,
+        "delta_mape_pt": 0.0,
+        "status": "Tối ưu lý thuyết",
+        "badge": "Chuẩn A+"
+      },
+      {
+        "scenario_code": "nwp_good",
+        "name": "Dự Báo NWP Tốt (Thời tiết ổn định)",
+        "temp_error": "±0.6°C",
+        "radiation_error": "±10%",
+        "mae_mw": 860.2,
+        "mape_pct": 2.17,
+        "delta_mape_pt": 0.02,
+        "status": "Vận hành xuất sắc",
+        "badge": "Rất tốt"
+      },
+      {
+        "scenario_code": "nwp_standard",
+        "name": "Dự Báo NWP Tiêu Chuẩn (Mô hình ECMWF/GFS)",
+        "temp_error": "±1.2°C",
+        "radiation_error": "±15%",
+        "mae_mw": 865.0,
+        "mape_pct": 2.18,
+        "delta_mape_pt": 0.04,
+        "status": "Vận hành thực tế hàng ngày",
+        "badge": "Tiêu chuẩn"
+      },
+      {
+        "scenario_code": "nwp_extreme",
+        "name": "Dự Báo NWP Cực Đoan (Bão / Rét nàng Bân)",
+        "temp_error": "±2.0°C",
+        "radiation_error": "±25%",
+        "mae_mw": 876.7,
+        "mape_pct": 2.21,
+        "delta_mape_pt": 0.06,
+        "status": "Chống chịu bền bỉ",
+        "badge": "Stress-test Pass"
+      }
+    ],
+    "stress_test_conclusion": "Sai số dự báo thời tiết NWP dù lên đến ±2.0°C (kịch bản bão) chỉ làm tăng 0.06% MAPE phụ tải. Khẳng định mô hình cực kỳ bền bỉ khi triển khai thực tế."
+  },
+  "zone4_monitoring": {
+    "title": "Giám Sát Vận Hành & Độ Trôi Dạt Mô Hình (Rolling 30 Ngày)",
+    "rolling_30d_mape": 1.29,
+    "rolling_30d_mae": 546.0,
+    "model_health": "XANH TỐT: MÔ HÌNH HOẠT ĐỘNG ỔN ĐỊNH",
+    "health_color": "emerald",
+    "threshold_warning": 3.5,
+    "threshold_alarm": 4.5,
+    "series_30d": [
+      {
+        "date": "2026-09-12",
+        "actual_mw": 41002.4,
+        "pred_mw": 39499.4,
+        "error_mw": -1503.0,
+        "mape_pct": 3.67,
+        "rolling_mape_7d": 3.67,
+        "temp_c": 26.0
+      },
+      {
+        "date": "2026-09-13",
+        "actual_mw": 37580.4,
+        "pred_mw": 38365.0,
+        "error_mw": 784.7,
+        "mape_pct": 2.09,
+        "rolling_mape_7d": 2.88,
+        "temp_c": 26.3
+      },
+      {
+        "date": "2026-09-14",
+        "actual_mw": 41428.6,
+        "pred_mw": 41685.7,
+        "error_mw": 257.1,
+        "mape_pct": 0.62,
+        "rolling_mape_7d": 2.12,
+        "temp_c": 26.0
+      },
+      {
+        "date": "2026-09-15",
+        "actual_mw": 42438.1,
+        "pred_mw": 42297.7,
+        "error_mw": -140.5,
+        "mape_pct": 0.33,
+        "rolling_mape_7d": 1.68,
+        "temp_c": 26.1
+      },
+      {
+        "date": "2026-09-16",
+        "actual_mw": 42818.3,
+        "pred_mw": 41729.5,
+        "error_mw": -1088.8,
+        "mape_pct": 2.54,
+        "rolling_mape_7d": 1.85,
+        "temp_c": 26.6
+      },
+      {
+        "date": "2026-09-17",
+        "actual_mw": 42829.8,
+        "pred_mw": 42657.4,
+        "error_mw": -172.5,
+        "mape_pct": 0.4,
+        "rolling_mape_7d": 1.61,
+        "temp_c": 26.6
+      },
+      {
+        "date": "2026-09-18",
+        "actual_mw": 42678.1,
+        "pred_mw": 43027.1,
+        "error_mw": 349.1,
+        "mape_pct": 0.82,
+        "rolling_mape_7d": 1.5,
+        "temp_c": 26.6
+      },
+      {
+        "date": "2026-09-19",
+        "actual_mw": 42468.3,
+        "pred_mw": 41733.5,
+        "error_mw": -734.9,
+        "mape_pct": 1.73,
+        "rolling_mape_7d": 1.22,
+        "temp_c": 26.9
+      },
+      {
+        "date": "2026-09-20",
+        "actual_mw": 38173.4,
+        "pred_mw": 38731.7,
+        "error_mw": 558.3,
+        "mape_pct": 1.46,
+        "rolling_mape_7d": 1.13,
+        "temp_c": 26.9
+      },
+      {
+        "date": "2026-09-21",
+        "actual_mw": 42638.6,
+        "pred_mw": 42042.4,
+        "error_mw": -596.2,
+        "mape_pct": 1.4,
+        "rolling_mape_7d": 1.24,
+        "temp_c": 27.0
+      },
+      {
+        "date": "2026-09-22",
+        "actual_mw": 43968.5,
+        "pred_mw": 43904.4,
+        "error_mw": -64.0,
+        "mape_pct": 0.15,
+        "rolling_mape_7d": 1.21,
+        "temp_c": 26.8
+      },
+      {
+        "date": "2026-09-23",
+        "actual_mw": 43893.0,
+        "pred_mw": 43442.9,
+        "error_mw": -450.0,
+        "mape_pct": 1.03,
+        "rolling_mape_7d": 1.0,
+        "temp_c": 26.2
+      },
+      {
+        "date": "2026-09-24",
+        "actual_mw": 43182.8,
+        "pred_mw": 43175.6,
+        "error_mw": -7.2,
+        "mape_pct": 0.02,
+        "rolling_mape_7d": 0.94,
+        "temp_c": 26.2
+      },
+      {
+        "date": "2026-09-25",
+        "actual_mw": 43211.9,
+        "pred_mw": 42428.9,
+        "error_mw": -783.0,
+        "mape_pct": 1.81,
+        "rolling_mape_7d": 1.08,
+        "temp_c": 26.8
+      },
+      {
+        "date": "2026-09-26",
+        "actual_mw": 43040.6,
+        "pred_mw": 42054.4,
+        "error_mw": -986.1,
+        "mape_pct": 2.29,
+        "rolling_mape_7d": 1.16,
+        "temp_c": 27.1
+      },
+      {
+        "date": "2026-09-27",
+        "actual_mw": 39223.5,
+        "pred_mw": 39390.1,
+        "error_mw": 166.6,
+        "mape_pct": 0.42,
+        "rolling_mape_7d": 1.02,
+        "temp_c": 27.6
+      },
+      {
+        "date": "2026-09-28",
+        "actual_mw": 44236.6,
+        "pred_mw": 43780.7,
+        "error_mw": -455.8,
+        "mape_pct": 1.03,
+        "rolling_mape_7d": 0.96,
+        "temp_c": 28.2
+      },
+      {
+        "date": "2026-09-29",
+        "actual_mw": 47023.7,
+        "pred_mw": 45903.0,
+        "error_mw": -1120.7,
+        "mape_pct": 2.38,
+        "rolling_mape_7d": 1.28,
+        "temp_c": 28.6
+      },
+      {
+        "date": "2026-09-30",
+        "actual_mw": 47453.1,
+        "pred_mw": 47047.2,
+        "error_mw": -405.8,
+        "mape_pct": 0.86,
+        "rolling_mape_7d": 1.26,
+        "temp_c": 28.3
+      },
+      {
+        "date": "2026-10-01",
+        "actual_mw": 47151.9,
+        "pred_mw": 47174.7,
+        "error_mw": 22.9,
+        "mape_pct": 0.05,
+        "rolling_mape_7d": 1.26,
+        "temp_c": 28.5
+      },
+      {
+        "date": "2026-10-02",
+        "actual_mw": 47842.2,
+        "pred_mw": 47419.3,
+        "error_mw": -422.9,
+        "mape_pct": 0.88,
+        "rolling_mape_7d": 1.13,
+        "temp_c": 28.3
+      },
+      {
+        "date": "2026-10-03",
+        "actual_mw": 45358.5,
+        "pred_mw": 46102.1,
+        "error_mw": 743.6,
+        "mape_pct": 1.64,
+        "rolling_mape_7d": 1.04,
+        "temp_c": 28.2
+      },
+      {
+        "date": "2026-10-04",
+        "actual_mw": 39948.2,
+        "pred_mw": 40287.7,
+        "error_mw": 339.6,
+        "mape_pct": 0.85,
+        "rolling_mape_7d": 1.1,
+        "temp_c": 26.9
+      },
+      {
+        "date": "2026-10-05",
+        "actual_mw": 41516.4,
+        "pred_mw": 42921.6,
+        "error_mw": 1405.2,
+        "mape_pct": 3.38,
+        "rolling_mape_7d": 1.43,
+        "temp_c": 25.9
+      },
+      {
+        "date": "2026-10-06",
+        "actual_mw": 42009.8,
+        "pred_mw": 42213.7,
+        "error_mw": 203.9,
+        "mape_pct": 0.49,
+        "rolling_mape_7d": 1.16,
+        "temp_c": 25.4
+      },
+      {
+        "date": "2026-10-07",
+        "actual_mw": 42196.4,
+        "pred_mw": 41553.3,
+        "error_mw": -643.1,
+        "mape_pct": 1.52,
+        "rolling_mape_7d": 1.26,
+        "temp_c": 25.4
+      },
+      {
+        "date": "2026-10-08",
+        "actual_mw": 42071.1,
+        "pred_mw": 41711.9,
+        "error_mw": -359.3,
+        "mape_pct": 0.85,
+        "rolling_mape_7d": 1.37,
+        "temp_c": 25.4
+      },
+      {
+        "date": "2026-10-09",
+        "actual_mw": 42494.1,
+        "pred_mw": 41688.3,
+        "error_mw": -805.8,
+        "mape_pct": 1.9,
+        "rolling_mape_7d": 1.52,
+        "temp_c": 26.1
+      },
+      {
+        "date": "2026-10-10",
+        "actual_mw": 41744.2,
+        "pred_mw": 40970.0,
+        "error_mw": -774.2,
+        "mape_pct": 1.85,
+        "rolling_mape_7d": 1.55,
+        "temp_c": 26.1
+      },
+      {
+        "date": "2026-10-11",
+        "actual_mw": 37411.6,
+        "pred_mw": 37376.8,
+        "error_mw": -34.8,
+        "mape_pct": 0.09,
+        "rolling_mape_7d": 1.44,
+        "temp_c": 26.8
+      }
+    ]
+  }
+}

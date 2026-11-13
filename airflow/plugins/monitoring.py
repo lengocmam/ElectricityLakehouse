@@ -116,6 +116,18 @@ def init_monitoring_tables():
                         CONSTRAINT uq_pipeline_task_audit_try UNIQUE (dag_id, task_id, run_id, try_number)
                     );
 
+                    -- Auto-migrate columns if table already existed without new schema
+                    ALTER TABLE pipeline_task_audit ADD COLUMN IF NOT EXISTS dataset_name VARCHAR(100);
+                    ALTER TABLE pipeline_task_audit ADD COLUMN IF NOT EXISTS records_read BIGINT;
+                    ALTER TABLE pipeline_task_audit ADD COLUMN IF NOT EXISTS records_written BIGINT;
+                    ALTER TABLE pipeline_task_audit ADD COLUMN IF NOT EXISTS records_rejected BIGINT;
+                    ALTER TABLE pipeline_task_audit ADD COLUMN IF NOT EXISTS mode VARCHAR(50);
+                    ALTER TABLE pipeline_task_audit ADD COLUMN IF NOT EXISTS start_date DATE;
+                    ALTER TABLE pipeline_task_audit ADD COLUMN IF NOT EXISTS end_date DATE;
+
+                    ALTER TABLE pipeline_task_audit DROP CONSTRAINT IF EXISTS uq_pipeline_task_audit_try;
+                    ALTER TABLE pipeline_task_audit ADD CONSTRAINT uq_pipeline_task_audit_try UNIQUE (dag_id, task_id, run_id, try_number);
+
                     CREATE INDEX IF NOT EXISTS idx_audit_task_time ON pipeline_task_audit(task_id, start_time DESC);
                     CREATE INDEX IF NOT EXISTS idx_audit_dag_task_time ON pipeline_task_audit(dag_id, task_id, start_time DESC);
                     CREATE INDEX IF NOT EXISTS idx_audit_dag_run ON pipeline_task_audit(dag_id, run_id);

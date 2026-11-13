@@ -1,0 +1,107 @@
+{
+  "args": {
+    "csv": "s4_3thuat_toan/code/unified_daily_v2.csv",
+    "target": "load_mean_mw",
+    "features": "load_high_corr",
+    "horizon": 1,
+    "models": "lightgbm,ridge",
+    "trials": 1,
+    "n_seeds": 5,
+    "epochs": 60,
+    "patience": 10,
+    "batch": 64,
+    "train_end": "2025-06-30",
+    "val_end": "2025-12-31",
+    "test_end": "",
+    "future": 1,
+    "anchor": "",
+    "search_anchor": 0,
+    "load_config": "",
+    "out": "s4_3thuat_toan/code/results/test_high_corr"
+  },
+  "best_config": {
+    "lightgbm": {
+      "lags": 14,
+      "num_leaves": 15,
+      "learning_rate": 0.03,
+      "min_data_in_leaf": 15,
+      "feature_fraction": 0.8
+    },
+    "ridge": {
+      "lags": 14
+    }
+  },
+  "tuning": {
+    "lightgbm": [
+      {
+        "cfg": {
+          "lags": 14,
+          "num_leaves": 15,
+          "learning_rate": 0.03,
+          "min_data_in_leaf": 15,
+          "feature_fraction": 0.8
+        },
+        "val_MAE": 734.4027099609375
+      }
+    ],
+    "ridge": [
+      {
+        "cfg": {
+          "lags": 14
+        },
+        "val_MAE": 791.8356861830379
+      }
+    ]
+  },
+  "results": {
+    "persistence": {
+      "MAE": 1925.0389404296875,
+      "RMSE": 2591.47021484375,
+      "MAPE%": 4.894384860992432,
+      "MASE": 0.9061579186737102
+    },
+    "seasonal_naive_7": {
+      "MAE": 3016.1474609375,
+      "RMSE": 4409.6650390625,
+      "MAPE%": 8.007964134216309,
+      "MASE": 1.4197665554786465
+    },
+    "LightGBM (to hop)": {
+      "MAE": 891.6478881835938,
+      "RMSE": 1276.2684326171875,
+      "MAPE%": 2.2353017330169678,
+      "MASE": 0.4197181561251466
+    },
+    "Ridge (to hop)": {
+      "MAE": 1081.7754670643465,
+      "RMSE": 1434.7705938507236,
+      "MAPE%": 2.752847069160858,
+      "MASE": 0.5092153644894609
+    },
+    "LightGBM (TB 5 seed)": {
+      "MAE": 896.36787109375,
+      "RMSE": 1281.3416748046875,
+      "MAPE%": 2.248060703277588,
+      "MASE": 0.42193995527955125,
+      "MAE_std": 13.036238181528295
+    }
+  },
+  "dm": {
+    "LightGBM (to hop)_vs_persistence": {
+      "stat": -10.169577956011155,
+      "p": 0.0
+    },
+    "LightGBM (to hop)_vs_seasonal_naive_7": {
+      "stat": -11.3176672851686,
+      "p": 0.0
+    },
+    "LightGBM (to hop)_vs_Ridge (to hop)": {
+      "stat": -4.368896388398606,
+      "p": 1.7545816436426165e-05
+    }
+  },
+  "best_model": "LightGBM (to hop)",
+  "n_test": 284,
+  "mase_scale": 2124.396753324468,
+  "seconds": 3.4275174140930176
+}

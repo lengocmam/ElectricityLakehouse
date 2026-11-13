@@ -1,0 +1,253 @@
+{
+  "generated_at": "2026-11-11T10:36:08.755478",
+  "tasks": {
+    "load_H1": {
+      "title": "Phụ tải ngày tới (H = 1)",
+      "unit": "MW",
+      "horizon": 1,
+      "n_test": 288,
+      "lightgbm_control": {
+        "mae": 908.6,
+        "rmse": 1295.9,
+        "mape": 2.29,
+        "r2": 0.9388
+      },
+      "models": [
+        {
+          "model": "Ensemble",
+          "school": "Tổ hợp",
+          "mae": 820.4,
+          "rmse": 1172.3,
+          "mape": 2.1,
+          "r2": 0.9499,
+          "dm_stat": -3.01,
+          "dm_pval": 0.0028,
+          "dm_text": "DM = -3.01, p = 0.003",
+          "rank": 1
+        },
+        {
+          "model": "S4D",
+          "school": "Deep Learning (SSM)",
+          "mae": 954.0,
+          "rmse": 1344.6,
+          "mape": 2.46,
+          "r2": 0.9341,
+          "dm_stat": 0.87,
+          "dm_pval": 0.3878,
+          "dm_text": "DM = +0.87, p = 0.388",
+          "rank": 2
+        },
+        {
+          "model": "S-Mamba",
+          "school": "Deep Learning (Selective SSM)",
+          "mae": 1025.0,
+          "rmse": 1449.1,
+          "mape": 2.62,
+          "r2": 0.9235,
+          "dm_stat": 2.28,
+          "dm_pval": 0.0232,
+          "dm_text": "DM = +2.28, p = 0.023",
+          "rank": 3
+        },
+        {
+          "model": "Ridge Regression",
+          "school": "Tuyến tính chính quy hóa",
+          "mae": 1068.6,
+          "rmse": 1416.7,
+          "mape": 2.71,
+          "r2": 0.9269,
+          "dm_stat": 3.8,
+          "dm_pval": 0.0002,
+          "dm_text": "DM = +3.80, p < 0.001",
+          "rank": 4
+        }
+      ]
+    },
+    "load_H7": {
+      "title": "Phụ tải 7 ngày tới (H = 7)",
+      "unit": "MW",
+      "horizon": 7,
+      "n_test": 282,
+      "lightgbm_control": {
+        "mae": 2010.3,
+        "rmse": 2669.0,
+        "mape": 4.87,
+        "r2": 0.7354
+      },
+      "models": [
+        {
+          "model": "Ensemble",
+          "school": "Tổ hợp",
+          "mae": 1628.5,
+          "rmse": 2276.5,
+          "mape": 4.03,
+          "r2": 0.8075,
+          "dm_stat": -5.26,
+          "dm_pval": 0.0,
+          "dm_text": "DM = -5.26, p < 0.001",
+          "rank": 1
+        },
+        {
+          "model": "S4D",
+          "school": "Deep Learning (SSM)",
+          "mae": 1699.0,
+          "rmse": 2383.2,
+          "mape": 4.29,
+          "r2": 0.789,
+          "dm_stat": -2.27,
+          "dm_pval": 0.024,
+          "dm_text": "DM = -2.27, p = 0.024",
+          "rank": 2
+        },
+        {
+          "model": "S-Mamba",
+          "school": "Deep Learning (Selective SSM)",
+          "mae": 1791.2,
+          "rmse": 2540.7,
+          "mape": 4.5,
+          "r2": 0.7602,
+          "dm_stat": -1.57,
+          "dm_pval": 0.1165,
+          "dm_text": "DM = -1.57, p = 0.116",
+          "rank": 3
+        },
+        {
+          "model": "Ridge Regression",
+          "school": "Tuyến tính chính quy hóa",
+          "mae": 2039.4,
+          "rmse": 2669.3,
+          "mape": 4.87,
+          "r2": 0.7353,
+          "dm_stat": 0.25,
+          "dm_pval": 0.8033,
+          "dm_text": "DM = +0.25, p = 0.803",
+          "rank": 4
+        }
+      ]
+    },
+    "hydro_H1": {
+      "title": "Thủy điện ngày tới (H = 1)",
+      "unit": "MWh",
+      "horizon": 1,
+      "n_test": 282,
+      "lightgbm_control": {
+        "mae": 17489.3,
+        "rmse": 22817.0,
+        "mape": 8.35,
+        "r2": 0.9289
+      },
+      "models": [
+        {
+          "model": "Ensemble",
+          "school": "Tổ hợp",
+          "mae": 15370.0,
+          "rmse": 20175.1,
+          "mape": 7.3,
+          "r2": 0.9444,
+          "dm_stat": -4.4,
+          "dm_pval": 0.0,
+          "dm_text": "DM = -4.40, p < 0.001",
+          "rank": 1
+        },
+        {
+          "model": "S-Mamba",
+          "school": "Deep Learning (Selective SSM)",
+          "mae": 16563.4,
+          "rmse": 21626.4,
+          "mape": 7.97,
+          "r2": 0.9361,
+          "dm_stat": -1.15,
+          "dm_pval": 0.2493,
+          "dm_text": "DM = -1.15, p = 0.249",
+          "rank": 2
+        },
+        {
+          "model": "Ridge Regression",
+          "school": "Tuyến tính chính quy hóa",
+          "mae": 17600.8,
+          "rmse": 22376.6,
+          "mape": 8.29,
+          "r2": 0.9316,
+          "dm_stat": 0.14,
+          "dm_pval": 0.8864,
+          "dm_text": "DM = +0.14, p = 0.886",
+          "rank": 3
+        },
+        {
+          "model": "S4D",
+          "school": "Deep Learning (SSM)",
+          "mae": 20460.4,
+          "rmse": 26946.7,
+          "mape": 10.03,
+          "r2": 0.9008,
+          "dm_stat": 3.17,
+          "dm_pval": 0.0017,
+          "dm_text": "DM = +3.17, p = 0.002",
+          "rank": 4
+        }
+      ]
+    },
+    "hydro_H7": {
+      "title": "Thủy điện 7 ngày tới (H = 7)",
+      "unit": "MWh",
+      "horizon": 7,
+      "n_test": 270,
+      "lightgbm_control": {
+        "mae": 26228.5,
+        "rmse": 34614.9,
+        "mape": 12.34,
+        "r2": 0.8392
+      },
+      "models": [
+        {
+          "model": "Ensemble",
+          "school": "Tổ hợp",
+          "mae": 24021.7,
+          "rmse": 31577.0,
+          "mape": 11.3,
+          "r2": 0.8662,
+          "dm_stat": -2.85,
+          "dm_pval": 0.0047,
+          "dm_text": "DM = -2.85, p = 0.005",
+          "rank": 1
+        },
+        {
+          "model": "S-Mamba",
+          "school": "Deep Learning (Selective SSM)",
+          "mae": 26098.1,
+          "rmse": 34384.8,
+          "mape": 12.61,
+          "r2": 0.8413,
+          "dm_stat": -0.11,
+          "dm_pval": 0.9152,
+          "dm_text": "DM = -0.11, p = 0.915",
+          "rank": 2
+        },
+        {
+          "model": "Ridge Regression",
+          "school": "Tuyến tính chính quy hóa",
+          "mae": 26457.3,
+          "rmse": 33113.7,
+          "mape": 11.98,
+          "r2": 0.8529,
+          "dm_stat": 0.12,
+          "dm_pval": 0.9012,
+          "dm_text": "DM = +0.12, p = 0.901",
+          "rank": 3
+        },
+        {
+          "model": "S4D",
+          "school": "Deep Learning (SSM)",
+          "mae": 27300.8,
+          "rmse": 35972.5,
+          "mape": 12.58,
+          "r2": 0.8263,
+          "dm_stat": 0.67,
+          "dm_pval": 0.5027,
+          "dm_text": "DM = +0.67, p = 0.503",
+          "rank": 4
+        }
+      ]
+    }
+  }
+}

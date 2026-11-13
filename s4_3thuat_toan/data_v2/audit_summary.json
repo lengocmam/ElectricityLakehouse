@@ -1,0 +1,174 @@
+{
+  "raw_hours_per_day": 23,
+  "raw_missing_days": [
+    "2024-09-12"
+  ],
+  "match_load_lag_1h": 1.0,
+  "match_load_lag_2h": 1.0,
+  "match_load_lag_24h": 1.0,
+  "match_load_lag_48h": 1.0,
+  "match_load_lag_168h": 1.0,
+  "match_load_target_lead_24h": 1.0,
+  "raw_match_load_lag_24h": 6.315124723713294e-05,
+  "raw_match_load_lag_168h": 0.0,
+  "raw_match_load_target_lead_24h": 6.315124723713294e-05,
+  "imputed": {
+    "central/midnight_slot": 1377,
+    "central/zero_value": 2,
+    "national/midnight_slot": 1377,
+    "national/zero_value": 2,
+    "north/midnight_slot": 1377,
+    "north/zero_value": 2,
+    "south/midnight_slot": 1377,
+    "south/zero_value": 2
+  },
+  "national_vs_sum_regions": {
+    "min": 0.9811300010669378,
+    "max": 1.0000035304376684
+  },
+  "tet_break_days": 32,
+  "load_mean_break_vs_other": {
+    "break": 27656.82478470588,
+    "other": 36708.00130262751,
+    "tet": 21210.821881249998
+  },
+  "gen_vs_load": {
+    "n": 1168,
+    "corr": 0.9856985619041915,
+    "ratio_min": 0.956,
+    "ratio_median": 1.02325,
+    "ratio_max": 1.0981
+  },
+  "gen_flags": {
+    "day_invalid": 1,
+    "fix_import": 5,
+    "fix_solar_other": 4,
+    "inconsistent": 4,
+    "inconsistent_days": [
+      "2025-06-22",
+      "2025-09-20",
+      "2025-12-31",
+      "2026-03-15"
+    ]
+  },
+  "holiday_days_with_mix": 70,
+  "hydro": {
+    "stale_share_mean": 0.12453176214648297,
+    "days": 1381,
+    "plants_median": 38.0,
+    "below_dead_rows": 515
+  },
+  "daily": {
+    "rows": 1384,
+    "range": [
+      "2023-01-01",
+      "2026-10-15"
+    ],
+    "has_load": 1379,
+    "has_hydro": 1381,
+    "has_mix": 1169,
+    "all3": 1165
+  },
+  "checks": [
+    {
+      "name": "A1 truc gio deu 1h, khong trung",
+      "pass": true,
+      "detail": "33119 gio, 2023-01-01 01:00:00 .. 2026-10-11 23:00:00"
+    },
+    {
+      "name": "A2 moi vung co cung so dong",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "B load_lag_1h khop moc thoi gian that",
+      "pass": true,
+      "detail": "1.0000 tren 33093 dong"
+    },
+    {
+      "name": "B load_lag_2h khop moc thoi gian that",
+      "pass": true,
+      "detail": "1.0000 tren 33092 dong"
+    },
+    {
+      "name": "B load_lag_24h khop moc thoi gian that",
+      "pass": true,
+      "detail": "1.0000 tren 33070 dong"
+    },
+    {
+      "name": "B load_lag_48h khop moc thoi gian that",
+      "pass": true,
+      "detail": "1.0000 tren 33046 dong"
+    },
+    {
+      "name": "B load_lag_168h khop moc thoi gian that",
+      "pass": true,
+      "detail": "1.0000 tren 32926 dong"
+    },
+    {
+      "name": "B load_target_lead_24h khop moc thoi gian that",
+      "pass": true,
+      "detail": "1.0000 tren 33070 dong"
+    },
+    {
+      "name": "C1 o noi suy chi la nua dem hoac gia tri 0",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "C2 so o thieu con lai = 1 ngay thieu (25 o) moi vung",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "C3 khong con gia tri <= 0",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "C4 national ~ tong 3 mien (>=0,98)",
+      "pass": true,
+      "detail": "min 0.9811"
+    },
+    {
+      "name": "D1 co 4 ky nghi Tet (2023-2026)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "D2 ngay Tet thuc su thap hon ngay thuong",
+      "pass": true,
+      "detail": "Tet 21211 MW vs khac 36708 MW"
+    },
+    {
+      "name": "E1 ty le san luong/phu tai trong [0,90 ; 1,15] sau khi loc",
+      "pass": true,
+      "detail": "0.956 .. 1.098"
+    },
+    {
+      "name": "E2 tuong quan san luong-phu tai >= 0,98",
+      "pass": true,
+      "detail": "0.9857"
+    },
+    {
+      "name": "E3 cac ngay le/Tet thuc khong bi loai nham",
+      "pass": true,
+      "detail": "70 ngay trong ky nghi con so lieu"
+    },
+    {
+      "name": "F1 co 39 nha may o hau het cac ngay",
+      "pass": true,
+      "detail": "median 38, max 39"
+    },
+    {
+      "name": "G1 khong co ngay trung",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "G2 load_valid_hours <= 24",
+      "pass": true,
+      "detail": ""
+    }
+  ]
+}

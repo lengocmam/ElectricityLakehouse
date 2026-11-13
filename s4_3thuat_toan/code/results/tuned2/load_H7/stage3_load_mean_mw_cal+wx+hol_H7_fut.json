@@ -1,0 +1,148 @@
+{
+  "args": {
+    "csv": "unified_daily_v2.csv",
+    "target": "load_mean_mw",
+    "features": "cal,wx,hol",
+    "horizon": 7,
+    "models": "timexer,smamba,s4d",
+    "trials": 12,
+    "n_seeds": 5,
+    "epochs": 60,
+    "patience": 10,
+    "batch": 64,
+    "train_end": "2025-06-30",
+    "val_end": "2025-12-31",
+    "test_end": "",
+    "future": 1,
+    "anchor": "",
+    "search_anchor": 1,
+    "load_config": "results/tuned2/load_H7/best_config_tuned.json",
+    "out": "results/tuned2/load_H7"
+  },
+  "best_config": {
+    "timexer": {
+      "lookback": 28,
+      "d_model": 128,
+      "ptst_layers": 2,
+      "dropout": 0.2,
+      "lr": 0.001,
+      "wd": 0.05,
+      "patch_len": 7,
+      "anchor": "none"
+    },
+    "smamba": {
+      "lookback": 28,
+      "d_model": 128,
+      "n_layers": 2,
+      "d_state": 8,
+      "dropout": 0.1,
+      "lr": 0.002,
+      "wd": 0.01,
+      "anchor": "last"
+    },
+    "s4d": {
+      "lookback": 28,
+      "d_model": 128,
+      "n_layers": 2,
+      "d_state": 32,
+      "dropout": 0.3,
+      "lr": 0.005,
+      "wd": 0.05,
+      "dt_min": 0.001,
+      "dt_max": 0.1,
+      "anchor": "none"
+    }
+  },
+  "tuning": {},
+  "results": {
+    "persistence": {
+      "MAE": 3029.357421875,
+      "RMSE": 4124.68603515625,
+      "MAPE%": 7.798417568206787,
+      "MASE": 1.4259847729169983
+    },
+    "seasonal_naive_7": {
+      "MAE": 2986.57470703125,
+      "RMSE": 4386.30078125,
+      "MAPE%": 7.896424770355225,
+      "MASE": 1.4058460136307211
+    },
+    "TimeXer (to hop)": {
+      "MAE": 1612.051025390625,
+      "RMSE": 2231.65087890625,
+      "MAPE%": 4.063138961791992,
+      "MASE": 0.7588276638381821
+    },
+    "S-Mamba (to hop)": {
+      "MAE": 1626.6761474609375,
+      "RMSE": 2279.2734375,
+      "MAPE%": 4.083510875701904,
+      "MASE": 0.7657120285630978
+    },
+    "S4D (to hop)": {
+      "MAE": 1596.6568603515625,
+      "RMSE": 2238.47314453125,
+      "MAPE%": 3.9670169353485107,
+      "MASE": 0.7515812937733757
+    },
+    "TimeXer (TB 5 seed)": {
+      "MAE": 1688.56943359375,
+      "RMSE": 2308.93603515625,
+      "MAPE%": 4.274920272827148,
+      "MASE": 0.7948465515922616,
+      "MAE_std": 27.722165095437227
+    },
+    "S-Mamba (TB 5 seed)": {
+      "MAE": 1711.4817626953125,
+      "RMSE": 2371.766162109375,
+      "MAPE%": 4.301999282836914,
+      "MASE": 0.8056318858598399,
+      "MAE_std": 22.011974904665955
+    },
+    "S4D (TB 5 seed)": {
+      "MAE": 1677.513134765625,
+      "RMSE": 2333.87392578125,
+      "MAPE%": 4.187851142883301,
+      "MASE": 0.7896421099968662,
+      "MAE_std": 30.59825408115802
+    }
+  },
+  "dm": {
+    "S4D (to hop)_vs_persistence": {
+      "stat": -7.002084461617072,
+      "p": 1.9087176283960616e-11
+    },
+    "S4D (to hop)_vs_seasonal_naive_7": {
+      "stat": -3.358458326673806,
+      "p": 0.0008937012087975038
+    },
+    "S4D (to hop)_vs_TimeXer (to hop)": {
+      "stat": -0.17761818534943163,
+      "p": 0.8591526569305394
+    },
+    "S4D (to hop)_vs_S-Mamba (to hop)": {
+      "stat": -0.4380565573617031,
+      "p": 0.661686688695102
+    },
+    "S4D_vs_persistence": {
+      "stat": -7.002084461617072,
+      "p": 1.9087176283960616e-11
+    },
+    "S4D_vs_seasonal_naive_7": {
+      "stat": -3.358458326673806,
+      "p": 0.0008937012087975038
+    },
+    "S4D_vs_TimeXer (to hop)": {
+      "stat": -0.17761818534943163,
+      "p": 0.8591526569305394
+    },
+    "S4D_vs_S-Mamba (to hop)": {
+      "stat": -0.4380565573617031,
+      "p": 0.661686688695102
+    }
+  },
+  "best_model": "S4D (to hop)",
+  "n_test": 278,
+  "mase_scale": 2124.396753324468,
+  "seconds": 528.2184979915619
+}

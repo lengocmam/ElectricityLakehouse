@@ -1,0 +1,261 @@
+{
+  "analysis_date": "2026-11-07 11:48:38",
+  "total_days": 1384,
+  "load_top_features": [
+    {
+      "feature": "gen_gas",
+      "pearson_r": 0.5557,
+      "pearson_abs": 0.5557,
+      "pearson_p": 6.866630652646627e-97,
+      "spearman_rho": 0.4686,
+      "spearman_abs": 0.4686,
+      "spearman_p": 1.119374944506831e-65,
+      "sample_count": 1184
+    },
+    {
+      "feature": "wx_temp_c",
+      "pearson_r": 0.5533,
+      "pearson_abs": 0.5533,
+      "pearson_p": 1.0181003678795388e-99,
+      "spearman_rho": 0.584,
+      "spearman_abs": 0.584,
+      "spearman_p": 1.460453734463193e-113,
+      "sample_count": 1232
+    },
+    {
+      "feature": "hy_powerhouse_total_m3s",
+      "pearson_r": 0.5469,
+      "pearson_abs": 0.5469,
+      "pearson_p": 3.6453981268962324e-108,
+      "spearman_rho": 0.5838,
+      "spearman_abs": 0.5838,
+      "spearman_p": 1.7302903778276935e-126,
+      "sample_count": 1376
+    },
+    {
+      "feature": "gen_solar_other",
+      "pearson_r": 0.5381,
+      "pearson_abs": 0.5381,
+      "pearson_p": 1.601924306672797e-89,
+      "spearman_rho": 0.5722,
+      "spearman_abs": 0.5722,
+      "spearman_p": 1.4174867199970793e-103,
+      "sample_count": 1180
+    },
+    {
+      "feature": "gen_thermal",
+      "pearson_r": 0.5332,
+      "pearson_abs": 0.5332,
+      "pearson_p": 6.055969854887397e-88,
+      "spearman_rho": 0.4553,
+      "spearman_abs": 0.4553,
+      "spearman_p": 1.202772513220762e-61,
+      "sample_count": 1184
+    },
+    {
+      "feature": "month_cos",
+      "pearson_r": -0.5285,
+      "pearson_abs": 0.5285,
+      "pearson_p": 4.455240688246279e-100,
+      "spearman_rho": -0.52,
+      "spearman_abs": 0.52,
+      "spearman_p": 2.2743593551636594e-96,
+      "sample_count": 1379
+    },
+    {
+      "feature": "gen_coal",
+      "pearson_r": 0.4994,
+      "pearson_abs": 0.4994,
+      "pearson_p": 1.0729029650383195e-75,
+      "spearman_rho": 0.4309,
+      "spearman_abs": 0.4309,
+      "spearman_p": 1.0035961513905661e-54,
+      "sample_count": 1184
+    },
+    {
+      "feature": "is_tet_break",
+      "pearson_r": -0.4447,
+      "pearson_abs": 0.4447,
+      "pearson_p": 6.2448931975831215e-68,
+      "spearman_rho": -0.2588,
+      "spearman_abs": 0.2588,
+      "spearman_p": 1.5507911689339e-22,
+      "sample_count": 1379
+    },
+    {
+      "feature": "wx_solar_rad_wm2",
+      "pearson_r": 0.4392,
+      "pearson_abs": 0.4392,
+      "pearson_p": 2.9569321515721956e-59,
+      "spearman_rho": 0.4801,
+      "spearman_abs": 0.4801,
+      "spearman_p": 4.896076175982348e-72,
+      "sample_count": 1232
+    },
+    {
+      "feature": "is_public_holiday",
+      "pearson_r": -0.4325,
+      "pearson_abs": 0.4325,
+      "pearson_p": 5.73655471963343e-64,
+      "spearman_rho": -0.2927,
+      "spearman_abs": 0.2927,
+      "spearman_p": 1.2165882194336475e-28,
+      "sample_count": 1379
+    }
+  ],
+  "hydro_top_features": [
+    {
+      "feature": "hy_powerhouse_total_m3s",
+      "pearson_r": 0.8622,
+      "pearson_abs": 0.8622,
+      "pearson_p": 0.0,
+      "spearman_rho": 0.8605,
+      "spearman_abs": 0.8605,
+      "spearman_p": 0.0,
+      "sample_count": 1182
+    },
+    {
+      "feature": "hy_inflow_total_m3s",
+      "pearson_r": 0.8577,
+      "pearson_abs": 0.8577,
+      "pearson_p": 0.0,
+      "spearman_rho": 0.9156,
+      "spearman_abs": 0.9156,
+      "spearman_p": 0.0,
+      "sample_count": 1182
+    },
+    {
+      "feature": "hy_inflow_da",
+      "pearson_r": 0.7767,
+      "pearson_abs": 0.7767,
+      "pearson_p": 4.224292874917692e-239,
+      "spearman_rho": 0.7731,
+      "spearman_abs": 0.7731,
+      "spearman_p": 1.5540745812316215e-235,
+      "sample_count": 1182
+    },
+    {
+      "feature": "month_cos",
+      "pearson_r": -0.6401,
+      "pearson_abs": 0.6401,
+      "pearson_p": 1.316211175091444e-137,
+      "spearman_rho": -0.6885,
+      "spearman_abs": 0.6885,
+      "spearman_p": 2.8010968395641957e-167,
+      "sample_count": 1185
+    },
+    {
+      "feature": "hy_inflow_lo_gam",
+      "pearson_r": 0.6375,
+      "pearson_abs": 0.6375,
+      "pearson_p": 1.73312157460328e-135,
+      "spearman_rho": 0.7627,
+      "spearman_abs": 0.7627,
+      "spearman_p": 5.531434889146182e-225,
+      "sample_count": 1179
+    },
+    {
+      "feature": "wx_humidity_pct",
+      "pearson_r": 0.6236,
+      "pearson_abs": 0.6236,
+      "pearson_p": 1.4560826684830747e-128,
+      "spearman_rho": 0.6543,
+      "spearman_abs": 0.6543,
+      "spearman_p": 1.2673022270642385e-145,
+      "sample_count": 1184
+    },
+    {
+      "feature": "hy_inflow_sesan",
+      "pearson_r": 0.5985,
+      "pearson_abs": 0.5985,
+      "pearson_p": 9.327518013611596e-116,
+      "spearman_rho": 0.6796,
+      "spearman_abs": 0.6796,
+      "spearman_p": 6.0904993348707984e-161,
+      "sample_count": 1182
+    },
+    {
+      "feature": "month_sin",
+      "pearson_r": -0.5936,
+      "pearson_abs": 0.5936,
+      "pearson_p": 9.517588881225624e-114,
+      "spearman_rho": -0.5303,
+      "spearman_abs": 0.5303,
+      "spearman_p": 6.479260973950563e-87,
+      "sample_count": 1185
+    },
+    {
+      "feature": "hy_inflow_ma_ca",
+      "pearson_r": 0.5669,
+      "pearson_abs": 0.5669,
+      "pearson_p": 1.7887228299849045e-101,
+      "spearman_rho": 0.8449,
+      "spearman_abs": 0.8449,
+      "spearman_p": 0.0,
+      "sample_count": 1182
+    },
+    {
+      "feature": "wx_precip_mm",
+      "pearson_r": 0.5565,
+      "pearson_abs": 0.5565,
+      "pearson_p": 2.9706657909203365e-97,
+      "spearman_rho": 0.6272,
+      "spearman_abs": 0.6272,
+      "spearman_p": 1.9100753993865717e-130,
+      "sample_count": 1184
+    }
+  ],
+  "multicollinear_pairs_count": 11,
+  "multicollinear_top": [
+    {
+      "feature_1": "gen_coal",
+      "feature_2": "gen_thermal",
+      "abs_corr": 0.9919
+    },
+    {
+      "feature_1": "is_weekend",
+      "feature_2": "is_working_day",
+      "abs_corr": 0.9154
+    },
+    {
+      "feature_1": "hy_inflow_total_m3s",
+      "feature_2": "hy_inflow_da",
+      "abs_corr": 0.8479
+    },
+    {
+      "feature_1": "month_cos",
+      "feature_2": "hy_fill_ratio_mean",
+      "abs_corr": 0.8435
+    },
+    {
+      "feature_1": "month_cos",
+      "feature_2": "wx_temp_c",
+      "abs_corr": 0.8187
+    },
+    {
+      "feature_1": "is_public_holiday",
+      "feature_2": "is_holiday_break",
+      "abs_corr": 0.8176
+    },
+    {
+      "feature_1": "dow_sin",
+      "feature_2": "is_weekend",
+      "abs_corr": 0.7858
+    },
+    {
+      "feature_1": "wx_temp_c",
+      "feature_2": "hy_fill_ratio_mean",
+      "abs_corr": 0.782
+    },
+    {
+      "feature_1": "hy_powerhouse_total_m3s",
+      "feature_2": "hy_inflow_da",
+      "abs_corr": 0.7703
+    },
+    {
+      "feature_1": "hy_inflow_total_m3s",
+      "feature_2": "hy_powerhouse_total_m3s",
+      "abs_corr": 0.7676
+    }
+  ]
+}

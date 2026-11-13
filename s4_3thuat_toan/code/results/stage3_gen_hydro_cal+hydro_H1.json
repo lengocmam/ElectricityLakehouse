@@ -1,0 +1,467 @@
+{
+  "args": {
+    "csv": "unified_daily_v2.csv",
+    "target": "gen_hydro",
+    "features": "cal,hydro",
+    "horizon": 1,
+    "models": "ridge,lightgbm,dlinear,patchtst,s4d",
+    "trials": 5,
+    "n_seeds": 5,
+    "epochs": 60,
+    "patience": 10,
+    "batch": 64,
+    "train_end": "2025-06-30",
+    "val_end": "2025-12-31",
+    "load_config": "",
+    "out": "results"
+  },
+  "best_config": {
+    "ridge": {
+      "lags": 7
+    },
+    "lightgbm": {
+      "lags": 14,
+      "num_leaves": 31,
+      "learning_rate": 0.02,
+      "min_data_in_leaf": 40,
+      "feature_fraction": 0.5
+    },
+    "dlinear": {
+      "lookback": 56,
+      "lr": 0.01,
+      "wd": 0.05,
+      "kernel": 25
+    },
+    "patchtst": {
+      "lookback": 56,
+      "d_model": 64,
+      "ptst_layers": 2,
+      "dropout": 0.1,
+      "lr": 0.002,
+      "wd": 0.05,
+      "patch": [
+        8,
+        4
+      ]
+    },
+    "s4d": {
+      "lookback": 28,
+      "d_model": 128,
+      "n_layers": 3,
+      "d_state": 32,
+      "dropout": 0.2,
+      "lr": 0.005,
+      "wd": 0.01,
+      "dt_min": 0.01,
+      "dt_max": 0.5
+    }
+  },
+  "tuning": {
+    "ridge": [
+      {
+        "cfg": {
+          "lags": 14
+        },
+        "val_MAE": 14838.529555356132
+      },
+      {
+        "cfg": {
+          "lags": 14
+        },
+        "val_MAE": 14838.529555356132
+      },
+      {
+        "cfg": {
+          "lags": 14
+        },
+        "val_MAE": 14838.529555356132
+      },
+      {
+        "cfg": {
+          "lags": 7
+        },
+        "val_MAE": 14624.188854790784
+      },
+      {
+        "cfg": {
+          "lags": 14
+        },
+        "val_MAE": 14838.529555356132
+      }
+    ],
+    "lightgbm": [
+      {
+        "cfg": {
+          "lags": 14,
+          "num_leaves": 15,
+          "learning_rate": 0.03,
+          "min_data_in_leaf": 15,
+          "feature_fraction": 0.8
+        },
+        "val_MAE": 15278.58984375
+      },
+      {
+        "cfg": {
+          "lags": 28,
+          "num_leaves": 15,
+          "learning_rate": 0.05,
+          "min_data_in_leaf": 20,
+          "feature_fraction": 0.8
+        },
+        "val_MAE": 15558.3505859375
+      },
+      {
+        "cfg": {
+          "lags": 14,
+          "num_leaves": 31,
+          "learning_rate": 0.02,
+          "min_data_in_leaf": 40,
+          "feature_fraction": 0.5
+        },
+        "val_MAE": 14826.412109375
+      },
+      {
+        "cfg": {
+          "lags": 14,
+          "num_leaves": 7,
+          "learning_rate": 0.02,
+          "min_data_in_leaf": 40,
+          "feature_fraction": 0.8
+        },
+        "val_MAE": 15101.3896484375
+      },
+      {
+        "cfg": {
+          "lags": 28,
+          "num_leaves": 31,
+          "learning_rate": 0.02,
+          "min_data_in_leaf": 20,
+          "feature_fraction": 0.5
+        },
+        "val_MAE": 15455.21875
+      }
+    ],
+    "dlinear": [
+      {
+        "cfg": {
+          "lookback": 56,
+          "lr": 0.002,
+          "wd": 0.05,
+          "kernel": 25
+        },
+        "val_MAE": 16598.599609375
+      },
+      {
+        "cfg": {
+          "lookback": 28,
+          "lr": 0.01,
+          "wd": 0.05,
+          "kernel": 25
+        },
+        "val_MAE": 16958.90625
+      },
+      {
+        "cfg": {
+          "lookback": 28,
+          "lr": 0.005,
+          "wd": 0.05,
+          "kernel": 25
+        },
+        "val_MAE": 16962.224609375
+      },
+      {
+        "cfg": {
+          "lookback": 56,
+          "lr": 0.01,
+          "wd": 0.05,
+          "kernel": 25
+        },
+        "val_MAE": 16417.5390625
+      },
+      {
+        "cfg": {
+          "lookback": 112,
+          "lr": 0.001,
+          "wd": 0.0,
+          "kernel": 13
+        },
+        "val_MAE": 18608.25390625
+      }
+    ],
+    "patchtst": [
+      {
+        "cfg": {
+          "lookback": 56,
+          "d_model": 64,
+          "ptst_layers": 2,
+          "dropout": 0.1,
+          "lr": 0.002,
+          "wd": 0.05,
+          "patch": [
+            8,
+            4
+          ]
+        },
+        "val_MAE": 17080.166015625
+      },
+      {
+        "cfg": {
+          "lookback": 224,
+          "d_model": 64,
+          "ptst_layers": 3,
+          "dropout": 0.3,
+          "lr": 0.002,
+          "wd": 0.01,
+          "patch": [
+            16,
+            8
+          ]
+        },
+        "val_MAE": 25663.859375
+      },
+      {
+        "cfg": {
+          "lookback": 112,
+          "d_model": 32,
+          "ptst_layers": 3,
+          "dropout": 0.2,
+          "lr": 0.002,
+          "wd": 0.01,
+          "patch": [
+            8,
+            4
+          ]
+        },
+        "val_MAE": 19823.93359375
+      },
+      {
+        "cfg": {
+          "lookback": 224,
+          "d_model": 32,
+          "ptst_layers": 1,
+          "dropout": 0.1,
+          "lr": 0.002,
+          "wd": 0.05,
+          "patch": [
+            8,
+            4
+          ]
+        },
+        "val_MAE": 25626.6640625
+      },
+      {
+        "cfg": {
+          "lookback": 56,
+          "d_model": 64,
+          "ptst_layers": 3,
+          "dropout": 0.2,
+          "lr": 0.0005,
+          "wd": 0.05,
+          "patch": [
+            16,
+            8
+          ]
+        },
+        "val_MAE": 18894.619140625
+      }
+    ],
+    "s4d": [
+      {
+        "cfg": {
+          "lookback": 56,
+          "d_model": 64,
+          "n_layers": 3,
+          "d_state": 64,
+          "dropout": 0.1,
+          "lr": 0.002,
+          "wd": 0.05,
+          "dt_min": 0.01,
+          "dt_max": 0.5
+        },
+        "val_MAE": 16978.07421875
+      },
+      {
+        "cfg": {
+          "lookback": 28,
+          "d_model": 128,
+          "n_layers": 3,
+          "d_state": 32,
+          "dropout": 0.2,
+          "lr": 0.005,
+          "wd": 0.01,
+          "dt_min": 0.01,
+          "dt_max": 0.5
+        },
+        "val_MAE": 15052.66015625
+      },
+      {
+        "cfg": {
+          "lookback": 56,
+          "d_model": 64,
+          "n_layers": 2,
+          "d_state": 32,
+          "dropout": 0.1,
+          "lr": 0.0005,
+          "wd": 0.1,
+          "dt_min": 0.01,
+          "dt_max": 0.5
+        },
+        "val_MAE": 20892.66796875
+      },
+      {
+        "cfg": {
+          "lookback": 28,
+          "d_model": 32,
+          "n_layers": 4,
+          "d_state": 32,
+          "dropout": 0.1,
+          "lr": 0.0005,
+          "wd": 0.01,
+          "dt_min": 0.01,
+          "dt_max": 1.0
+        },
+        "val_MAE": 17113.298828125
+      },
+      {
+        "cfg": {
+          "lookback": 112,
+          "d_model": 128,
+          "n_layers": 2,
+          "d_state": 32,
+          "dropout": 0.3,
+          "lr": 0.002,
+          "wd": 0.05,
+          "dt_min": 0.01,
+          "dt_max": 1.0
+        },
+        "val_MAE": 17117.080078125
+      }
+    ]
+  },
+  "results": {
+    "persistence": {
+      "MAE": 22725.53125,
+      "RMSE": 29873.6484375,
+      "MAPE%": 11.386093139648438,
+      "MASE": 0.7686003594080845
+    },
+    "seasonal_naive_7": {
+      "MAE": 34483.6875,
+      "RMSE": 45912.8046875,
+      "MAPE%": 16.782493591308594,
+      "MASE": 1.1662730483458366
+    },
+    "Ridge (to hop)": {
+      "MAE": 15186.56756380571,
+      "RMSE": 19986.379381689683,
+      "MAPE%": 7.439639895201577,
+      "MASE": 0.5136250131761485
+    },
+    "LightGBM (to hop)": {
+      "MAE": 15188.9609375,
+      "RMSE": 20277.51953125,
+      "MAPE%": 7.3812255859375,
+      "MASE": 0.5137059594854512
+    },
+    "DLinear (to hop)": {
+      "MAE": 17125.046875,
+      "RMSE": 21683.888671875,
+      "MAPE%": 8.324382781982422,
+      "MASE": 0.5791863362052446
+    },
+    "PatchTST (to hop)": {
+      "MAE": 18878.0390625,
+      "RMSE": 24085.830078125,
+      "MAPE%": 8.88998031616211,
+      "MASE": 0.6384742978607973
+    },
+    "S4D (to hop)": {
+      "MAE": 16658.99609375,
+      "RMSE": 21740.1875,
+      "MAPE%": 8.135416984558105,
+      "MASE": 0.5634240293077472
+    },
+    "LightGBM (TB 5 seed)": {
+      "MAE": 15264.3392578125,
+      "RMSE": 20346.687109375,
+      "MAPE%": 7.420070743560791,
+      "MASE": 0.5162553302106687,
+      "MAE_std": 47.76340114658886
+    },
+    "DLinear (TB 5 seed)": {
+      "MAE": 17187.614453125,
+      "RMSE": 21774.875,
+      "MAPE%": 8.352179145812988,
+      "MASE": 0.5813024347247973,
+      "MAE_std": 216.30424521799986
+    },
+    "PatchTST (TB 5 seed)": {
+      "MAE": 19824.6234375,
+      "RMSE": 25225.273046875,
+      "MAPE%": 9.329480743408203,
+      "MASE": 0.6704887349637837,
+      "MAE_std": 392.71108966863983
+    },
+    "S4D (TB 5 seed)": {
+      "MAE": 17538.011328125,
+      "RMSE": 22766.0046875,
+      "MAPE%": 8.553631401062011,
+      "MASE": 0.5931532100091139,
+      "MAE_std": 513.11373197075
+    }
+  },
+  "dm": {
+    "Ridge (to hop)_vs_persistence": {
+      "stat": -7.025396551891102,
+      "p": 1.61393121089759e-11
+    },
+    "Ridge (to hop)_vs_seasonal_naive_7": {
+      "stat": -10.516015877525723,
+      "p": 0.0
+    },
+    "Ridge (to hop)_vs_LightGBM (to hop)": {
+      "stat": -0.005174701514114345,
+      "p": 0.9958748757119174
+    },
+    "Ridge (to hop)_vs_DLinear (to hop)": {
+      "stat": -3.2600833308687047,
+      "p": 0.0012509122801724892
+    },
+    "Ridge (to hop)_vs_PatchTST (to hop)": {
+      "stat": -5.048207897118407,
+      "p": 8.027780498132131e-07
+    },
+    "Ridge (to hop)_vs_S4D (to hop)": {
+      "stat": -2.7860291471111873,
+      "p": 0.005698961440622652
+    },
+    "S4D_vs_persistence": {
+      "stat": -5.373974968592187,
+      "p": 1.6191650065167096e-07
+    },
+    "S4D_vs_seasonal_naive_7": {
+      "stat": -9.487206031959715,
+      "p": 0.0
+    },
+    "S4D_vs_Ridge (to hop)": {
+      "stat": 2.7860291471111873,
+      "p": 0.005698961440622652
+    },
+    "S4D_vs_LightGBM (to hop)": {
+      "stat": 2.6812179979741826,
+      "p": 0.007769203863941865
+    },
+    "S4D_vs_DLinear (to hop)": {
+      "stat": -0.7025547904146532,
+      "p": 0.4829148243480923
+    },
+    "S4D_vs_PatchTST (to hop)": {
+      "stat": -2.811230642430336,
+      "p": 0.00528248722856639
+    }
+  },
+  "best_model": "Ridge (to hop)",
+  "n_test": 282,
+  "mase_scale": 29567.42209631728,
+  "seconds": 343.1877746582031
+}

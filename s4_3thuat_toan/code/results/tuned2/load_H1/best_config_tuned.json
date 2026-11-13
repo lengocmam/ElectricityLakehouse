@@ -1,0 +1,36 @@
+{
+ "best_config": {
+  "timexer": {
+   "lookback": 28,
+   "d_model": 128,
+   "ptst_layers": 2,
+   "dropout": 0.2,
+   "lr": 0.001,
+   "wd": 0.05,
+   "patch_len": 7,
+   "anchor": "none"
+  },
+  "smamba": {
+   "lookback": 28,
+   "d_model": 32,
+   "n_layers": 1,
+   "d_state": 8,
+   "dropout": 0.0,
+   "lr": 0.005,
+   "wd": 0.01,
+   "anchor": "last"
+  },
+  "s4d": {
+   "lookback": 28,
+   "d_model": 128,
+   "n_layers": 2,
+   "d_state": 32,
+   "dropout": 0.3,
+   "lr": 0.005,
+   "wd": 0.05,
+   "dt_min": 0.001,
+   "dt_max": 0.1,
+   "anchor": "none"
+  }
+ }
+}

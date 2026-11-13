@@ -1,0 +1,53 @@
+{
+  "args": {
+    "csv": "unified_daily_v2.csv",
+    "target": "load_mean_mw",
+    "features": "cal,wx",
+    "lookback": 56,
+    "horizon": 1,
+    "train_end": "2025-06-30",
+    "val_end": "2025-12-31",
+    "d_model": 64,
+    "n_layers": 3,
+    "d_state": 64,
+    "dropout": 0.1,
+    "dt_min": 0.01,
+    "dt_max": 0.5,
+    "lr": 0.002,
+    "wd": 0.05,
+    "epochs": 80,
+    "patience": 15,
+    "batch": 64,
+    "n_seeds": 3,
+    "out": "results"
+  },
+  "windows": [
+    704,
+    184,
+    284
+  ],
+  "results": {
+    "persistence": {
+      "MAE": 1925.0389404296875,
+      "RMSE": 2591.47021484375,
+      "MAPE%": 4.894384860992432
+    },
+    "seasonal_naive_7": {
+      "MAE": 3016.1474609375,
+      "RMSE": 4409.6650390625,
+      "MAPE%": 8.007964134216309
+    },
+    "ridge(alpha=1)": {
+      "MAE": 1373.8302870311616,
+      "RMSE": 1847.6850246572128,
+      "MAPE%": 3.4633402516317795
+    },
+    "S4D (TB 3 seed)": {
+      "MAE": 1254.0133870442708,
+      "RMSE": 1853.99462890625,
+      "MAPE%": 3.3051089445749917,
+      "MAE_std": 46.699167915563685
+    }
+  },
+  "seconds": 104.70007753372192
+}

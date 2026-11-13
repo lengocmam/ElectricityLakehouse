@@ -1,0 +1,40 @@
+{
+ "best_config": {
+  "lightgbm": {
+   "lags": 28,
+   "num_leaves": 7,
+   "learning_rate": 0.02,
+   "min_data_in_leaf": 20,
+   "feature_fraction": 0.5
+  },
+  "s4d": {
+   "lookback": 28,
+   "d_model": 128,
+   "n_layers": 3,
+   "d_state": 64,
+   "dropout": 0.1,
+   "lr": 0.002,
+   "wd": 0.01,
+   "dt_min": 0.001,
+   "dt_max": 0.1
+  },
+  "timexer": {
+   "lookback": 28,
+   "d_model": 128,
+   "ptst_layers": 2,
+   "dropout": 0.1,
+   "lr": 0.002,
+   "wd": 0.01,
+   "patch_len": 7
+  },
+  "smamba": {
+   "lookback": 28,
+   "d_model": 128,
+   "n_layers": 2,
+   "d_state": 8,
+   "dropout": 0.2,
+   "lr": 0.0005,
+   "wd": 0.1
+  }
+ }
+}

@@ -1,0 +1,61 @@
+
+### (A) THEO THOI GIAN: hoc tren fold 1+2, do tren fold 3 (2026)
+  hoc tren: ['F1', 'F2'] | w(S4D) theo buoc h: [np.float64(0.2), np.float64(0.4), np.float64(0.6), np.float64(0.6), np.float64(0.7), np.float64(0.7), np.float64(0.8)] | dinh tuyen (hang=h, cot=[thuong, le], 1=S4D): [[0, 0], [0, 0], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1]]
+  Mo hinh                                 F3      Gop   Bias%
+  LightGBM                              1933     1933   -2.56
+  S4D                                   1560     1560   -0.03
+  Trung binh 50/50                      1580     1580   -1.29
+  Blend theo buoc h                     1522     1522   -1.01
+  Dinh tuyen theo (h, loai ngay)        1556     1556   -0.50
+    DM Trung binh 50/50 vs S4D:  0.24 p=0.808 | vs LightGBM: -5.74 p=0.000   (am = ghep tot hon)
+    DM Blend theo buoc h vs S4D: -0.58 p=0.562 | vs LightGBM: -5.29 p=0.000   (am = ghep tot hon)
+    DM Dinh tuyen theo (h, loai ngay) vs S4D: -0.16 p=0.874 | vs LightGBM: -3.51 p=0.001   (am = ghep tot hon)
+
+### (B) Bo fold F1: hoc tren hai fold con lai
+  hoc tren: ['F2', 'F3'] | w(S4D) theo buoc h: [np.float64(0.2), np.float64(0.6), np.float64(0.7), np.float64(0.7), np.float64(0.8), np.float64(0.8), np.float64(0.8)] | dinh tuyen (hang=h, cot=[thuong, le], 1=S4D): [[0, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0]]
+  Mo hinh                                 F1      Gop   Bias%
+  LightGBM                              1587     1587   -0.69
+  S4D                                   1347     1347   -0.39
+  Trung binh 50/50                      1339     1339   -0.54
+  Blend theo buoc h                     1270     1270   -0.45
+  Dinh tuyen theo (h, loai ngay)        1434     1434    0.04
+    DM Trung binh 50/50 vs S4D: -0.11 p=0.915 | vs LightGBM: -2.46 p=0.015   (am = ghep tot hon)
+    DM Blend theo buoc h vs S4D: -2.09 p=0.038 | vs LightGBM: -2.21 p=0.028   (am = ghep tot hon)
+    DM Dinh tuyen theo (h, loai ngay) vs S4D:  1.04 p=0.298 | vs LightGBM: -1.28 p=0.200   (am = ghep tot hon)
+
+### (B) Bo fold F2: hoc tren hai fold con lai
+  hoc tren: ['F1', 'F3'] | w(S4D) theo buoc h: [np.float64(0.2), np.float64(0.6), np.float64(0.7), np.float64(0.8), np.float64(0.8), np.float64(0.9), np.float64(0.9)] | dinh tuyen (hang=h, cot=[thuong, le], 1=S4D): [[0, 0], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1]]
+  Mo hinh                                 F2      Gop   Bias%
+  LightGBM                              1390     1390   -0.86
+  S4D                                   1476     1476   -0.67
+  Trung binh 50/50                      1342     1342   -0.77
+  Blend theo buoc h                     1389     1389   -0.67
+  Dinh tuyen theo (h, loai ngay)        1452     1452   -0.63
+    DM Trung binh 50/50 vs S4D: -1.95 p=0.052 | vs LightGBM: -0.81 p=0.421   (am = ghep tot hon)
+    DM Blend theo buoc h vs S4D: -2.78 p=0.006 | vs LightGBM: -0.02 p=0.988   (am = ghep tot hon)
+    DM Dinh tuyen theo (h, loai ngay) vs S4D: -2.19 p=0.030 | vs LightGBM:  0.51 p=0.611   (am = ghep tot hon)
+
+### (B) Bo fold F3: hoc tren hai fold con lai
+  hoc tren: ['F1', 'F2'] | w(S4D) theo buoc h: [np.float64(0.2), np.float64(0.4), np.float64(0.6), np.float64(0.6), np.float64(0.7), np.float64(0.7), np.float64(0.8)] | dinh tuyen (hang=h, cot=[thuong, le], 1=S4D): [[0, 0], [0, 0], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1]]
+  Mo hinh                                 F3      Gop   Bias%
+  LightGBM                              1933     1933   -2.56
+  S4D                                   1560     1560   -0.03
+  Trung binh 50/50                      1580     1580   -1.29
+  Blend theo buoc h                     1522     1522   -1.01
+  Dinh tuyen theo (h, loai ngay)        1556     1556   -0.50
+    DM Trung binh 50/50 vs S4D:  0.24 p=0.808 | vs LightGBM: -5.74 p=0.000   (am = ghep tot hon)
+    DM Blend theo buoc h vs S4D: -0.58 p=0.562 | vs LightGBM: -5.29 p=0.000   (am = ghep tot hon)
+    DM Dinh tuyen theo (h, loai ngay) vs S4D: -0.16 p=0.874 | vs LightGBM: -3.51 p=0.001   (am = ghep tot hon)
+
+### (B) GOP 3 LAN BO (643 cua so, moi cua so duoc du bao boi quy tac hoc tu 2 fold con lai)
+  LightGBM                              1680   Bias%  -1.60
+  S4D                                   1476   Bias%  -0.30
+  Trung binh 50/50                      1444   Bias%  -0.95
+  Blend theo buoc h                     1413   Bias%  -0.77
+  Dinh tuyen theo (h, loai ngay)        1492   Bias%  -0.40
+    DM Trung binh 50/50 vs S4D: -0.70 p=0.487
+    DM Trung binh 50/50 vs LightGBM: -5.24 p=0.000
+    DM Blend theo buoc h vs S4D: -2.03 p=0.043
+    DM Blend theo buoc h vs LightGBM: -4.26 p=0.000
+    DM Dinh tuyen theo (h, loai ngay) vs S4D:  0.61 p=0.539
+    DM Dinh tuyen theo (h, loai ngay) vs LightGBM: -2.69 p=0.007

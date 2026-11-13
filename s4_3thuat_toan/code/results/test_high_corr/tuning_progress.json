@@ -1,0 +1,1 @@
+{"lightgbm:0": {"cfg": {"lags": 14, "num_leaves": 15, "learning_rate": 0.03, "min_data_in_leaf": 15, "feature_fraction": 0.8}, "val_MAE": 734.4027099609375}, "ridge:0": {"cfg": {"lags": 14}, "val_MAE": 791.8356861830379}}
