@@ -163,7 +163,7 @@ def get_or_create_dashboard(base_url, token, collection_id, name, description):
 def upsert_card(base_url, token, collection_id, db_id, name, sql, display, viz=None, tag_def=None, description=None):
     """Create card if not existing, or update query & visualization if already exists."""
     req = urllib.request.Request(f"{base_url}/api/card", headers={"X-Metabase-Session": token})
-    with urllib.request.urlopen(req, timeout=10) as resp:
+    with urllib.request.urlopen(req, timeout=60) as resp:
         cards = json.loads(resp.read().decode("utf-8"))
         existing = next((c for c in cards if c.get("name") == name and c.get("collection_id") == collection_id), None)
 

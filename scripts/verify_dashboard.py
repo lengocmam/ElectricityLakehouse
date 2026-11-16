@@ -30,7 +30,7 @@ def verify_dash(dash_id):
             headers={'X-Metabase-Session': token, 'Content-Type': 'application/json'}
         )
         try:
-            with urllib.request.urlopen(q_req, timeout=30) as resp:
+            with urllib.request.urlopen(q_req, timeout=60) as resp:
                 res = json.loads(resp.read().decode('utf-8'))
                 status = res.get('status')
                 row_cnt = len(res.get('data', {}).get('rows', []))
