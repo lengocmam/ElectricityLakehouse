@@ -40,7 +40,7 @@ TARGET_DATE_CTE = """
 WITH target AS (
     SELECT COALESCE(
         NULL [[ , CAST({{selected_date}} AS DATE) ]],
-        (SELECT MAX(date_value) FROM gold.v_gen_hourly)
+        (SELECT MAX(date_value) FROM gold.v_hydro_daily)
     ) AS selected_date
 )
 """.strip()
@@ -115,14 +115,30 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
             "sql": f"""
                 {TARGET_DATE_CTE},
                 w AS (
-                  SELECT * FROM gold.v_weather_hourly WHERE date_value = (SELECT selected_date FROM target)
+                    SELECT 
+                        loc.region_key,
+                        CASE WHEN loc.region_key = 1 THEN 'Bắc' WHEN loc.region_key = 2 THEN 'Trung' WHEN loc.region_key = 3 THEN 'Nam' END AS region_name,
+                        w.time_key AS hour_of_day,
+                        ROUND(AVG(w.temperature_2m), 1) AS temperature_c
+                    FROM gold.fact_weather_hourly w
+                    JOIN gold.dim_location loc ON w.location_key = loc.location_key
+                    JOIN target ON w.date_key = (YEAR(target.selected_date)*10000 + MONTH(target.selected_date)*100 + DAY(target.selected_date))
+                    WHERE loc.region_key IN (1, 2, 3)
+                    GROUP BY loc.region_key, w.time_key
                 ),
                 l AS (
-                  SELECT * FROM gold.v_load_region_hourly WHERE date_value = (SELECT selected_date FROM target)
+                    SELECT 
+                        l.region_key,
+                        CASE WHEN l.region_key = 1 THEN 'Bắc' WHEN l.region_key = 2 THEN 'Trung' WHEN l.region_key = 3 THEN 'Nam' END AS region_name,
+                        l.time_key AS hour_of_day,
+                        l.load_mw
+                    FROM gold.fact_load_hourly l
+                    JOIN target ON l.date_key = (YEAR(target.selected_date)*10000 + MONTH(target.selected_date)*100 + DAY(target.selected_date))
+                    WHERE l.region_key IN (1, 2, 3)
                 ),
                 j AS (
-                  SELECT w.temperature_c, w.region_name, w.hour_of_day, l.load_mw
-                  FROM w JOIN l ON w.hour_of_day = l.hour_of_day AND w.region_name = l.region_name
+                    SELECT w.temperature_c, w.region_name, w.hour_of_day, l.load_mw
+                    FROM w JOIN l ON w.hour_of_day = l.hour_of_day AND w.region_key = l.region_key
                 )
                 SELECT ROUND(MAX(temperature_c), 1) AS tmax_c,
                        MAX_BY(region_name, temperature_c) AS tmax_region,
@@ -231,11 +247,11 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
                   FROM gold.v_load_region_hourly l
                   JOIN gold.v_weather_hourly w
                     ON w.date_value = l.date_value AND w.hour_of_day = l.hour_of_day AND w.region_name = l.region_name
-                  JOIN gold.dim_date dd ON dd.date_value = l.date_value
+                  JOIN gold.dim_date dd ON dd.full_date = l.date_value
                   CROSS JOIN target
                   WHERE l.hour_of_day BETWEEN 13 AND 15
-                    AND NOT dd.is_weekend AND NOT dd.is_holiday
-                    AND l.date_value BETWEEN target.selected_date - INTERVAL '90' DAY AND target.selected_date
+                    AND NOT dd.is_weekend
+                    AND l.date_value BETWEEN target.selected_date - INTERVAL '30' DAY AND target.selected_date
                   GROUP BY 1, 2
                 ),
                 d AS (
@@ -346,41 +362,40 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
             "display": "scatter",
             "sql": f"""
                 {TARGET_DATE_CTE},
-                anchor AS (
-                    SELECT CASE 
-                        WHEN (SELECT selected_date FROM target) <= DATE '2024-06-03'
-                        THEN (SELECT selected_date FROM target)
-                        ELSE DATE '2024-06-03'
-                    END AS ref_date
+                w AS (
+                    SELECT 
+                        w.time_key AS hour_of_day,
+                        ROUND(AVG(w.shortwave_radiation), 1) AS rad_wm2
+                    FROM gold.fact_weather_hourly w
+                    JOIN gold.dim_location loc ON w.location_key = loc.location_key
+                    JOIN target ON w.date_key = (YEAR(target.selected_date)*10000 + MONTH(target.selected_date)*100 + DAY(target.selected_date))
+                    WHERE loc.region_key IN (2, 3)
+                    GROUP BY w.time_key
+                ),
+                g AS (
+                    SELECT 
+                        hour_of_day,
+                        generation_mw AS solar_mw
+                    FROM gold.v_gen_hourly
+                    CROSS JOIN target
+                    WHERE date_value = target.selected_date AND source_group = 'Mặt trời'
                 ),
                 s AS (
-                  SELECT g.date_value, g.hour_of_day, g.generation_mw AS solar_mw,
-                         AVG(w.radiation_wm2) AS rad_wm2
-                  FROM gold.v_gen_hourly g
-                  CROSS JOIN anchor
-                  JOIN gold.v_weather_hourly w
-                    ON w.date_value = g.date_value AND w.hour_of_day = g.hour_of_day
-                   AND w.region_name IN ('Trung', 'Nam')
-                   AND w.date_value BETWEEN anchor.ref_date - INTERVAL '30' DAY AND anchor.ref_date
-                  WHERE g.source_group = 'Mặt trời'
-                    AND g.date_value BETWEEN anchor.ref_date - INTERVAL '30' DAY AND anchor.ref_date
-                    AND w.radiation_wm2 > 50
-                  GROUP BY 1, 2, 3
-                ),
-                ref AS (
-                  SELECT APPROX_PERCENTILE(solar_mw / rad_wm2, 0.5) AS median_ratio
-                  FROM s WHERE rad_wm2 >= 500
+                    SELECT 
+                        g.hour_of_day,
+                        g.solar_mw,
+                        w.rad_wm2
+                    FROM g
+                    JOIN w ON g.hour_of_day = w.hour_of_day
+                    WHERE w.rad_wm2 > 20
                 )
-                SELECT ROUND(s.rad_wm2) AS "Bức xạ mặt trời (W/m²)",
-                       ROUND(s.solar_mw) AS "Công suất phát (MW)",
-                       s.date_value AS "Ngày",
-                       s.hour_of_day AS "Giờ",
-                       CASE WHEN (s.rad_wm2 >= 500 AND s.solar_mw / s.rad_wm2 < 0.8 * ref.median_ratio) 
-                            THEN 'Nghi vấn phát thấp' 
-                            ELSE 'Bình thường' 
-                       END AS "Trạng thái"
-                FROM s CROSS JOIN ref
-                ORDER BY 1, 2
+                SELECT 
+                    ROUND(rad_wm2) AS "Bức xạ mặt trời (W/m²)",
+                    ROUND(solar_mw) AS "Công suất phát (MW)",
+                    hour_of_day AS "Giờ",
+                    CASE WHEN rad_wm2 >= 400 AND solar_mw < 1000 THEN 'Nghi vấn phát thấp' ELSE 'Bình thường' END AS "Trạng thái"
+                FROM s
+                ORDER BY hour_of_day
             """,
             "viz": {
                 "graph.dimensions": ["Bức xạ mặt trời (W/m²)"],

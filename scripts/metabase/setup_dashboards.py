@@ -45,7 +45,7 @@ def main():
 
     if args.dashboard in ("3", "all"):
         d3_id = deploy_dashboard_03(url, args.user, args.password)
-        dashboards_deployed.append(("03. Hỗ Trợ Điều Độ Viên: Dự Báo Phụ Tải Ngày Mai & Giám Sát Vận Hành", d3_id))
+        dashboards_deployed.append(("03. Giám Sát Cảnh Báo Vận Hành Pipeline & Chất Lượng Dữ Liệu Lakehouse", d3_id))
 
     print("\n" + "#"*75)
     print("SUMMARY: ALL REQUESTED DASHBOARDS READY ON METABASE!")

@@ -41,7 +41,7 @@ TARGET_DATE_CTE = """
 WITH target AS (
     SELECT COALESCE(
         NULL [[ , CAST({{selected_date}} AS DATE) ]],
-        DATE '2026-10-10'
+        DATE '2026-11-12'
     ) AS selected_date
 )
 """.strip()
