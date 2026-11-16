@@ -1,25 +1,30 @@
 # -*- coding: utf-8 -*-
 """Master Runner for Metabase Lakehouse Dashboards.
 
-Manages the 2 core operational dashboards:
+Manages the core operational and analytical dashboards:
     python scripts/metabase/setup_dashboards.py --all
     python scripts/metabase/setup_dashboards.py --dashboard 1
     python scripts/metabase/setup_dashboards.py --dashboard 2
+    python scripts/metabase/setup_dashboards.py --dashboard 3
+    python scripts/metabase/setup_dashboards.py --dashboard dataops
 
 Or invoke individual scripts directly:
     python scripts/metabase/setup_dashboard_01.py
     python scripts/metabase/setup_dashboard_02.py
+    python scripts/metabase/setup_dashboard_seasonal.py
+    python scripts/metabase/setup_dashboard_03.py
 """
 import argparse
 import sys
 from common import DEFAULT_PASS, DEFAULT_USER, get_metabase_url
 from setup_dashboard_01 import deploy_dashboard_01
 from setup_dashboard_02 import deploy_dashboard_02
+from setup_dashboard_seasonal import deploy_dashboard_seasonal
 from setup_dashboard_03 import deploy_dashboard_03
 
 def main():
     parser = argparse.ArgumentParser(description="Master Provisioner for Vietnam Electricity Lakehouse BI Dashboards")
-    parser.add_argument("--dashboard", choices=["1", "2", "3", "all"], default="all", help="Target dashboard to deploy (1, 2, 3, or all)")
+    parser.add_argument("--dashboard", choices=["1", "2", "3", "dataops", "all"], default="all", help="Target dashboard to deploy")
     parser.add_argument("--url", default=None, help="Metabase URL (e.g. http://localhost:3000)")
     parser.add_argument("--user", default=DEFAULT_USER, help="Metabase admin username")
     parser.add_argument("--password", default=DEFAULT_PASS, help="Metabase admin password")
@@ -41,11 +46,15 @@ def main():
 
     if args.dashboard in ("2", "all"):
         d2_id = deploy_dashboard_02(url, args.user, args.password)
-        dashboards_deployed.append(("02. Thời Tiết Cực Đoan, An Ninh Nước & Thủy Điện", d2_id))
+        dashboards_deployed.append(("02. Năng Lượng Tự Nhiên 3 Miền", d2_id))
 
     if args.dashboard in ("3", "all"):
-        d3_id = deploy_dashboard_03(url, args.user, args.password)
-        dashboards_deployed.append(("03. Giám Sát Cảnh Báo Vận Hành Pipeline & Chất Lượng Dữ Liệu Lakehouse", d3_id))
+        d3_id = deploy_dashboard_seasonal(url, args.user, args.password)
+        dashboards_deployed.append(("03. Chu Kỳ Năng Lượng Theo Mùa", d3_id))
+
+    if args.dashboard in ("dataops", "all"):
+        d_ops_id = deploy_dashboard_03(url, args.user, args.password)
+        dashboards_deployed.append(("04. Giám Sát Vận Hành Pipeline & Chất Lượng Dữ Liệu", d_ops_id))
 
     print("\n" + "#"*75)
     print("SUMMARY: ALL REQUESTED DASHBOARDS READY ON METABASE!")

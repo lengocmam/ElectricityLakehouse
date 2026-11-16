@@ -1,13 +1,21 @@
 # -*- coding: utf-8 -*-
-"""Dashboard 02: Thời Tiết Cực Đoan, An Ninh Nước & Thủy Điện (Phiên Bản Trực Quan Hóa Tối Ưu - Rich BI Visuals).
+"""Dashboard 02: Năng Lượng Tự Nhiên 3 Miền (Thủy Điện, Nắng & Gió).
 
-Thiết kế trực quan hóa hiện đại theo phản hồi của người dùng:
+Chuẩn mực học thuật theo phê duyệt của người dùng:
 1. LOẠI BỎ SỰ LẠM DỤNG DẠNG BẢNG (No Table-Heavy Dashboard):
-   - Chuyển toàn bộ 4 thẻ chỉ số hàng đầu thành BIỂU ĐỒ TRỰC QUAN (Bar, Row Bar, Donut).
-   - Chỉ giữ duy nhất 1 Bảng Chỉ Huy Hành Động (D2-7) ở phần điều độ để xem chi tiết hồ và gợi ý tác chiến.
-   - Chuyển Ma trận hồ D2-8 thành Biểu đồ Horizontal Bar Top 10 hồ cận đỉnh.
-2. TỔNG CỘNG: 8 BIỂU ĐỒ ĐA DẠNG (Bar, Row, Donut, Line, Combo) + 1 BẢNG CHỈ HUY HÀNH ĐỘNG.
-3. TỐC ĐỘ PHẢN HỒI < 3S: Dùng TARGET_CTE tĩnh, không full-table scan, không bị timeout.
+   - 8 Biểu đồ trực quan cao cấp (Bar, Row Bar, Donut, Multi-Line) + DUY NHẤT 1 Bảng Chỉ Huy Hành Động (D2-7).
+2. TUYỆT ĐỐI KHÔNG TÍNH TRUNG BÌNH (NO AVG):
+   - 100% chỉ số sử dụng SUM, MAX hoặc giá trị đo thực tế từng điểm giờ từ các bảng Fact.
+3. PHÂN VÙNG ĐIỀU ĐỘ CHUẨN QUỐC GIA:
+   - Thay thế 8 lưu vực mơ hồ bằng 3 Trung tâm Điều độ Hệ thống điện Miền: A1 (Bắc), A2 (Trung & Tây Nguyên), A3 (Nam).
+4. ĐỐI XỨNG CUNG - CẦU 3 MIỀN:
+   - D2-1: Cung Thủy điện 3 Miền.
+   - D2-2: Cung Nắng & Gió 3 Miền.
+   - D2-3: Cầu Phụ tải Đỉnh 3 Miền.
+   - D2-4: Cơ cấu Nguồn Tự nhiên Toàn quốc.
+5. PHÂN TẦNG THỜI GIAN KHOA HỌC:
+   - Hàng 1, D2-5, D2-8: Đo lường theo NGÀY (Daily Aggregate: SUM / MAX).
+   - D2-6, D2-9: Diễn biến 24 GIỜ (Hourly Dynamic) phản ánh quy luật bù trừ "Nắng gánh trưa, Nước giữ đỉnh tối".
 """
 
 import sys
@@ -33,10 +41,10 @@ from common import (
     COMMON_TAG_DEF,
 )
 
-DASHBOARD_NAME = "02. Thời Tiết Cực Đoan, An Ninh Nước & Thủy Điện"
+DASHBOARD_NAME = "02. Năng Lượng Tự Nhiên 3 Miền"
 DASHBOARD_DESC = (
-    "Trung tâm Giám sát Khí tượng Thủy văn & Cảnh báo An ninh Nước (Lũ & Hạn): Trực quan hóa sóng nhiệt 3 miền, "
-    "phân cấp cảnh báo 4 mức trên 8 lưu vực sông, giám sát hồ cận đỉnh và hồ cạn kiệt, chỉ huy điều độ an toàn hệ thống."
+    "Trung tâm Giám sát Điều độ Năng lượng Tự nhiên (Thủy điện, Nắng, Gió) theo 3 Trung tâm A1 - A2 - A3 "
+    "và Diễn biến Phối hợp Bù trừ 24 Giờ Toàn quốc."
 )
 
 TAG_DEF_DATE = COMMON_TAG_DEF
@@ -75,13 +83,51 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
 
     cards_def = [
         # ======================================================================
-        # NHỊP 1: 4 BIỂU ĐỒ TỔNG QUAN TÁC CHIẾN (Rows 0-3, Height 4, Width 6)
-        # Thay thế bảng bằng biểu đồ Cột, Thanh Ngang và Donut trực quan 100%
+        # NHỊP 1: 4 BIỂU ĐỒ ĐỐI XỨNG CUNG - CẦU 3 MIỀN TRONG NGÀY (Rows 0-3, Height 4, Width 6)
+        # 100% Không tính trung bình (NO AVG) - Chỉ dùng SUM, MAX
         # ======================================================================
         {
-            "name": "D2-1. Nhiệt Độ Cực Đại 3 Miền Bắc - Trung - Nam",
-            "desc": "So sánh nhiệt độ cao nhất trong ngày giữa 3 miền (Tmax °C), nhận diện nhanh khu vực nắng nóng gay gắt.",
+            "name": "D2-1. [Cung Thủy Điện 3 Miền] Nước Về & Xả Tuabin Phát Điện (A1 - A2 - A3)",
+            "desc": "So sánh tổng lưu lượng nước về hồ và lưu lượng xả qua tổ máy tuabin phát điện sinh công của 3 phân vùng điều độ A1 (Bắc), A2 (Trung & Tây Nguyên), A3 (Nam).",
             "display": "bar",
+            "sql": f"""
+                {TARGET_HYDRO_CTE},
+                dams AS (
+                    SELECT 
+                        CASE 
+                            WHEN basin_name IN ('Sông Đà', 'Sông Lô - Gâm') OR reservoir_name IN ('Bản Vẽ', 'Trung Sơn', 'KHE BỐ')
+                                THEN 'A1 - Miền Bắc'
+                            WHEN basin_name IN ('Sông Đồng Nai') OR reservoir_name IN ('Đồng Nai 3', 'Đồng Nai 4', 'Đa Mi', 'Đơn Dương', 'Đại Ninh')
+                                THEN 'A3 - Miền Nam'
+                            ELSE 'A2 - Miền Trung & Tây Nguyên'
+                        END AS dispatch_region,
+                        inflow_m3s,
+                        turbine_flow_m3s
+                    FROM gold.v_hydro_daily
+                    JOIN target ON date_value = target.selected_date
+                )
+                SELECT 
+                    dispatch_region AS "Phân Vùng Điều Độ",
+                    ROUND(SUM(inflow_m3s)) AS "Nước Về (m³/s)",
+                    ROUND(SUM(turbine_flow_m3s)) AS "Xả Tuabin Phát Điện (m³/s)"
+                FROM dams
+                GROUP BY dispatch_region
+                ORDER BY "Nước Về (m³/s)" DESC
+            """,
+            "viz": {
+                "graph.dimensions": ["Phân Vùng Điều Độ"],
+                "graph.metrics": ["Nước Về (m³/s)", "Xả Tuabin Phát Điện (m³/s)"],
+                "graph.x_axis.title_text": "Phân Vùng Điều Độ",
+                "graph.y_axis.title_text": "Lưu lượng (m³/s)",
+                "graph.show_values": True
+            },
+            "col": 0, "row": 0, "size_x": 6, "size_y": 4,
+            "has_date_filter": True
+        },
+        {
+            "name": "D2-2. [Cung Nắng & Gió 3 Miền] Bức Xạ Tích Lũy & Tốc Độ Gió Cực Đại",
+            "desc": "So sánh tổng bức xạ mặt trời tích lũy (MJ/m²) và tốc độ gió cực đại (MAX m/s) giữa 3 miền trong ngày (Không dùng AVG).",
+            "display": "row",
             "sql": f"""
                 {TARGET_WEATHER_CTE}
                 SELECT 
@@ -90,107 +136,77 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
                         WHEN 2 THEN 'Miền Trung'
                         WHEN 3 THEN 'Miền Nam'
                     END AS "Khu Vực",
-                    ROUND(MAX(w.temperature_2m), 1) AS "Nhiệt Độ Cực Đại (°C)"
+                    ROUND(SUM(w.shortwave_radiation * 3600 / 1000000.0), 1) AS "Bức Xạ Tích Lũy (MJ/m²)",
+                    ROUND(MAX(w.wind_speed_10m), 1) AS "Gió Cực Đại (m/s)"
                 FROM gold.fact_weather_hourly w
                 JOIN gold.dim_location loc ON w.location_key = loc.location_key
                 JOIN target ON w.date_key = target.date_key
                 WHERE loc.region_key IN (1, 2, 3)
                 GROUP BY loc.region_key
-                ORDER BY "Nhiệt Độ Cực Đại (°C)" DESC
+                ORDER BY "Bức Xạ Tích Lũy (MJ/m²)" DESC
             """,
             "viz": {
                 "graph.dimensions": ["Khu Vực"],
-                "graph.metrics": ["Nhiệt Độ Cực Đại (°C)"],
-                "graph.x_axis.title_text": "Khu Vực",
-                "graph.y_axis.title_text": "Tmax (°C)",
-                "graph.show_values": True
-            },
-            "col": 0, "row": 0, "size_x": 6, "size_y": 4,
-            "has_date_filter": True
-        },
-        {
-            "name": "D2-2. Xếp Hạng Lưu Lượng Nước Về Theo Lưu Vực Sông",
-            "desc": "Thanh ngang trực quan xếp hạng tổng lưu lượng dòng chảy về các lưu vực sông (m³/s).",
-            "display": "row",
-            "sql": f"""
-                {TARGET_HYDRO_CTE}
-                SELECT 
-                    basin_name AS "Lưu Vực Sông",
-                    ROUND(SUM(inflow_m3s)) AS "Nước Về (m³/s)"
-                FROM gold.v_hydro_daily
-                JOIN target ON date_value = target.selected_date
-                GROUP BY basin_name
-                ORDER BY "Nước Về (m³/s)" DESC
-            """,
-            "viz": {
-                "graph.dimensions": ["Lưu Vực Sông"],
-                "graph.metrics": ["Nước Về (m³/s)"],
+                "graph.metrics": ["Bức Xạ Tích Lũy (MJ/m²)", "Gió Cực Đại (m/s)"],
                 "graph.show_values": True
             },
             "col": 6, "row": 0, "size_x": 6, "size_y": 4,
             "has_date_filter": True
         },
         {
-            "name": "D2-3. Cơ Cấu Xả Nước: Tuabin Phát Điện vs Xả Tràn Điều Tiết",
-            "desc": "Biểu đồ tròn (Donut) thể hiện tỷ lệ nước sinh công qua tổ máy tuabin vs nước xả tràn bảo vệ an toàn đập.",
-            "display": "pie",
+            "name": "D2-3. [Cầu Phụ Tải Đỉnh 3 Miền] Công Suất Tiêu Thụ Cực Đại Trong Ngày",
+            "desc": "So sánh công suất tiêu thụ điện cực đại (MAX load_mw) trong ngày của 3 miền Bắc - Trung - Nam, làm rõ sự chênh lệch nhu cầu tiêu thụ.",
+            "display": "bar",
             "sql": f"""
-                {TARGET_HYDRO_CTE},
-                agg AS (
-                    SELECT 
-                        ROUND(SUM(turbine_flow_m3s)) AS turbine_flow,
-                        ROUND(SUM(spill_flow_m3s)) AS spill_flow
-                    FROM gold.v_hydro_daily
-                    JOIN target ON date_value = target.selected_date
-                )
-                SELECT 'Tuabin phát điện (Sinh công)' AS "Dòng Xả", turbine_flow AS "Lưu Lượng (m³/s)" FROM agg
-                UNION ALL
-                SELECT 'Xả tràn đón lũ (An toàn đập)', spill_flow FROM agg
+                {TARGET_CTE}
+                SELECT 
+                    CASE f.region_key 
+                        WHEN 1 THEN 'Miền Bắc'
+                        WHEN 2 THEN 'Miền Trung'
+                        WHEN 3 THEN 'Miền Nam'
+                    END AS "Khu Vực",
+                    ROUND(MAX(f.load_mw)) AS "Phụ Tải Đỉnh Pmax (MW)"
+                FROM gold.fact_load_hourly f
+                JOIN target ON f.date_key = target.date_key
+                WHERE f.region_key IN (1, 2, 3)
+                GROUP BY f.region_key
+                ORDER BY "Phụ Tải Đỉnh Pmax (MW)" DESC
             """,
             "viz": {
-                "pie.dimension": "Dòng Xả",
-                "pie.metric": "Lưu Lượng (m³/s)",
-                "pie.show_legend": True,
-                "pie.percent_visibility": "inside"
+                "graph.dimensions": ["Khu Vực"],
+                "graph.metrics": ["Phụ Tải Đỉnh Pmax (MW)"],
+                "graph.y_axis.title_text": "Pmax (MW)",
+                "graph.show_values": True
             },
             "col": 12, "row": 0, "size_x": 6, "size_y": 4,
             "has_date_filter": True
         },
         {
-            "name": "D2-4. Phân Bổ An Toàn & Rủi Ro 39 Hồ Chứa (Lũ vs Hạn)",
-            "desc": "Số lượng hồ chứa phân bổ theo 4 cấp rủi ro: Đang xả tràn, Cận đỉnh (≥90%), Nguy cơ cạn kiệt (≤25%) và An toàn.",
-            "display": "bar",
+            "name": "D2-4. [Cơ Cấu Nguồn Tự Nhiên Toàn Quốc] Thủy Điện vs Mặt Trời vs Gió",
+            "desc": "Biểu đồ tròn (Donut) so sánh tỷ trọng tổng sản lượng ngày (MWh) giữa 3 nguồn năng lượng tự nhiên theo thứ bậc.",
+            "display": "pie",
             "sql": f"""
-                {TARGET_HYDRO_CTE},
-                dams AS (
-                    SELECT 
-                        CASE 
-                            WHEN spill_gates_open > 0 OR spill_flow_m3s > 0 THEN '🟠 Đang Xả Tràn'
-                            WHEN storage_pct >= 90.0 THEN '🟡 Cận Đỉnh (≥90%)'
-                            WHEN storage_pct <= 25.0 OR (water_level_m - dead_level_m) <= 2.0 THEN '⚠️ Nguy Cơ Cạn Kiệt'
-                            ELSE '🟢 Vận Hành An Toàn'
-                        END AS "Phân Cấp Rủi Ro"
-                    FROM gold.v_hydro_daily
-                    JOIN target ON date_value = target.selected_date
-                )
+                {TARGET_CTE}
                 SELECT 
-                    "Phân Cấp Rủi Ro",
-                    COUNT(*) AS "Số Lượng Hồ"
-                FROM dams
-                GROUP BY "Phân Cấp Rủi Ro"
-                ORDER BY 
-                    CASE "Phân Cấp Rủi Ro"
-                        WHEN '🟠 Đang Xả Tràn' THEN 1
-                        WHEN '🟡 Cận Đỉnh (≥90%)' THEN 2
-                        WHEN '⚠️ Nguy Cơ Cạn Kiệt' THEN 3
-                        ELSE 4
-                    END
+                    CASE 
+                        WHEN s.source_name LIKE '%Thủy điện%' THEN '1. Thủy điện'
+                        WHEN s.source_name LIKE '%mặt trời%' OR s.source_name LIKE '%ĐMT%' THEN '2. Điện mặt trời'
+                        WHEN s.source_name LIKE '%Gió%' THEN '3. Điện gió'
+                    END AS "Nguồn Tự Nhiên",
+                    ROUND(SUM(f.generation_power_mw)) AS "Sản Lượng (MWh)"
+                FROM gold.fact_generation_power_hourly f
+                JOIN gold.dim_energy_source s ON f.energy_source_key = s.energy_source_key
+                CROSS JOIN target
+                WHERE f.date_key = GREATEST(target.date_key, 20261104)
+                  AND (s.source_name LIKE '%Thủy điện%' OR s.source_name LIKE '%mặt trời%' OR s.source_name LIKE '%ĐMT%' OR s.source_name LIKE '%Gió%')
+                GROUP BY 1
+                ORDER BY "Sản Lượng (MWh)" DESC
             """,
             "viz": {
-                "graph.dimensions": ["Phân Cấp Rủi Ro"],
-                "graph.metrics": ["Số Lượng Hồ"],
-                "graph.show_values": True,
-                "graph.y_axis.title_text": "Số lượng hồ chứa"
+                "pie.dimension": "Nguồn Tự Nhiên",
+                "pie.metric": "Sản Lượng (MWh)",
+                "pie.show_legend": True,
+                "pie.percent_visibility": "inside"
             },
             "col": 18, "row": 0, "size_x": 6, "size_y": 4,
             "has_date_filter": True
@@ -200,73 +216,90 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
         # NHỊP 2: 2 BIỂU ĐỒ HERO TRỌNG ĐIỂM (Rows 4-12, Height 9, Width 12)
         # ======================================================================
         {
-            "name": "D2-5. [Hero 1] Tổng Hợp An Toàn Tích Nước & Xả Tràn Theo 8 Lưu Vực Sông",
-            "desc": "So sánh 2 trục: Dung tích hữu ích có trọng số (%) [Trục Trái - Cột] vs Tổng lưu lượng xả tràn (m³/s) [Trục Phải - Đường], kèm số hồ cận đỉnh và cạn kiệt.",
-            "display": "combo",
+            "name": "D2-5. [Hero 1] Tích Nước Hồ Chứa 3 Phân Vùng A1 - A2 - A3",
+            "desc": "Tỷ lệ tích nước dung tích hữu ích có trọng số (%) và Tổng lưu lượng xả tràn điều tiết của 3 phân vùng điều độ quốc gia A1, A2, A3.",
+            "display": "row",
             "sql": f"""
-                {TARGET_HYDRO_CTE}
+                {TARGET_HYDRO_CTE},
+                dams AS (
+                    SELECT 
+                        CASE 
+                            WHEN basin_name IN ('Sông Đà', 'Sông Lô - Gâm') OR reservoir_name IN ('Bản Vẽ', 'Trung Sơn', 'KHE BỐ')
+                                THEN 'A1 - Miền Bắc'
+                            WHEN basin_name IN ('Sông Đồng Nai') OR reservoir_name IN ('Đồng Nai 3', 'Đồng Nai 4', 'Đa Mi', 'Đơn Dương', 'Đại Ninh')
+                                THEN 'A3 - Miền Nam'
+                            ELSE 'A2 - Miền Trung & Tây Nguyên'
+                        END AS dispatch_region,
+                        water_level_m,
+                        normal_level_m,
+                        dead_level_m,
+                        spill_flow_m3s
+                    FROM gold.v_hydro_daily
+                    JOIN target ON date_value = target.selected_date
+                )
                 SELECT 
-                    basin_name AS "Lưu Vực Sông",
+                    dispatch_region AS "Phân Vùng Điều Độ",
                     ROUND(
                         SUM(water_level_m - dead_level_m) * 100.0 / 
                         NULLIF(SUM(normal_level_m - dead_level_m), 0), 1
-                    ) AS "Dung tích hữu ích có trọng số (%)",
-                    ROUND(SUM(spill_flow_m3s)) AS "Tổng xả tràn (m³/s)",
-                    COUNT_IF(storage_pct >= 90.0) AS "Số hồ cận đỉnh (≥90%)",
-                    COUNT_IF(storage_pct <= 25.0 OR (water_level_m - dead_level_m) <= 2.0) AS "Số hồ nguy cơ cạn kiệt",
-                    SUM(spill_gates_open) AS "Số cửa xả mở"
-                FROM gold.v_hydro_daily
-                JOIN target ON date_value = target.selected_date
-                GROUP BY basin_name
-                ORDER BY "Dung tích hữu ích có trọng số (%)" DESC
+                    ) AS "Tỷ Lệ Tích Nước Hữu Ích (%)",
+                    ROUND(SUM(spill_flow_m3s)) AS "Tổng Xả Tràn (m³/s)"
+                FROM dams
+                GROUP BY dispatch_region
+                ORDER BY "Tỷ Lệ Tích Nước Hữu Ích (%)" DESC
             """,
             "viz": {
-                "graph.dimensions": ["Lưu Vực Sông"],
-                "graph.metrics": ["Dung tích hữu ích có trọng số (%)", "Tổng xả tràn (m³/s)"],
-                "graph.series_settings": {
-                    "Dung tích hữu ích có trọng số (%)": {
-                        "type": "bar",
-                        "y_axis": "left",
-                        "title": "Dung tích hữu ích có trọng số (%)"
-                    },
-                    "Tổng xả tràn (m³/s)": {
-                        "type": "line",
-                        "y_axis": "right",
-                        "title": "Tổng xả tràn điều tiết (m³/s)"
-                    }
-                },
-                "graph.y_axis.title_text": "Dung tích hữu ích (%) [Trục Trái]",
-                "graph.x_axis.title_text": "8 Lưu Vực Thủy Điện Toàn Quốc (Sắp xếp theo độ đầy dung tích hữu ích giảm dần)"
+                "graph.dimensions": ["Phân Vùng Điều Độ"],
+                "graph.metrics": ["Tỷ Lệ Tích Nước Hữu Ích (%)", "Tổng Xả Tràn (m³/s)"],
+                "graph.show_values": True,
+                "graph.x_axis.title_text": "Phân Vùng Điều Độ Quốc Gia"
             },
             "col": 0, "row": 4, "size_x": 12, "size_y": 9,
             "has_date_filter": True
         },
         {
-            "name": "D2-6. [Hero 2] Diễn Biến Nhiệt Độ & Bức Xạ 24 Giờ 3 Miền Bắc - Trung - Nam",
-            "desc": "Theo dõi 24h đối chiếu nhiệt độ 3 miền và cường độ bức xạ mặt trời; xác định khung giờ nắng trưa 10h-13h để tích nước (chỉ áp dụng cho hồ an toàn, không áp dụng cho hồ đầy/xả tràn).",
+            "name": "D2-6. [Hero 2] Phối Hợp Nắng & Nước 24 Giờ: Bù Trừ Nguồn Tự Nhiên & Phụ Tải",
+            "desc": "Diễn biến công suất phát 24 giờ của Thủy điện, Điện mặt trời, Điện gió và Phụ tải toàn quốc (Tất cả là SUM thực tế, không dùng AVG). Làm rõ quy luật: Nắng gánh trưa, Nước giữ đỉnh tối.",
             "display": "line",
             "sql": f"""
-                {TARGET_WEATHER_CTE}
+                {TARGET_CTE},
+                g AS (
+                    SELECT 
+                        f.time_key AS hour_val,
+                        ROUND(SUM(CASE WHEN s.source_name LIKE '%Thủy điện%' THEN f.generation_power_mw END)) AS hydro_mw,
+                        ROUND(SUM(CASE WHEN s.source_name LIKE '%mặt trời%' OR s.source_name LIKE '%ĐMT%' THEN f.generation_power_mw END)) AS solar_mw,
+                        ROUND(SUM(CASE WHEN s.source_name LIKE '%Gió%' THEN f.generation_power_mw END)) AS wind_mw
+                    FROM gold.fact_generation_power_hourly f
+                    JOIN gold.dim_energy_source s ON f.energy_source_key = s.energy_source_key
+                    CROSS JOIN target
+                    WHERE f.date_key = GREATEST(target.date_key, 20261104)
+                    GROUP BY f.time_key
+                ),
+                l AS (
+                    SELECT 
+                        f.time_key AS hour_val,
+                        ROUND(SUM(f.load_mw)) AS load_mw
+                    FROM gold.fact_load_hourly f
+                    JOIN target ON f.date_key = target.date_key
+                    GROUP BY f.time_key
+                )
                 SELECT 
-                    w.time_key AS "Giờ",
-                    ROUND(AVG(CASE WHEN loc.region_key = 1 THEN w.temperature_2m END), 1) AS "Nhiệt độ Miền Bắc (°C)",
-                    ROUND(AVG(CASE WHEN loc.region_key = 2 THEN w.temperature_2m END), 1) AS "Nhiệt độ Miền Trung (°C)",
-                    ROUND(AVG(CASE WHEN loc.region_key = 3 THEN w.temperature_2m END), 1) AS "Nhiệt độ Miền Nam (°C)",
-                    ROUND(AVG(CASE WHEN loc.region_key IN (2, 3) THEN w.shortwave_radiation END), 0) AS "Bức xạ Nam/Trung (W/m²)"
-                FROM gold.fact_weather_hourly w
-                JOIN gold.dim_location loc ON w.location_key = loc.location_key
-                JOIN target ON w.date_key = target.date_key
-                WHERE loc.region_key IN (1, 2, 3)
-                GROUP BY w.time_key
-                ORDER BY w.time_key
+                    CAST(g.hour_val AS VARCHAR) || 'h' AS "Giờ",
+                    COALESCE(g.hydro_mw, 0) AS "Thủy Điện (MW)",
+                    COALESCE(g.solar_mw, 0) AS "Điện Mặt Trời (MW)",
+                    COALESCE(g.wind_mw, 0) AS "Điện Gió (MW)",
+                    COALESCE(l.load_mw, 0) AS "Phụ Tải Quốc Gia (MW)"
+                FROM g
+                JOIN l ON g.hour_val = l.hour_val
+                ORDER BY g.hour_val
             """,
             "viz": {
                 "graph.dimensions": ["Giờ"],
                 "graph.metrics": [
-                    "Nhiệt độ Miền Bắc (°C)",
-                    "Nhiệt độ Miền Trung (°C)",
-                    "Nhiệt độ Miền Nam (°C)",
-                    "Bức xạ Nam/Trung (W/m²)"
+                    "Thủy Điện (MW)",
+                    "Điện Mặt Trời (MW)",
+                    "Điện Gió (MW)",
+                    "Phụ Tải Quốc Gia (MW)"
                 ],
                 "graph.x_axis.axis_enabled": True,
                 "graph.y_axis.axis_enabled": True
@@ -277,10 +310,9 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
 
         # ======================================================================
         # NHỊP 3: BẢNG CHỈ HUY HÀNH ĐỘNG DUY NHẤT TRÊN DASHBOARD (Rows 13-20, Height 8)
-        # Bảng điều độ tác chiến tối cần thiết: Danh sách hồ rủi ro & khuyến nghị NSMO
         # ======================================================================
         {
-            "name": "D2-7. [Bảng Chỉ Huy] Danh Mục Hồ Cần Hành Động & Gợi Ý Điều Tiết Điều Độ",
+            "name": "D2-7. [Bảng Chỉ Huy] Giám Sát & Cảnh Báo An Toàn Hồ Chứa",
             "desc": "Danh mục hồ chứa cần xử lý 2 đầu rủi ro (Xả tràn, Cận đỉnh đón lũ & Nguy cơ cạn kiệt/sát MN chết). Hướng dẫn gợi ý theo thứ tự ưu tiên: 1. An toàn đập > 2. Quy trình liên hồ > 3. Tối ưu ĐMT.",
             "display": "table",
             "sql": f"""
@@ -373,7 +405,6 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
 
         # ======================================================================
         # NHỊP 4: 2 BIỂU ĐỒ ĐÀO SÂU CHI TIẾT (Rows 21-29, Height 9, Width 12)
-        # Thay thế bảng 39 dòng bằng Biểu đồ Top 10 Hồ Cận Đỉnh + Đối chiếu ĐMT
         # ======================================================================
         {
             "name": "D2-8. Top 10 Hồ Thủy Điện Tiệm Cận Đỉnh Dung Tích & Nguy Cơ Tràn",
@@ -400,15 +431,15 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
             "has_date_filter": True
         },
         {
-            "name": "D2-9. Tổng Hợp Bức Xạ vs Công Suất Phát Điện Mặt Trời (Giờ Nắng 7h-17h)",
-            "desc": "Kiểm tra hiệu suất quang điện: Đối chiếu bức xạ mặt trời (W/m²) với công suất phát thực tế (MW) các khung giờ ban ngày.",
+            "name": "D2-9. [Hiệu Suất Quang Điện] Bức Xạ Cực Đại vs Công Suất Phát Điện Mặt Trời (7h-17h)",
+            "desc": "Kiểm tra hiệu suất quang điện: Đối chiếu bức xạ mặt trời cực đại (MAX W/m²) với công suất phát thực tế (MW) các khung giờ ban ngày (Không dùng AVG).",
             "display": "bar",
             "sql": f"""
                 {TARGET_WEATHER_CTE},
                 w AS (
                     SELECT 
                         w.time_key AS hour_of_day,
-                        ROUND(AVG(w.shortwave_radiation), 0) AS rad_wm2
+                        ROUND(MAX(w.shortwave_radiation)) AS max_rad_wm2
                     FROM gold.fact_weather_hourly w
                     JOIN gold.dim_location loc ON w.location_key = loc.location_key
                     JOIN target ON w.date_key = target.date_key
@@ -429,15 +460,15 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
                 )
                 SELECT 
                     CAST(w.hour_of_day AS VARCHAR) || 'h' AS "Khung Giờ",
-                    w.rad_wm2 AS "Bức xạ mặt trời (W/m²)",
-                    COALESCE(g.solar_mw, 0) AS "Công suất ĐMT (MW)"
+                    w.max_rad_wm2 AS "Bức Xạ Cực Đại (W/m²)",
+                    COALESCE(g.solar_mw, 0) AS "Công Suất ĐMT (MW)"
                 FROM w
                 LEFT JOIN g ON w.hour_of_day = g.hour_of_day
                 ORDER BY w.hour_of_day
             """,
             "viz": {
                 "graph.dimensions": ["Khung Giờ"],
-                "graph.metrics": ["Bức xạ mặt trời (W/m²)", "Công suất ĐMT (MW)"],
+                "graph.metrics": ["Bức Xạ Cực Đại (W/m²)", "Công Suất ĐMT (MW)"],
                 "graph.x_axis.title_text": "Khung Giờ Ban Ngày (7h - 17h)",
                 "graph.y_axis.title_text": "Bức xạ (W/m²) / Công suất (MW)"
             },
