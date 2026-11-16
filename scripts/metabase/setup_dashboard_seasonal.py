@@ -173,8 +173,8 @@ def deploy_dashboard_seasonal(base_url=None, user=None, password=None):
             "has_year_filter": True
         },
         {
-            "name": "S3-4. [Cơ Cấu Nguồn Phát 4 Mùa] Chuyển Dịch Bù Trừ Thủy Điện - Nắng - Than",
-            "desc": "Sản lượng phát điện (GWh) theo 4 mùa trong năm. Thể hiện sự bù trừ: Mùa Thu Thủy điện phát tràn ngập (giảm huy động than), Mùa Khô/Hạ Than và ĐMT gánh tải.",
+            "name": "S3-4. [Cơ Cấu Tự Nhiên 4 Mùa] Thủy Điện vs Điện Mặt Trời vs Điện Gió",
+            "desc": "Sản lượng phát điện (GWh) của 3 nguồn năng lượng tự nhiên theo 4 mùa trong năm. Minh chứng quy luật thiên nhiên: Thủy điện đạt đỉnh Mùa Thu (mùa lũ), Điện mặt trời đạt đỉnh Mùa Hạ (nắng gắt), Điện gió đạt đỉnh Mùa Đông/Xuân (gió mùa Đông Bắc).",
             "display": "bar",
             "sql": f"""
                 {YEAR_CTE}
@@ -185,9 +185,9 @@ def deploy_dashboard_seasonal(base_url=None, user=None, password=None):
                         WHEN d.month IN (7, 8, 9) THEN '3. Mùa Thu (T7-T9)'
                         ELSE '4. Mùa Đông (T10-T12)'
                     END AS "Mùa Vụ",
-                    ROUND(SUM(CASE WHEN s.source_name LIKE '%Thủy điện%' THEN f.generation_mwh END) / 1000.0) AS "Thủy Điện (GWh)",
-                    ROUND(SUM(CASE WHEN s.source_name LIKE '%mặt trời%' OR s.source_name LIKE '%ĐMT%' THEN f.generation_mwh END) / 1000.0) AS "Điện Mặt Trời (GWh)",
-                    ROUND(SUM(CASE WHEN s.source_name LIKE '%than%' THEN f.generation_mwh END) / 1000.0) AS "Nhiệt Điện Than (GWh)"
+                    ROUND(SUM(CASE WHEN LOWER(s.source_name) LIKE '%thủy điện%' THEN f.generation_mwh END) / 1000.0) AS "Thủy Điện (GWh)",
+                    ROUND(SUM(CASE WHEN LOWER(s.source_name) LIKE '%mặt trời%' OR LOWER(s.source_name) LIKE '%đmt%' THEN f.generation_mwh END) / 1000.0) AS "Điện Mặt Trời (GWh)",
+                    ROUND(SUM(CASE WHEN LOWER(s.source_name) LIKE '%gió%' THEN f.generation_mwh END) / 1000.0) AS "Điện Gió (GWh)"
                 FROM gold.fact_generation_daily f
                 JOIN gold.dim_date d ON f.date_key = d.date_key
                 JOIN gold.dim_energy_source s ON f.energy_source_key = s.energy_source_key
@@ -204,9 +204,9 @@ def deploy_dashboard_seasonal(base_url=None, user=None, password=None):
             """,
             "viz": {
                 "graph.dimensions": ["Mùa Vụ"],
-                "graph.metrics": ["Thủy Điện (GWh)", "Điện Mặt Trời (GWh)", "Nhiệt Điện Than (GWh)"],
+                "graph.metrics": ["Thủy Điện (GWh)", "Điện Mặt Trời (GWh)", "Điện Gió (GWh)"],
                 "graph.x_axis.title_text": "4 Mùa Trong Năm",
-                "graph.y_axis.title_text": "Sản Lượng Phát (GWh)"
+                "graph.y_axis.title_text": "Sản Lượng Năng Lượng Tự Nhiên (GWh)"
             },
             "col": 12, "row": 8, "size_x": 12, "size_y": 8,
             "has_year_filter": True
