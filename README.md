@@ -206,7 +206,7 @@ NSMO Power lay API
 Silver clean/reject partition theo ngay bao cao, Gold partition theo ngay
 su kien. Watermark NSMO Power ghi ngay bao cao lon nhat da ghi vao Bronze ngay sau
 khi Bronze commit; ngay thieu o giua xu ly bang backfill thu cong. Ngay pilot
-mac dinh `2026-11-04`; thay doi bang bien moi truong
+mac dinh `2023-01-01`; thay doi bang bien moi truong
 `NSMO_MIX_START_DATE` truoc lan chay dau neu can lich su som hon. `backfill`
 can `start_date` va `end_date` theo **ngay bao cao**. Backfill ngay cu giu nguyen
 watermark; ngay moi xa hon se nang watermark sau khi Bronze ghi. DAG dung

@@ -12,7 +12,6 @@ import ssl
 import time
 from datetime import date, datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
-from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from utils.logging import create_logger
@@ -53,10 +52,18 @@ def parse_report_payload(raw: str):
         payload = json.loads(raw, object_pairs_hook=_unique_object)
     except (TypeError, ValueError) as exc:
         return [], f"INVALID_JSON:{exc}"
-    if not isinstance(payload, dict) or payload.get("success") is False:
+    if not isinstance(payload, dict):
+        return [], "API_ENVELOPE_INVALID"
+    if payload.get("success") is False:
         return [], "API_ENVELOPE_ERROR"
     result = payload.get("result")
-    if not isinstance(result, dict) or result.get("status") is not True:
+    if not isinstance(result, dict):
+        return [], "API_RESULT_INVALID"
+    if "status" not in result:
+        return [], "API_STATUS_MISSING"
+    if not isinstance(result["status"], bool):
+        return [], "API_STATUS_TYPE_INVALID"
+    if result["status"] is False:
         return [], "API_STATUS_INVALID"
     data = result.get("data")
     if not isinstance(data, list) or not data:
@@ -113,14 +120,41 @@ def create_generation_mix_session() -> requests.Session:
     return session
 
 
+def _response_details(response):
+    """Bound diagnostic output without logging the full report or headers."""
+    details = {"http_status": response.status_code}
+    try:
+        payload = json.loads(response.text)
+    except (TypeError, ValueError):
+        details["body_format"] = "non-JSON"
+    else:
+        if isinstance(payload, dict):
+            details["success"] = payload.get("success")
+            result = payload.get("result")
+            details["result_type"] = type(result).__name__
+            if isinstance(result, dict):
+                details["status"] = result.get("status")
+                details["message"] = result.get("message")
+            error = payload.get("error")
+            if isinstance(error, dict):
+                details["error_message"] = error.get("message")
+    return json.dumps(details, ensure_ascii=True, default=str)[:1000]
+
+
 def fetch_report(session: requests.Session, report_date: date) -> requests.Response:
-    """Bounded transient retry; 4xx other than 429 is terminal."""
+    """At most three attempts, including API failures in HTTP 200 responses.
+
+    Malformed schemas and 4xx other than 429 are terminal. A final API failure
+    is returned to the caller so it can account for the rejected report.
+    """
     import requests
 
     for attempt in range(3):
         try:
             response = session.get(URL, params={"ngay": report_date.isoformat()}, timeout=(10, 30))
             if response.status_code == 429 or response.status_code >= 500:
+                logger.warning("NSMO report %s attempt %d/3: %s", report_date,
+                               attempt + 1, _response_details(response))
                 if attempt == 2:
                     response.raise_for_status()
                 retry_after = response.headers.get("Retry-After")
@@ -134,13 +168,22 @@ def fetch_report(session: requests.Session, report_date: date) -> requests.Respo
                                              datetime.now(timezone.utc)).total_seconds())
                         except (TypeError, ValueError):
                             raise RuntimeError("INVALID_RETRY_AFTER")
-                if wait > 30:
+                if not math.isfinite(wait) or wait < 0 or wait > 30:
                     raise RuntimeError(f"RETRY_AFTER_OUTSIDE_BUDGET:{wait}")
                 time.sleep(wait + random.uniform(0, 0.25))
                 continue
             response.raise_for_status()
+            _, issue = parse_report_payload(response.text)
+            if issue:
+                logger.warning("NSMO report %s attempt %d/3: %s; %s", report_date,
+                               attempt + 1, issue, _response_details(response))
+                if issue in {"API_STATUS_INVALID", "API_ENVELOPE_ERROR"} and attempt < 2:
+                    time.sleep(min(2 ** attempt, 8) + random.uniform(0, 0.25))
+                    continue
             return response
-        except (requests.Timeout, requests.ConnectionError):
+        except (requests.Timeout, requests.ConnectionError) as exc:
+            logger.warning("NSMO report %s attempt %d/3: %s", report_date,
+                           attempt + 1, exc)
             if attempt == 2:
                 raise
             time.sleep(min(2 ** attempt, 8) + random.uniform(0, 0.25))
@@ -162,7 +205,7 @@ def _run_ingestion(metrics, run_mode="incremental", start_date=None, end_date=No
             raise ValueError("Backfill requires both dates")
         first, last = date.fromisoformat(start_date), date.fromisoformat(end_date)
     else:
-        initial = date.fromisoformat(os.environ.get("NSMO_MIX_START_DATE", "2026-11-04"))
+        initial = date.fromisoformat(os.environ.get("NSMO_MIX_START_DATE", "2023-01-01"))
         first = checkpoint + timedelta(days=1) if checkpoint else initial
         last = date.fromisoformat(end_date) if end_date else today - timedelta(days=1)
     if first > last or last >= today:
@@ -183,15 +226,15 @@ def _run_ingestion(metrics, run_mode="incremental", start_date=None, end_date=No
                 raw = response.text
                 rows, issue = parse_report_payload(raw)
                 if issue:
-                    failures.append(f"{current}:{issue}")
+                    failures.append(f"{current}:{issue}:{_response_details(response)}")
                 else:
-                    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+                    index = len(records) + 1
                     records.append({
-                        "bronze_key": hashlib.sha256(f"{DATASET}:{current}:{batch_id}:{digest}".encode()).hexdigest(),
+                        "bronze_key": f"{batch_id}_{index}",
                         "source_name": "nsmo", "source_url": response.url,
                         "source_data_date": current.isoformat(),
-                        "source_data_start_date": current.isoformat(),
-                        "source_data_end_date": current.isoformat(),
+                        "source_data_start_date": None,
+                        "source_data_end_date": None,
                         "batch_id": batch_id, "ingestion_timestamp": now.isoformat(),
                         "ingest_date": now.date().isoformat(), "raw": raw,
                     })
@@ -222,7 +265,8 @@ def _run_ingestion(metrics, run_mode="incremental", start_date=None, end_date=No
 
 def main(run_mode="incremental", start_date=None, end_date=None):
     from utils.audit import record_task_metrics
-    metrics = {"run_id": uuid4().hex, "records_read": 0, "records_written": 0}
+    batch_id = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    metrics = {"run_id": batch_id, "records_read": 0, "records_written": 0}
     state, first, last = _run_ingestion(metrics, run_mode, start_date, end_date)
     record_task_metrics(
         dataset_name=DATASET, records_read=metrics["records_read"],

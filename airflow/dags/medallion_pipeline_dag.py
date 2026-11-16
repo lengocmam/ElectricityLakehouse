@@ -199,16 +199,23 @@ with DAG(
 
         bronze_nsmo_power = SparkSubmitOperator(
             task_id="ingest_nsmo_power",
-            retries=0,
             application=f"{SPARK_APP_DIR}/bronze/ingest_bronze.py",
             application_args=[
-                "nsmo_power", "--run-mode", "{{ params.run_mode }}",
-                "--start-date", "{{ params.start_date }}",
-                "--end-date", "{{ params.end_date }}",
+                "nsmo_power", 
+                "--run-mode", 
+                "{{ params.run_mode }}",
+                "--start-date", 
+                "{{ params.start_date }}",
+                "--end-date", 
+                "{{ params.end_date }}",
             ],
-            conn_id="spark_default", name="bronze_nsmo_power",
-            conf=SPARK_CONF, packages=ICEBERG_PACKAGES, env_vars=SPARK_ENV,
-            **SPARK_RESOURCES, execution_timeout=timedelta(minutes=45), verbose=True,
+            conn_id="spark_default", 
+            name="bronze_nsmo_power",
+            conf=SPARK_CONF, 
+            packages=ICEBERG_PACKAGES, 
+            env_vars=SPARK_ENV,
+            **SPARK_RESOURCES, 
+            execution_timeout=timedelta(minutes=45), verbose=True,
         )
         
         bronze_open_meteo = SparkSubmitOperator(
