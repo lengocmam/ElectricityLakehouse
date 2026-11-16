@@ -2,7 +2,9 @@
 """Dashboard 03: Chu Kỳ Năng Lượng Theo Mùa (Seasonal Climate & Power Dynamics).
 
 Phân tích chu kỳ 4 Mùa (Xuân, Hạ, Thu, Đông) và 12 Tháng của Thủy điện, Nắng, Gió, Nhiệt độ và Phụ tải 3 Miền.
-Kế thừa trọn vẹn triết lý học thuật:
+Hỗ trợ bộ lọc động {{selected_year}} (Mặc định: Năm hiện tại 2026 với các tháng hiện có từ Tháng 01 - Tháng 11;
+hoặc chọn 2024, 2025, 2023).
+
 1. TUYỆT ĐỐI KHÔNG DÙNG AVG (No AVG): Chỉ dùng SUM, MAX hoặc đếm tần suất thực tế.
 2. 5 BIỂU ĐỒ TRỰC QUAN ĐA DẠNG + CHỈ 1 BẢNG KHUYẾN NGHỊ TÁC NGHIỆP 4 MÙA.
 3. ĐỒNG BỘ PHÂN HÓA 3 MIỀN BẮC - TRUNG - NAM:
@@ -46,7 +48,7 @@ TAG_DEF_YEAR = {
     "selected_year": {
         "id": "tag_selected_year",
         "name": "selected_year",
-        "display-name": "Chọn Năm Phân Tích (Để trống = Mặc định 2024)",
+        "display-name": "Chọn Năm Phân Tích (Để trống = Mặc định 2026)",
         "type": "number",
         "required": False
     }
@@ -54,7 +56,7 @@ TAG_DEF_YEAR = {
 
 YEAR_CTE = """
 WITH target AS (
-    SELECT COALESCE(NULL [[ , CAST({{selected_year}} AS INTEGER) ]], 2024) AS sel_year
+    SELECT COALESCE(NULL [[ , CAST({{selected_year}} AS INTEGER) ]], 2026) AS sel_year
 )
 """.strip()
 
@@ -96,7 +98,7 @@ def deploy_dashboard_seasonal(base_url=None, user=None, password=None):
             "viz": {
                 "graph.dimensions": ["Tháng"],
                 "graph.metrics": ["Miền Bắc (MW)", "Miền Trung (MW)", "Miền Nam (MW)"],
-                "graph.x_axis.title_text": "12 Tháng Trong Năm",
+                "graph.x_axis.title_text": "Các Tháng Trong Năm",
                 "graph.y_axis.title_text": "Phụ Tải Đỉnh Pmax (MW)"
             },
             "col": 0, "row": 0, "size_x": 12, "size_y": 8,
@@ -128,7 +130,7 @@ def deploy_dashboard_seasonal(base_url=None, user=None, password=None):
                     "Bức Xạ Miền Trung (MJ/m²)",
                     "Bức Xạ Miền Nam (MJ/m²)"
                 ],
-                "graph.x_axis.title_text": "12 Tháng Trong Năm",
+                "graph.x_axis.title_text": "Các Tháng Trong Năm",
                 "graph.y_axis.title_text": "Tổng Bức Xạ Tích Lũy (MJ/m²)"
             },
             "col": 12, "row": 0, "size_x": 12, "size_y": 8,
@@ -164,7 +166,7 @@ def deploy_dashboard_seasonal(base_url=None, user=None, password=None):
                     "Lượng Mưa Miền Trung (mm)",
                     "Lượng Mưa Miền Nam (mm)"
                 ],
-                "graph.x_axis.title_text": "12 Tháng Trong Năm",
+                "graph.x_axis.title_text": "Các Tháng Trong Năm",
                 "graph.y_axis.title_text": "Lượng Mưa (mm)"
             },
             "col": 0, "row": 8, "size_x": 12, "size_y": 8,
@@ -233,7 +235,7 @@ def deploy_dashboard_seasonal(base_url=None, user=None, password=None):
             "viz": {
                 "graph.dimensions": ["Tháng"],
                 "graph.metrics": ["Số Ngày Gió Giật ≥15m/s", "Số Ngày Mưa To ≥50mm"],
-                "graph.x_axis.title_text": "12 Tháng Trong Năm",
+                "graph.x_axis.title_text": "Các Tháng Trong Năm",
                 "graph.y_axis.title_text": "Số Ngày Ghi Nhận"
             },
             "col": 0, "row": 16, "size_x": 10, "size_y": 8,
@@ -284,26 +286,33 @@ def deploy_dashboard_seasonal(base_url=None, user=None, password=None):
             tag_def=TAG_DEF_YEAR if c.get("has_year_filter", True) else None,
             description=c.get("desc")
         )
+        mappings = []
+        if c.get("has_year_filter", True):
+            mappings.append({
+                "parameter_id": "year_filter",
+                "card_id": cid,
+                "target": ["variable", ["template-tag", "selected_year"]]
+            })
         card_specs.append({
             "card_id": cid,
             "col": c["col"],
             "row": c["row"],
             "size_x": c["size_x"],
             "size_y": c["size_y"],
-            "has_year_filter": c.get("has_year_filter", True)
+            "parameter_mappings": mappings
         })
 
     year_param = [
         {
             "id": "year_filter",
-            "name": "Chọn Năm Phân Tích (Để trống = Mặc định 2024)",
+            "name": "Chọn Năm Phân Tích (2023 - 2026)",
             "slug": "selected_year",
             "type": "number",
-            "default": 2024
+            "default": 2026
         }
     ]
 
-    set_dashboard_layout(url, token, dash_id, card_specs, parameters=year_param, param_id="year_filter")
+    set_dashboard_layout(url, token, dash_id, card_specs, parameters=year_param)
 
     print(f"\n[SUCCESS] Deployed {len(cards_def)} cards on {DASHBOARD_NAME} (Dashboard ID: {dash_id})!")
     print(f"URL: {url}/dashboard/{dash_id}\n")

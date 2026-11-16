@@ -1,4 +1,4 @@
-import urllib.request, json, time
+import urllib.request, json, time, sys
 
 token_req = urllib.request.Request(
     'http://localhost:3000/api/session',
@@ -15,12 +15,14 @@ with urllib.request.urlopen(req) as resp:
 print(f"\n=======================================================")
 print(f"VERIFYING ALL CARDS ON DASHBOARD 6 ('{dash['name']}')")
 print(f"=======================================================")
+sys.stdout.flush()
 
-test_years = [2024, 2025, None]
+test_years = [2026, 2024, None]
 
 for test_year in test_years:
-    lbl = f"Year = {test_year}" if test_year else "Year = None (Default)"
+    lbl = f"Year = {test_year}" if test_year else "Year = None (Default: 2026)"
     print(f"\n--- Running Verification for {lbl} ---")
+    sys.stdout.flush()
     all_ok = True
     for dc in dash['dashcards']:
         card = dc.get('card', {})
@@ -55,10 +57,13 @@ for test_year in test_years:
                 rows = len(data.get('rows', []))
                 cols = [c['name'] for c in data.get('cols', [])]
                 print(f"  [PASS] Card {cid:3d} ({elapsed:4.2f}s) | Rows: {rows:2d} | Cols: {len(cols):2d} | '{name}'")
+                sys.stdout.flush()
         except Exception as e:
             all_ok = False
             elapsed = time.time() - t0
             print(f"  [FAIL] Card {cid:3d} ({elapsed:4.2f}s) | Error: {e} | '{name}'")
+            sys.stdout.flush()
     
     if all_ok:
         print(f"  --> ALL CARDS PASSED FOR {lbl}!")
+        sys.stdout.flush()
