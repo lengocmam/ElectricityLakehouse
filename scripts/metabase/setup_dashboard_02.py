@@ -1,19 +1,21 @@
 # -*- coding: utf-8 -*-
-"""Dashboard 02: Thời Tiết Cực Đoan, An Ninh Nước & Thủy Điện (Tổng Hợp Toàn Diện & Cảnh Báo Đa Vùng).
+"""Dashboard 02: Thời Tiết Cực Đoan, An Ninh Nước & Thủy Điện (Tổng Hợp Toàn Diện & Cảnh Báo Lũ - Hạn).
 
-Thiết kế nâng cấp theo chuẩn Data & Risk Storytelling:
-- Màn hình 1 (NHỊP 1): 4 Thẻ KPI Tổng Hợp Cảnh Báo Toàn Diện:
-  1. Tổng hợp Nhiệt độ Cực đại 3 Miền & Cảnh báo Sóng nhiệt (Tmax Bắc, Trung, Nam).
-  2. Tổng hợp Lưu lượng Nước về Hệ thống Thủy điện & Lưu vực Dòng chảy Lớn nhất.
-  3. Tổng hợp Lưu lượng Xả & Tỷ lệ Tận dụng Phát điện (Q tuabin vs Q xả tràn).
-  4. Phân cấp An toàn 39 Hồ chứa & Tổng số Cửa xả Lũ đang mở.
-- Màn hình 2 (NHỊP 2): 2 Hero Charts Chiến Lược Tổng Hợp:
-  1. [Hero 1] Tổng hợp An toàn Tích nước & Xả tràn theo 8 Lưu vực Sông (Bar Chart).
-  2. [Hero 2] Diễn biến Nhiệt độ & Bức xạ 24 Giờ 3 Miền Bắc - Trung - Nam (Line Chart).
-- Màn hình 3 (NHỊP 3): [Bảng Chỉ Huy] Danh Mục Hồ Có Cảnh Báo & Hướng Dẫn Điều Tiết Điều Độ (Actionable Dam Triage).
-- Màn hình 4 (NHỊP 4):
-  1. Ma trận Giám sát Chi tiết Toàn bộ 39 Hồ chứa Thủy điện (Phân nhóm theo Lưu vực).
-  2. Đối chiếu Bức xạ Mặt trời vs Công suất Phát Điện Mặt trời Giờ Cao điểm (7h - 17h).
+Thiết kế nâng cấp toàn diện theo phản hồi chuyên sâu của Điều độ viên NSMO:
+1. Cân bằng rủi ro Lũ & Hạn Hán: Giám sát đối xứng cả hồ cận đỉnh/xả tràn và hồ cạn kiệt/sát mực nước chết.
+2. Phân cấp cảnh báo 4 mức chuẩn mực:
+   - 🔴 Khẩn cấp: Vượt MNDBT + lũ về lớn (ưu tiên bảo vệ an toàn công trình đập).
+   - 🟠 Đang xả tràn: Cửa xả mở hoặc lưu lượng xả tràn > 0 (điều tiết an toàn đón lũ).
+   - 🟡 Cận đỉnh (>=90%): Tiệm cận đỉnh dung tích hoặc cách MNDBT < 1m (phát điện hạ mực nước).
+   - ⚠️ Nguy cơ cạn kiệt (<=25% hoặc cách MN chết <= 2m): Giữ nước, nhường chỗ cho điện mặt trời trưa.
+   - 🟢 An toàn: Vận hành bình thường trong dải điều tiết 25% - 90%.
+3. Làm rõ thứ tự ưu tiên điều độ:
+   Ưu tiên 1 (An toàn đập) > Ưu tiên 2 (Quy trình liên hồ & hạ du) > Ưu tiên 3 (Tối ưu hấp thụ ĐMT).
+   Đổi ngôn từ sang dạng gợi ý điều độ hỗ trợ ra quyết định.
+4. Kỹ thuật đồ thị Hero 1:
+   - Combo chart 2 trục: Trục trái Dung tích hữu ích có trọng số (%), trục phải Lưu lượng xả tràn (m3/s).
+   - Tính tỷ lệ dung tích tích nước theo trọng số dung tích hữu ích thay vì trung bình cộng đơn giản.
+   - Thêm cột khoảng cách tới đỉnh, khoảng cách tới mực nước chết và lưu lượng ròng (Q về - Q xả).
 """
 
 import sys
@@ -41,8 +43,8 @@ from common import (
 
 DASHBOARD_NAME = "02. Thời Tiết Cực Đoan, An Ninh Nước & Thủy Điện"
 DASHBOARD_DESC = (
-    "Trung tâm Giám sát Khí tượng Thủy văn & Cảnh báo Thiên tai: Tổng hợp sóng nhiệt 3 miền, "
-    "an toàn tích nước và xả lũ liên hồ chứa trên 8 lưu vực sông, tối ưu hóa phát điện tuabin và phòng chống ngập lụt hạ du."
+    "Trung tâm Giám sát Khí tượng Thủy văn & Cảnh báo An ninh Nước (Lũ & Hạn): Tổng hợp sóng nhiệt 3 miền, "
+    "phân cấp cảnh báo 4 mức trên 8 lưu vực sông, giám sát hồ cận đỉnh và hồ cạn kiệt, hướng dẫn điều độ theo thứ tự ưu tiên."
 )
 
 TAG_DEF_DATE = COMMON_TAG_DEF
@@ -60,7 +62,7 @@ WITH target AS (
 def deploy_dashboard_02(base_url=None, user=None, password=None):
     url = get_metabase_url(base_url)
     print("\n" + "=" * 70)
-    print(f"DEPLOYING {DASHBOARD_NAME} (TỔNG HỢP & CẢNH BÁO TOÀN DIỆN)")
+    print(f"DEPLOYING {DASHBOARD_NAME} (NÂNG CẤP LŨ - HẠN & 4 MỨC CẢNH BÁO)")
     print(f"Target Metabase: {url}")
     print("=" * 70)
 
@@ -141,42 +143,56 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
             "has_date_filter": True
         },
         {
-            "name": "D2-3. Tổng Hợp Lưu Lượng Xả & Tỷ Lệ Tận Dụng Phát Điện",
-            "desc": "Hiệu quả sử dụng nước: Tổng lưu lượng xả qua tổ máy tuabin vs xả tràn và tỷ lệ nước sinh ra điện.",
+            "name": "D2-3. Cơ Cấu Lưu Lượng Xả Hồ: Tuabin Phát Điện vs Xả Tràn Điều Tiết Lũ",
+            "desc": "Phân định lưu lượng nước qua tổ máy tuabin sinh công và lưu lượng xả tràn bảo đảm an toàn hồ chứa theo quy trình vận hành liên hồ.",
             "display": "scalar",
             "sql": f"""
                 {TARGET_DATE_CTE}
                 SELECT 
                     format('%,d', CAST(ROUND(SUM(turbine_flow_m3s)) AS BIGINT)) || ' m³/s tuabin (' || 
-                    CAST(ROUND(100.0 * SUM(turbine_flow_m3s) / NULLIF(SUM(turbine_flow_m3s) + SUM(spill_flow_m3s), 0), 1) AS VARCHAR) || 
-                    '%) | Xả tràn: ' || format('%,d', CAST(ROUND(SUM(spill_flow_m3s)) AS BIGINT)) || ' m³/s' AS "Lưu Lượng Xả & Tận Dụng"
+                    CAST(CAST(ROUND(100.0 * SUM(turbine_flow_m3s) / NULLIF(SUM(turbine_flow_m3s) + SUM(spill_flow_m3s), 0)) AS INTEGER) AS VARCHAR) || 
+                    '%) | Xả tràn: ' || format('%,d', CAST(ROUND(SUM(spill_flow_m3s)) AS BIGINT)) || ' m³/s điều tiết' AS "Cơ Cấu Lưu Lượng Xả"
                 FROM gold.v_hydro_daily
                 JOIN target ON date_value = target.selected_date
             """,
             "viz": {
-                "scalar.title": "TỔNG LƯU LƯỢNG XẢ & TỶ LỆ TẬN DỤNG",
-                "scalar.subtitle": "Nước qua máy phát điện vs Nước xả tràn hạ du"
+                "scalar.title": "CƠ CẤU XẢ: PHÁT ĐIỆN VS ĐIỀU TIẾT LŨ",
+                "scalar.subtitle": "Nước qua máy phát điện vs Nước xả tràn an toàn đập & hạ du"
             },
             "col": 12, "row": 0, "size_x": 6, "size_y": 4,
             "has_date_filter": True
         },
         {
-            "name": "D2-4. Phân Cấp An Toàn 39 Hồ Chứa & Tổng Số Cửa Xả Lũ",
-            "desc": "Phân loại tổng hợp mức độ rủi ro 39 hồ: Số hồ Đỏ, Vàng, Xanh và số cửa xả lũ đang mở.",
+            "name": "D2-4. Phân Cấp An Toàn & Rủi Ro 39 Hồ Chứa (Lũ & Hạn Hán)",
+            "desc": "Giám sát cân bằng 2 đầu rủi ro: Hồ xả tràn, hồ tiệm cận đỉnh đón lũ, hồ nguy cơ cạn kiệt (<=25% hoặc sát MN chết <=2m), và hồ an toàn.",
             "display": "scalar",
             "sql": f"""
-                {TARGET_DATE_CTE}
+                {TARGET_DATE_CTE},
+                cats AS (
+                    SELECT 
+                        reservoir_name,
+                        CASE 
+                            WHEN water_level_m >= normal_level_m AND alert_level = 3 THEN 'danger'
+                            WHEN spill_gates_open > 0 OR spill_flow_m3s > 0 THEN 'spilling'
+                            WHEN storage_pct >= 90.0 THEN 'near_full'
+                            WHEN storage_pct <= 25.0 OR (water_level_m - dead_level_m) <= 2.0 THEN 'drought'
+                            ELSE 'safe'
+                        END AS tier,
+                        spill_gates_open
+                    FROM gold.v_hydro_daily
+                    JOIN target ON date_value = target.selected_date
+                )
                 SELECT 
-                    '🔴 ' || CAST(COUNT_IF(alert_level = 3) AS VARCHAR) || ' Đỏ  |  🟡 ' || 
-                    CAST(COUNT_IF(alert_level = 2 OR spill_gates_open > 0 OR storage_pct >= 95.0) AS VARCHAR) || ' Vàng  |  🟢 ' || 
-                    CAST(COUNT_IF(alert_level = 1 AND spill_gates_open = 0 AND storage_pct < 95.0) AS VARCHAR) || 
-                    ' Xanh (' || CAST(COALESCE(SUM(spill_gates_open), 0) AS VARCHAR) || ' cửa xả mở)' AS "Phân Cấp An Toàn Hồ Chứa"
-                FROM gold.v_hydro_daily
-                JOIN target ON date_value = target.selected_date
+                    '🟠 ' || CAST(COUNT_IF(tier = 'spilling') AS VARCHAR) || ' Xả tràn (' || 
+                    CAST(COALESCE(SUM(spill_gates_open), 0) AS VARCHAR) || ' cửa)  |  🟡 ' || 
+                    CAST(COUNT_IF(tier = 'near_full') AS VARCHAR) || ' Cận đỉnh  |  ⚠️ ' || 
+                    CAST(COUNT_IF(tier = 'drought') AS VARCHAR) || ' Cạn kiệt  |  🟢 ' || 
+                    CAST(COUNT_IF(tier = 'safe') AS VARCHAR) || ' An toàn' AS "Phân Cấp Rủi Ro Lũ & Hạn"
+                FROM cats
             """,
             "viz": {
-                "scalar.title": "PHÂN CẤP AN TOÀN 39 HỒ CHỨA",
-                "scalar.subtitle": "🔴 Nguy hiểm | 🟡 Cảnh báo (xả tràn/đầy) | 🟢 Bình thường"
+                "scalar.title": "PHÂN CẤP RỦI RO 39 HỒ CHỨA (LŨ & HẠN)",
+                "scalar.subtitle": "🟠 Đang xả tràn | 🟡 Cận đỉnh (≥90%) | ⚠️ Cạn kiệt (≤25% / sát MN chết) | 🟢 An toàn"
             },
             "col": 18, "row": 0, "size_x": 6, "size_y": 4,
             "has_date_filter": True
@@ -187,32 +203,49 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
         # ======================================================================
         {
             "name": "D2-5. [Hero 1] Tổng Hợp An Toàn Tích Nước & Xả Tràn Theo 8 Lưu Vực Sông",
-            "desc": "Bức tranh tổng hợp theo lưu vực: So sánh tỷ lệ dung tích tích nước hữu ích (%) và lưu lượng xả tràn (m³/s) giúp nhận biết lưu vực căng thẳng.",
-            "display": "bar",
+            "desc": "So sánh 2 trục: Dung tích hữu ích có trọng số (%) [Trục Trái - Cột] vs Tổng lưu lượng xả tràn (m³/s) [Trục Phải - Đường], kèm số hồ cận đỉnh và cạn kiệt.",
+            "display": "combo",
             "sql": f"""
                 {TARGET_DATE_CTE}
                 SELECT 
                     basin_name AS "Lưu Vực Sông",
-                    ROUND(AVG(storage_pct), 1) AS "Dung tích tích nước TB (%)",
+                    ROUND(
+                        SUM(water_level_m - dead_level_m) * 100.0 / 
+                        NULLIF(SUM(normal_level_m - dead_level_m), 0), 1
+                    ) AS "Dung tích hữu ích có trọng số (%)",
                     ROUND(SUM(spill_flow_m3s)) AS "Tổng xả tràn (m³/s)",
+                    COUNT_IF(storage_pct >= 90.0) AS "Số hồ cận đỉnh (≥90%)",
+                    COUNT_IF(storage_pct <= 25.0 OR (water_level_m - dead_level_m) <= 2.0) AS "Số hồ nguy cơ cạn kiệt",
                     SUM(spill_gates_open) AS "Số cửa xả mở"
                 FROM gold.v_hydro_daily
                 JOIN target ON date_value = target.selected_date
                 GROUP BY basin_name
-                ORDER BY "Dung tích tích nước TB (%)" DESC
+                ORDER BY "Dung tích hữu ích có trọng số (%)" DESC
             """,
             "viz": {
                 "graph.dimensions": ["Lưu Vực Sông"],
-                "graph.metrics": ["Dung tích tích nước TB (%)", "Tổng xả tràn (m³/s)"],
-                "graph.y_axis.title_text": "Tỷ lệ tích nước (%) / Lưu lượng (m³/s)",
-                "graph.x_axis.title_text": "Lưu Vực Sông (Sắp xếp theo độ đầy hồ giảm dần)"
+                "graph.metrics": ["Dung tích hữu ích có trọng số (%)", "Tổng xả tràn (m³/s)"],
+                "graph.series_settings": {
+                    "Dung tích hữu ích có trọng số (%)": {
+                        "type": "bar",
+                        "y_axis": "left",
+                        "title": "Dung tích hữu ích có trọng số (%)"
+                    },
+                    "Tổng xả tràn (m³/s)": {
+                        "type": "line",
+                        "y_axis": "right",
+                        "title": "Tổng xả tràn điều tiết (m³/s)"
+                    }
+                },
+                "graph.y_axis.title_text": "Dung tích hữu ích (%) [Trục Trái]",
+                "graph.x_axis.title_text": "8 Lưu Vực Thủy Điện Toàn Quốc (Sắp xếp theo độ đầy dung tích hữu ích giảm dần)"
             },
             "col": 0, "row": 4, "size_x": 12, "size_y": 9,
             "has_date_filter": True
         },
         {
             "name": "D2-6. [Hero 2] Diễn Biến Nhiệt Độ & Bức Xạ 24 Giờ 3 Miền Bắc - Trung - Nam",
-            "desc": "Theo dõi 24h đối chiếu nhiệt độ 3 miền và cường độ bức xạ mặt trời, nhận diện tức thời thời điểm sốc nhiệt và đỉnh quang điện.",
+            "desc": "Theo dõi 24h đối chiếu nhiệt độ 3 miền và cường độ bức xạ mặt trời; xác định khung giờ nắng trưa 10h-13h để tích nước (chỉ áp dụng cho hồ an toàn, không áp dụng cho hồ đầy/xả tràn).",
             "display": "line",
             "sql": f"""
                 {TARGET_DATE_CTE}
@@ -248,47 +281,61 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
         # NHỊP 3: BẢNG CHỈ HUY HÀNH ĐỘNG ĐIỀU TIẾT CẢNH BÁO (Rows 13-21, Height 9)
         # ======================================================================
         {
-            "name": "D2-7. [Bảng Chỉ Huy] Danh Mục Hồ Có Cảnh Báo & Hướng Dẫn Điều Tiết Điều Độ",
-            "desc": "Liệt kê chính xác các hồ chứa đang có cửa xả mở hoặc dung tích tiệm cận đỉnh kèm quy trình hành động cụ thể cho Điều độ viên.",
+            "name": "D2-7. [Bảng Chỉ Huy] Danh Mục Hồ Cần Hành Động & Gợi Ý Điều Tiết Điều Độ",
+            "desc": "Danh mục hồ chứa cần xử lý 2 đầu rủi ro (Xả tràn, Cận đỉnh đón lũ & Nguy cơ cạn kiệt/sát MN chết). Hướng dẫn gợi ý theo thứ tự ưu tiên: 1. An toàn đập > 2. Quy trình liên hồ > 3. Tối ưu ĐMT.",
             "display": "table",
             "sql": f"""
                 {TARGET_DATE_CTE},
-                abnormal AS (
+                dams AS (
                     SELECT 
-                        alert_label,
-                        alert_level,
                         reservoir_name,
                         basin_name,
                         water_level_m,
                         normal_level_m,
+                        dead_level_m,
                         storage_pct,
                         spill_gates_open,
                         inflow_m3s,
                         turbine_flow_m3s,
-                        spill_flow_m3s
+                        spill_flow_m3s,
+                        (inflow_m3s - turbine_flow_m3s - spill_flow_m3s) AS net_flow_m3s,
+                        (normal_level_m - water_level_m) AS head_to_normal_m,
+                        (water_level_m - dead_level_m) AS head_to_dead_m,
+                        CASE 
+                            WHEN water_level_m >= normal_level_m AND alert_level = 3 THEN '🔴 Khẩn cấp'
+                            WHEN spill_gates_open > 0 OR spill_flow_m3s > 0 THEN '🟠 Đang xả tràn'
+                            WHEN storage_pct >= 90.0 THEN '🟡 Cận đỉnh (≥90%)'
+                            WHEN storage_pct <= 25.0 OR (water_level_m - dead_level_m) <= 2.0 THEN '⚠️ Nguy cơ cạn kiệt'
+                            ELSE '🟢 An toàn'
+                        END AS alert_tier
                     FROM gold.v_hydro_daily
                     JOIN target ON date_value = target.selected_date
-                    WHERE alert_level >= 2 OR spill_gates_open > 0 OR storage_pct >= 90.0
+                ),
+                abnormal AS (
+                    SELECT * FROM dams WHERE alert_tier != '🟢 An toàn'
                 ),
                 summary_check AS (
                     SELECT COUNT(*) AS cnt FROM abnormal
                 )
                 SELECT 
-                    a.alert_label AS "Mức độ",
+                    a.alert_tier AS "Mức độ",
                     a.reservoir_name AS "Tên Hồ Thủy Điện",
                     a.basin_name AS "Lưu Vực",
                     a.water_level_m AS "Mực nước (m)",
-                    a.normal_level_m AS "Mực nước dâng BT (m)",
-                    a.storage_pct AS "Dung tích tích nước (%)",
-                    a.spill_gates_open AS "Cửa xả mở",
+                    ROUND(a.head_to_normal_m, 2) AS "Cách đỉnh (m)",
+                    ROUND(a.head_to_dead_m, 2) AS "Cách MN chết (m)",
+                    a.storage_pct AS "Dung tích (%)",
+                    a.spill_gates_open AS "Cửa xả",
                     ROUND(a.inflow_m3s) AS "Nước về (m³/s)",
                     ROUND(a.spill_flow_m3s) AS "Xả tràn (m³/s)",
+                    ROUND(a.net_flow_m3s) AS "Lưu lượng ròng (m³/s)",
                     CASE 
-                        WHEN a.alert_level = 3 THEN '🔴 BÁO ĐỘNG LŨ: Mực nước vượt ngưỡng dâng BT. Phát lệnh mở cửa xả lũ hạ du và phát tối đa công suất tổ máy.'
-                        WHEN a.spill_gates_open > 0 THEN '🟡 ĐANG XẢ TRÀN: Đang mở ' || CAST(a.spill_gates_open AS VARCHAR) || ' cửa xả. Giám sát cảnh báo hạ du và điều tiết xả an toàn đón lũ.'
-                        WHEN a.storage_pct >= 95.0 THEN '🟡 TIỆM CẬN ĐỈNH: Dung tích đạt ' || CAST(a.storage_pct AS VARCHAR) || '%. Ưu tiên phát tối đa tuabin để hạ mực nước hồ về ngưỡng đón lũ.'
-                        ELSE '🟡 THEO DÕI TÍCH NƯỚC: Dung tích cao (>90%), sẵn sàng chuyển chế độ đón lũ nếu có mưa lớn thượng nguồn.'
-                    END AS "Khuyến nghị điều tiết cho Điều độ viên"
+                        WHEN a.alert_tier = '🔴 Khẩn cấp' THEN '🔴 BÁO ĐỘNG LŨ (Ưu tiên 1 - An toàn đập): Vượt MNDBT. Gợi ý điều độ: Khẩn trương phối hợp Ban Chỉ huy PCTT mở cửa xả lũ đón lũ theo quy trình khẩn cấp, cảnh báo còi hạ du; phát tối đa công suất tổ máy (Pmax) thoát nước.'
+                        WHEN a.alert_tier = '🟠 Đang xả tràn' THEN '🟠 ĐANG XẢ TRÀN ĐIỀU TIẾT (Mở ' || CAST(a.spill_gates_open AS VARCHAR) || ' cửa, xả ' || CAST(CAST(ROUND(a.spill_flow_m3s) AS BIGINT) AS VARCHAR) || ' m³/s): Gợi ý điều độ: Giữ phát điện cao tải để tối đa sản lượng qua tuabin, tránh xả tràn lãng phí nếu máy khả dụng; kiểm soát sát tốc độ xả hạ du.'
+                        WHEN a.alert_tier = '🟡 Cận đỉnh (≥90%)' THEN '🟡 TIỆM CẬN ĐỈNH DUNG TÍCH (' || CAST(a.storage_pct AS VARCHAR) || '% - Cách đỉnh ' || CAST(ROUND(a.head_to_normal_m, 2) AS VARCHAR) || 'm): Ưu tiên an toàn hồ chứa hơn giảm phát ĐMT. Gợi ý điều độ: Phát điện liên tục chu kỳ cao điểm sáng/tối để hạ mực nước đón lũ, không tích thêm nước.'
+                        WHEN a.alert_tier = '⚠️ Nguy cơ cạn kiệt' THEN '⚠️ CẢNH BÁO CẠN KIỆT (' || CAST(a.storage_pct AS VARCHAR) || '% - Cách MN chết ' || CAST(ROUND(a.head_to_dead_m, 2) AS VARCHAR) || 'm): Gợi ý điều độ: Tiết kiệm nước triệt để; giảm phát tối đa giờ trưa (10h-13h) nhường chỗ cho ĐMT; chỉ phát cao điểm tối hoặc cấp nước hạ du.'
+                        ELSE '🟢 VẬN HÀNH AN TOÀN'
+                    END AS "Gợi ý điều độ (Ưu tiên: An toàn đập > Quy trình liên hồ > Tối ưu ĐMT)"
                 FROM abnormal a
                 UNION ALL
                 SELECT 
@@ -296,15 +343,25 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
                     'Toàn bộ các hồ chứa' AS "Tên Hồ Thủy Điện",
                     'Toàn quốc' AS "Lưu Vực",
                     0.0 AS "Mực nước (m)",
-                    0.0 AS "Mực nước dâng BT (m)",
-                    0.0 AS "Dung tích tích nước (%)",
-                    0 AS "Cửa xả mở",
+                    0.0 AS "Cách đỉnh (m)",
+                    0.0 AS "Cách MN chết (m)",
+                    0.0 AS "Dung tích (%)",
+                    0 AS "Cửa xả",
                     0.0 AS "Nước về (m³/s)",
                     0.0 AS "Xả tràn (m³/s)",
-                    'Tất cả 39 hồ chứa đều vận hành an toàn trong giới hạn quy trình liên hồ chứa.' AS "Khuyến nghị điều tiết cho Điều độ viên"
+                    0.0 AS "Lưu lượng ròng (m³/s)",
+                    'Tất cả 39 hồ chứa đều vận hành an toàn trong giới hạn quy trình liên hồ chứa.' AS "Gợi ý điều độ (Ưu tiên: An toàn đập > Quy trình liên hồ > Tối ưu ĐMT)"
                 FROM summary_check sc
                 WHERE sc.cnt = 0
-                ORDER BY 1, 7 DESC, 6 DESC
+                ORDER BY 
+                    CASE "Mức độ"
+                        WHEN '🔴 Khẩn cấp' THEN 1
+                        WHEN '🟠 Đang xả tràn' THEN 2
+                        WHEN '🟡 Cận đỉnh (≥90%)' THEN 3
+                        WHEN '⚠️ Nguy cơ cạn kiệt' THEN 4
+                        ELSE 5
+                    END,
+                    "Dung tích (%)" DESC
             """,
             "viz": {},
             "col": 0, "row": 13, "size_x": 24, "size_y": 9,
@@ -316,7 +373,7 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
         # ======================================================================
         {
             "name": "D2-8. Ma Trận Giám Sát Chi Tiết Toàn Bộ 39 Hồ Chứa Thủy Điện",
-            "desc": "Toàn cảnh 39 hồ thủy điện: Mực nước, dung tích hữu ích, nước về, xả qua máy, xả tràn và trạng thái an toàn.",
+            "desc": "Toàn cảnh 39 hồ thủy điện: Mực nước, dung tích hữu ích, khoảng cách tới đỉnh/chết, lưu lượng ròng, nước về, xả tuabin, xả tràn và phân cấp 4 mức.",
             "display": "table",
             "sql": f"""
                 {TARGET_DATE_CTE}
@@ -324,17 +381,34 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
                     basin_name AS "Lưu Vực Sông",
                     reservoir_name AS "Hồ Thủy Điện",
                     water_level_m AS "Mực nước (m)",
-                    normal_level_m AS "Mực nước dâng BT (m)",
-                    dead_level_m AS "Mực nước chết (m)",
-                    storage_pct AS "Dung tích tích nước (%)",
-                    spill_gates_open AS "Cửa xả mở",
+                    normal_level_m AS "MNDBT (m)",
+                    dead_level_m AS "MN Chết (m)",
+                    ROUND(normal_level_m - water_level_m, 2) AS "Cách đỉnh (m)",
+                    ROUND(water_level_m - dead_level_m, 2) AS "Cách MN chết (m)",
+                    storage_pct AS "Dung tích (%)",
+                    spill_gates_open AS "Cửa xả",
                     ROUND(inflow_m3s) AS "Q về (m³/s)",
                     ROUND(turbine_flow_m3s) AS "Q qua máy (m³/s)",
                     ROUND(spill_flow_m3s) AS "Q xả tràn (m³/s)",
-                    alert_label AS "Trạng Thái An Toàn"
+                    ROUND(inflow_m3s - turbine_flow_m3s - spill_flow_m3s) AS "Q ròng (m³/s)",
+                    CASE 
+                        WHEN water_level_m >= normal_level_m AND alert_level = 3 THEN '🔴 Khẩn cấp'
+                        WHEN spill_gates_open > 0 OR spill_flow_m3s > 0 THEN '🟠 Đang xả tràn'
+                        WHEN storage_pct >= 90.0 THEN '🟡 Cận đỉnh (≥90%)'
+                        WHEN storage_pct <= 25.0 OR (water_level_m - dead_level_m) <= 2.0 THEN '⚠️ Nguy cơ cạn kiệt'
+                        ELSE '🟢 An toàn'
+                    END AS "Phân Cấp Rủi Ro"
                 FROM gold.v_hydro_daily
                 JOIN target ON date_value = target.selected_date
-                ORDER BY basin_name, alert_level DESC, storage_pct DESC
+                ORDER BY 
+                    CASE 
+                        WHEN water_level_m >= normal_level_m AND alert_level = 3 THEN 1
+                        WHEN spill_gates_open > 0 OR spill_flow_m3s > 0 THEN 2
+                        WHEN storage_pct >= 90.0 THEN 3
+                        WHEN storage_pct <= 25.0 OR (water_level_m - dead_level_m) <= 2.0 THEN 4
+                        ELSE 5
+                    END,
+                    storage_pct DESC
             """,
             "viz": {},
             "col": 0, "row": 22, "size_x": 14, "size_y": 9,
