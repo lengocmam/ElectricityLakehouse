@@ -5,11 +5,13 @@ Phân tích chu kỳ 4 Mùa (Xuân, Hạ, Thu, Đông) và 12 Tháng của Thủ
 Kế thừa trọn vẹn triết lý học thuật:
 1. TUYỆT ĐỐI KHÔNG DÙNG AVG (No AVG): Chỉ dùng SUM, MAX hoặc đếm tần suất thực tế.
 2. 5 BIỂU ĐỒ TRỰC QUAN ĐA DẠNG + CHỈ 1 BẢNG KHUYẾN NGHỊ TÁC NGHIỆP 4 MÙA.
-3. KHAI THÁC TOÀN DIỆN KHO DỮ LIỆU LỊCH SỬ 3.5 NĂM (2023 - 2026):
-   - Đỉnh phụ tải nắng nóng mùa hè (Tháng 5 - 8).
-   - Lệch pha mùa lũ thủy điện Bắc (Hè) vs Trung (Thu - Đông).
-   - Mùa bão và gió giật cực đoan (Tháng 9 - 11).
-   - Chuyển dịch cơ cấu bù trừ Thủy điện - Mặt trời - Than theo 4 mùa.
+3. ĐỒNG BỘ PHÂN HÓA 3 MIỀN BẮC - TRUNG - NAM:
+   - S3-1: Phụ Tải Đỉnh 3 Miền (Cầu).
+   - S3-2: Bức Xạ Nắng 3 Miền (Cung ĐMT).
+   - S3-3: Lượng Mưa Lũ 3 Miền (Cung Thủy Điện).
+   - S3-4: Chuyển dịch cơ cấu bù trừ Thủy điện - Mặt trời - Than theo 4 mùa.
+   - S3-5: Tần suất bão và gió giật cực đoan theo tháng.
+   - S3-6: Bảng chỉ huy khuyến nghị điều độ chuẩn EVN/NSMO 4 mùa.
 """
 
 import os
@@ -37,7 +39,7 @@ from common import (
 DASHBOARD_NAME = "03. Chu Kỳ Năng Lượng Theo Mùa"
 DASHBOARD_DESC = (
     "Trung tâm Phân tích Chiến lược Chu kỳ Mùa & Khí hậu: Đối chiếu quy luật 12 tháng và 4 mùa (Xuân, Hạ, Thu, Đông) "
-    "của Thủy điện, Nắng, Gió, Nhiệt độ và Phụ tải 3 Miền; minh chứng tính cấp thiết của đường dây 500kV truyền tải bù trừ liên miền."
+    "của Thủy điện, Nắng, Gió và Phụ tải 3 Miền Bắc - Trung - Nam; minh chứng tính cấp thiết của đường dây 500kV truyền tải bù trừ liên miền."
 )
 
 TAG_DEF_YEAR = {
@@ -71,74 +73,20 @@ def deploy_dashboard_seasonal(base_url=None, user=None, password=None):
 
     cards_def = [
         # ======================================================================
-        # HÀNG 1: CHU KỲ NHIỆT ĐỘ, PHỤ TẢI & NĂNG LƯỢNG TÁI TẠO 12 THÁNG
+        # HÀNG 1: CẦU PHỤ TẢI & CUNG NẮNG 3 MIỀN BẮC - TRUNG - NAM (12 THÁNG)
         # ======================================================================
         {
-            "name": "S3-1. [Nhiệt Độ Cực Đại & Phụ Tải Đỉnh 12 Tháng] Đỉnh Nắng Nóng vs Đỉnh Điện",
-            "desc": "Đối chiếu nhiệt độ cao nhất (Tmax °C) và công suất phụ tải đỉnh (Pmax MW) theo 12 tháng. Chứng minh đỉnh phụ tải nắng nóng mùa hè (Tháng 6-8).",
-            "display": "combo",
-            "sql": f"""
-                {YEAR_CTE},
-                l AS (
-                    SELECT 
-                        d.month AS m,
-                        ROUND(MAX(f.load_mw)) AS peak_load_mw
-                    FROM gold.fact_load_hourly f
-                    JOIN gold.dim_date d ON f.date_key = d.date_key
-                    CROSS JOIN target
-                    WHERE d.date_key / 10000 = target.sel_year
-                    GROUP BY d.month
-                ),
-                w AS (
-                    SELECT 
-                        d.month AS m,
-                        ROUND(MAX(f.temperature_2m_max), 1) AS max_temp
-                    FROM gold.fact_weather_daily f
-                    JOIN gold.dim_date d ON f.date_key = d.date_key
-                    CROSS JOIN target
-                    WHERE d.date_key / 10000 = target.sel_year
-                    GROUP BY d.month
-                )
-                SELECT 
-                    'Tháng ' || LPAD(CAST(l.m AS VARCHAR), 2, '0') AS "Tháng",
-                    l.peak_load_mw AS "Phụ Tải Đỉnh Pmax (MW)",
-                    w.max_temp AS "Nhiệt Độ Cực Đại (°C)"
-                FROM l
-                JOIN w ON l.m = w.m
-                ORDER BY l.m
-            """,
-            "viz": {
-                "graph.dimensions": ["Tháng"],
-                "graph.metrics": ["Phụ Tải Đỉnh Pmax (MW)", "Nhiệt Độ Cực Đại (°C)"],
-                "graph.series_settings": {
-                    "Phụ Tải Đỉnh Pmax (MW)": {
-                        "type": "bar",
-                        "y_axis": "left",
-                        "title": "Phụ Tải Đỉnh Pmax (MW)"
-                    },
-                    "Nhiệt Độ Cực Đại (°C)": {
-                        "type": "line",
-                        "y_axis": "right",
-                        "title": "Nhiệt Độ Cực Đại (°C)"
-                    }
-                },
-                "graph.x_axis.title_text": "12 Tháng Trong Năm",
-                "graph.y_axis.title_text": "Phụ Tải Đỉnh (MW) [Trục Trái]"
-            },
-            "col": 0, "row": 0, "size_x": 12, "size_y": 8,
-            "has_year_filter": True
-        },
-        {
-            "name": "S3-2. [Chu Kỳ Nắng & Gió 12 Tháng] Bức Xạ Tích Lũy vs Gió Cực Đại",
-            "desc": "Theo dõi bức xạ mặt trời (MJ/m²) và tốc độ gió cực đại (m/s) qua 12 tháng. Làm rõ: Nắng gắt mùa hè (T3-T8), Gió cực đại mùa bão đông (T9-T2).",
+            "name": "S3-1. [Phụ Tải Đỉnh 3 Miền 12 Tháng] Bắc - Trung - Nam",
+            "desc": "So sánh công suất phụ tải cực đại Pmax (MW) của 3 miền Bắc - Trung - Nam theo 12 tháng. Minh chứng đỉnh phụ tải nắng nóng mùa hè (Tháng 6-8) tại Miền Bắc và đỉnh mùa khô (Tháng 4) tại Miền Nam.",
             "display": "line",
             "sql": f"""
                 {YEAR_CTE}
                 SELECT 
                     'Tháng ' || LPAD(CAST(d.month AS VARCHAR), 2, '0') AS "Tháng",
-                    ROUND(SUM(f.shortwave_radiation_sum), 1) AS "Tổng Bức Xạ (MJ/m²)",
-                    ROUND(MAX(f.wind_speed_10m_max), 1) AS "Gió Cực Đại (m/s)"
-                FROM gold.fact_weather_daily f
+                    ROUND(MAX(CASE WHEN f.region_key = 1 THEN f.load_mw END)) AS "Miền Bắc (MW)",
+                    ROUND(MAX(CASE WHEN f.region_key = 2 THEN f.load_mw END)) AS "Miền Trung (MW)",
+                    ROUND(MAX(CASE WHEN f.region_key = 3 THEN f.load_mw END)) AS "Miền Nam (MW)"
+                FROM gold.fact_load_hourly f
                 JOIN gold.dim_date d ON f.date_key = d.date_key
                 CROSS JOIN target
                 WHERE d.date_key / 10000 = target.sel_year
@@ -147,9 +95,41 @@ def deploy_dashboard_seasonal(base_url=None, user=None, password=None):
             """,
             "viz": {
                 "graph.dimensions": ["Tháng"],
-                "graph.metrics": ["Tổng Bức Xạ (MJ/m²)", "Gió Cực Đại (m/s)"],
+                "graph.metrics": ["Miền Bắc (MW)", "Miền Trung (MW)", "Miền Nam (MW)"],
                 "graph.x_axis.title_text": "12 Tháng Trong Năm",
-                "graph.y_axis.axis_enabled": True
+                "graph.y_axis.title_text": "Phụ Tải Đỉnh Pmax (MW)"
+            },
+            "col": 0, "row": 0, "size_x": 12, "size_y": 8,
+            "has_year_filter": True
+        },
+        {
+            "name": "S3-2. [Chu Kỳ Bức Xạ Nắng 3 Miền 12 Tháng] Bắc - Trung - Nam",
+            "desc": "So sánh tổng bức xạ mặt trời tích lũy (MJ/m²) của 3 miền Bắc - Trung - Nam theo 12 tháng. Làm rõ: Miền Trung & Nam nắng dồi dào quanh năm, Miền Bắc suy giảm mùa đông xuân do mây mù.",
+            "display": "line",
+            "sql": f"""
+                {YEAR_CTE}
+                SELECT 
+                    'Tháng ' || LPAD(CAST(d.month AS VARCHAR), 2, '0') AS "Tháng",
+                    ROUND(SUM(CASE WHEN loc.region_key = 1 THEN f.shortwave_radiation_sum END), 1) AS "Bức Xạ Miền Bắc (MJ/m²)",
+                    ROUND(SUM(CASE WHEN loc.region_key = 2 THEN f.shortwave_radiation_sum END), 1) AS "Bức Xạ Miền Trung (MJ/m²)",
+                    ROUND(SUM(CASE WHEN loc.region_key = 3 THEN f.shortwave_radiation_sum END), 1) AS "Bức Xạ Miền Nam (MJ/m²)"
+                FROM gold.fact_weather_daily f
+                JOIN gold.dim_date d ON f.date_key = d.date_key
+                JOIN gold.dim_location loc ON f.location_key = loc.location_key
+                CROSS JOIN target
+                WHERE d.date_key / 10000 = target.sel_year
+                GROUP BY d.month
+                ORDER BY d.month
+            """,
+            "viz": {
+                "graph.dimensions": ["Tháng"],
+                "graph.metrics": [
+                    "Bức Xạ Miền Bắc (MJ/m²)",
+                    "Bức Xạ Miền Trung (MJ/m²)",
+                    "Bức Xạ Miền Nam (MJ/m²)"
+                ],
+                "graph.x_axis.title_text": "12 Tháng Trong Năm",
+                "graph.y_axis.title_text": "Tổng Bức Xạ Tích Lũy (MJ/m²)"
             },
             "col": 12, "row": 0, "size_x": 12, "size_y": 8,
             "has_year_filter": True
