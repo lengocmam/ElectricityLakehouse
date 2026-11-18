@@ -126,116 +126,6 @@ def _norm0(x):
     return (t - m) / s, m, s
 
 
-class DLinear(nn.Module):
-    """DLinear (Zeng et al., AAAI 2023): tach xu huong bang trung binh truot + hai lop tuyen tinh.
-    Ban don bien: chi dung kenh target (dung nhu bai goc)."""
-
-    def __init__(self, lookback, horizon, kernel=25):
-        super().__init__()
-        self.kernel = kernel if kernel % 2 == 1 else kernel + 1
-        self.lin_s = nn.Linear(lookback, horizon)
-        self.lin_t = nn.Linear(lookback, horizon)
-        for lin in (self.lin_s, self.lin_t):
-            nn.init.constant_(lin.weight, 1.0 / lookback)
-            nn.init.zeros_(lin.bias)
-
-    def forward(self, x):
-        t, m, s = _norm0(x)
-        pad = (self.kernel - 1) // 2
-        tp = torch.cat([t[:, :1].repeat(1, pad), t, t[:, -1:].repeat(1, pad)], dim=1)
-        trend = F.avg_pool1d(tp.unsqueeze(1), self.kernel, stride=1).squeeze(1)
-        out = self.lin_s(t - trend) + self.lin_t(trend)
-        return out * s + m
-
-
-class PatchTST(nn.Module):
-    """PatchTST don bien (Nie et al., ICLR 2023): cat chuoi thanh cac patch, Transformer encoder, dau ra tuyen tinh.
-    Chi dung kenh target (channel-independent, mot kenh)."""
-
-    def __init__(self, lookback, horizon, patch_len=8, stride=4, d_model=64, n_heads=4,
-                 n_layers=2, d_ff=128, dropout=0.1):
-        super().__init__()
-        self.patch_len, self.stride = patch_len, stride
-        n_patches = (lookback - patch_len) // stride + 1
-        self.embed = nn.Linear(patch_len, d_model)
-        self.pos = nn.Parameter(torch.zeros(1, n_patches, d_model))
-        nn.init.trunc_normal_(self.pos, std=0.02)
-        layer = nn.TransformerEncoderLayer(d_model, n_heads, d_ff, dropout, activation="gelu",
-                                           batch_first=True, norm_first=True)
-        self.enc = nn.TransformerEncoder(layer, n_layers, enable_nested_tensor=False)
-        self.norm = nn.LayerNorm(d_model)
-        self.head = nn.Sequential(nn.Flatten(), nn.Dropout(dropout), nn.Linear(n_patches * d_model, horizon))
-
-    def forward(self, x):
-        t, m, s = _norm0(x)
-        p = t.unfold(1, self.patch_len, self.stride)           # (B, n_patches, patch_len)
-        h = self.enc(self.embed(p) + self.pos)
-        return self.head(self.norm(h)) * s + m
-
-
-class _XLayer(nn.Module):
-    """Mot lop TimeXer: self-attention tren (patch noi sinh + token toan cuc), cross-attention tu token toan cuc
-    sang cac token bien ngoai sinh, roi FFN."""
-
-    def __init__(self, d_model, n_heads, d_ff, dropout, has_ex):
-        super().__init__()
-        self.sa = nn.MultiheadAttention(d_model, n_heads, dropout=dropout, batch_first=True)
-        self.ca = nn.MultiheadAttention(d_model, n_heads, dropout=dropout, batch_first=True) if has_ex else None
-        self.n1, self.n2, self.n3 = nn.LayerNorm(d_model), nn.LayerNorm(d_model), nn.LayerNorm(d_model)
-        self.ff = nn.Sequential(nn.Linear(d_model, d_ff), nn.GELU(), nn.Dropout(dropout), nn.Linear(d_ff, d_model))
-        self.drop = nn.Dropout(dropout)
-
-    def forward(self, x, ex):                       # x: (B, P+1, D) token toan cuc o cuoi; ex: (B, n_ex, D)
-        x = self.n1(x + self.drop(self.sa(x, x, x, need_weights=False)[0]))
-        if self.ca is not None:
-            g = x[:, -1:, :]
-            g = g + self.drop(self.ca(g, ex, ex, need_weights=False)[0])
-            x = torch.cat([x[:, :-1, :], g], dim=1)
-        x = self.n2(x)
-        return self.n3(x + self.drop(self.ff(x)))
-
-
-class TimeXer(nn.Module):
-    """TimeXer (Wang et al., NeurIPS 2024, arXiv 2402.19072), ban tu cai dat gon.
-    Bien noi sinh (kenh 0): cat thanh cac patch khong chong lan + 1 token toan cuc hoc duoc.
-    Bien ngoai sinh (cac kenh con lai): moi bien thanh 1 token bang embedding tuyen tinh toan chuoi.
-    Dau ra: flatten cac token noi sinh; co the noi them dac trung biet truoc (lich, ngay le) cua H ngay can du bao."""
-
-    def __init__(self, n_feat, lookback, horizon, d_model=64, n_heads=4, n_layers=2, dropout=0.1,
-                 patch_len=7, n_future=0, anchor="none"):
-        super().__init__()
-        self.n_future, self.patch_len, self.anchor, self.horizon = n_future, patch_len, anchor, horizon
-        self.n_patches = lookback // patch_len
-        self.used = self.n_patches * patch_len
-        self.n_ex = n_feat - 1
-        self.patch_embed = nn.Linear(patch_len, d_model)
-        self.pos = nn.Parameter(torch.zeros(1, self.n_patches, d_model))
-        nn.init.trunc_normal_(self.pos, std=0.02)
-        self.glb = nn.Parameter(torch.randn(1, 1, d_model) * 0.02)
-        self.ex_embed = nn.Linear(lookback, d_model) if self.n_ex > 0 else None
-        self.layers = nn.ModuleList([_XLayer(d_model, n_heads, 2 * d_model, dropout, self.n_ex > 0) for _ in range(n_layers)])
-        flat = (self.n_patches + 1) * d_model
-        if n_future:
-            self.head = nn.Sequential(nn.Flatten(), nn.Dropout(dropout), nn.Linear(flat + horizon * n_future, d_model),
-                                      nn.GELU(), nn.Dropout(dropout), nn.Linear(d_model, horizon))
-        else:
-            self.head = nn.Sequential(nn.Flatten(), nn.Dropout(dropout), nn.Linear(flat, horizon))
-
-    def forward(self, x, fut=None):
-        t, m, s = _norm0(x)                                          # (B, L)
-        p = t[:, -self.used:].unfold(1, self.patch_len, self.patch_len)   # (B, P, patch_len)
-        h = self.patch_embed(p) + self.pos
-        h = torch.cat([h, self.glb.expand(len(h), -1, -1)], dim=1)   # token toan cuc o cuoi
-        ex = self.ex_embed(x[..., 1:].transpose(1, 2)) if self.n_ex > 0 else None
-        for layer in self.layers:
-            h = layer(h, ex)
-        z = h.flatten(1)
-        if self.n_future:
-            z = torch.cat([z, fut.flatten(1)], dim=1)
-        out = self.head(z) + _anchor(t, self.horizon, self.anchor)
-        return out * s + m
-
-
 class _Mamba(nn.Module):
     """Khoi Mamba (selective SSM, Gu & Dao 2023) viet thuan PyTorch, quet tuan tu (chay duoc tren CPU, khong can mamba-ssm/CUDA).
     Do dai chuoi o day la SO BIEN (token bien), nen vong lap ngan."""
@@ -317,19 +207,10 @@ class SMamba(nn.Module):
 
 
 def build_model(name, n_feat, horizon, lookback, a):
-    """a: namespace tham so. Tham so tuy chon (co mac dinh): kernel, patch_len, stride, ptst_layers."""
+    """a: namespace tham so cho s4d va smamba."""
     if name == "s4d":
         return S4Forecaster(n_feat, horizon, a.d_model, a.n_layers, a.d_state, a.dropout, a.dt_min, a.dt_max,
                             n_future=getattr(a, "n_future", 0), anchor=getattr(a, "anchor", "none"))
-    if name == "dlinear":
-        return DLinear(lookback, horizon, kernel=getattr(a, "kernel", 25))
-    if name == "patchtst":
-        return PatchTST(lookback, horizon, patch_len=getattr(a, "patch_len", 8), stride=getattr(a, "stride", 4),
-                        d_model=a.d_model, n_layers=getattr(a, "ptst_layers", 2), dropout=a.dropout)
-    if name == "timexer":
-        return TimeXer(n_feat, lookback, horizon, d_model=a.d_model, n_layers=getattr(a, "ptst_layers", getattr(a, "n_layers", 2)),
-                       dropout=a.dropout, patch_len=getattr(a, "patch_len", 7), n_future=getattr(a, "n_future", 0),
-                       anchor=getattr(a, "anchor", "none"))
     if name == "smamba":
         return SMamba(n_feat, lookback, horizon, d_model=a.d_model, n_layers=a.n_layers, d_state=a.d_state,
                       dropout=a.dropout, n_future=getattr(a, "n_future", 0), anchor=getattr(a, "anchor", "none"))

@@ -41,7 +41,7 @@ TARGET_DATE_CTE = """
 WITH target AS (
     SELECT COALESCE(
         NULL [[ , CAST({{selected_date}} AS DATE) ]],
-        DATE '2026-11-12'
+        DATE '2026-11-16'
     ) AS selected_date
 )
 """.strip()
@@ -289,25 +289,26 @@ def deploy_dashboard_01(base_url=None, user=None, password=None):
         # ======================================================================
         {
             "name": "D1-7. Cơ cấu sản lượng theo tháng (12 tháng gần nhất)",
-            "desc": "Chuyển dịch giữa mùa mưa và mùa khô: Tỷ trọng Thủy điện, Than, Khí, Tái tạo 12 tháng qua.",
+            "desc": "Chuyển dịch giữa mùa mưa và mùa khô: Tỷ trọng Thủy điện, Than, Khí, Tái tạo 12 tháng qua (tổng hợp trực tiếp từ bảng fact giờ).",
             "display": "bar",
             "sql": f"""
                 {TARGET_DATE_CTE}
-                SELECT date_trunc('month', data_date) AS "Tháng",
+                SELECT date_trunc('month', d.full_date) AS "Tháng",
                        CASE 
-                           WHEN LOWER(energy_source) LIKE '%than%' THEN 'Than'
-                           WHEN LOWER(energy_source) LIKE '%khí%' OR LOWER(energy_source) LIKE '%gas%' THEN 'Khí'
-                           WHEN LOWER(energy_source) LIKE '%thủy điện%' THEN 'Thủy điện'
-                           WHEN LOWER(energy_source) LIKE '%mặt trời%' OR LOWER(energy_source) LIKE '%đmt%' THEN 'Mặt trời'
-                           WHEN LOWER(energy_source) LIKE '%gió%' THEN 'Gió'
+                           WHEN LOWER(s.source_name) LIKE '%than%' THEN 'Than'
+                           WHEN LOWER(s.source_name) LIKE '%khí%' THEN 'Khí'
+                           WHEN LOWER(s.source_name) LIKE '%thủy điện%' THEN 'Thủy điện'
+                           WHEN LOWER(s.source_name) LIKE '%mặt trời%' OR LOWER(s.source_name) LIKE '%đmt%' THEN 'Mặt trời'
+                           WHEN LOWER(s.source_name) LIKE '%gió%' THEN 'Gió'
                            ELSE 'Khác'
                        END AS "Nhóm nguồn",
-                       ROUND(SUM(generation_million_kwh), 1) AS "Sản lượng (GWh)"
-                FROM iceberg.silver.generation
+                       ROUND(SUM(f.generation_power_mw) / 1000.0, 1) AS "Sản lượng (GWh)"
+                FROM gold.fact_generation_power_hourly f
+                JOIN gold.dim_date d ON f.date_key = d.date_key
+                JOIN gold.dim_energy_source s ON f.energy_source_key = s.energy_source_key
                 CROSS JOIN target
-                WHERE energy_source NOT LIKE '%thương phẩm%'
-                  AND data_date >= date_add('month', -12, target.selected_date)
-                  AND data_date <= target.selected_date
+                WHERE d.full_date >= date_add('month', -12, target.selected_date)
+                  AND d.full_date <= target.selected_date
                 GROUP BY 1, 2
                 ORDER BY 1, 2
             """,
@@ -411,6 +412,7 @@ def deploy_dashboard_01(base_url=None, user=None, password=None):
     set_dashboard_layout(url, token, dash_id, cards_def)
     print(f"\n[SUCCESS] Deployed {len(cards_def)} cards on {DASHBOARD_NAME} (Dashboard ID: {dash_id})!")
     print(f"URL: {url}/dashboard/{dash_id}\n")
+    return dash_id
 
 
 if __name__ == "__main__":

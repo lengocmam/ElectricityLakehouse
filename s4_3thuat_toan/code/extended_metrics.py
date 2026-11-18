@@ -23,7 +23,7 @@ DAILY = sys.argv[2] if len(sys.argv) > 2 else "unified_daily_v2.csv"
 OUT = sys.argv[3] if len(sys.argv) > 3 else "results/extended"
 TASKS = [("Phụ tải 1 ngày (MW)", "load_H1", 5.0), ("Phụ tải 7 ngày (MW)", "load_H7", 5.0),
          ("Thủy điện 1 ngày (MWh)", "hydro_H1", 20.0), ("Thủy điện 7 ngày (MWh)", "hydro_H7", 20.0)]
-MODELS = [("LightGBM_to_hop", "LightGBM"), ("TimeXer_to_hop", "TimeXer"), ("S4D_to_hop", "S4D"), ("S_Mamba_to_hop", "S-Mamba")]
+MODELS = [("XGBoost_to_hop", "XGBoost"), ("S4D_to_hop", "S4D"), ("S_Mamba_to_hop", "S-Mamba")]
 REFS = [("persistence", "Persistence"), ("seasonal_naive_7", "Seasonal naive 7")]
 B, BLOCK = 2000, 7
 

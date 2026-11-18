@@ -193,6 +193,8 @@ def deploy_dashboard_seasonal(base_url=None, user=None, password=None):
                 JOIN gold.dim_energy_source s ON f.energy_source_key = s.energy_source_key
                 CROSS JOIN target
                 WHERE d.date_key / 10000 = target.sel_year
+                  AND s.source_name NOT LIKE '%thương phẩm%'
+                  AND s.source_name NOT LIKE '%Quốc gia%'
                 GROUP BY 
                     CASE 
                         WHEN d.month IN (1, 2, 3) THEN '1. Mùa Xuân (T1-T3)'

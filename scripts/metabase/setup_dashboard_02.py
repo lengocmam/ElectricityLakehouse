@@ -54,7 +54,7 @@ TARGET_CTE = """
 WITH user_input AS (
     SELECT COALESCE(
         NULL [[ , CAST({{selected_date}} AS DATE) ]],
-        DATE '2026-11-14'
+        DATE '2026-11-16'
     ) AS d
 ),
 target AS (
@@ -197,7 +197,7 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
                 FROM gold.fact_generation_power_hourly f
                 JOIN gold.dim_energy_source s ON f.energy_source_key = s.energy_source_key
                 CROSS JOIN target
-                WHERE f.date_key = GREATEST(target.date_key, 20261104)
+                WHERE f.date_key = target.date_key
                   AND (s.source_name LIKE '%Thủy điện%' OR s.source_name LIKE '%mặt trời%' OR s.source_name LIKE '%ĐMT%' OR s.source_name LIKE '%Gió%')
                 GROUP BY 1
                 ORDER BY "Sản Lượng (MWh)" DESC
@@ -272,7 +272,7 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
                     FROM gold.fact_generation_power_hourly f
                     JOIN gold.dim_energy_source s ON f.energy_source_key = s.energy_source_key
                     CROSS JOIN target
-                    WHERE f.date_key = GREATEST(target.date_key, 20261104)
+                    WHERE f.date_key = target.date_key
                     GROUP BY f.time_key
                 ),
                 l AS (
@@ -281,6 +281,7 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
                         ROUND(SUM(f.load_mw)) AS load_mw
                     FROM gold.fact_load_hourly f
                     JOIN target ON f.date_key = target.date_key
+                    WHERE f.region_key IN (1, 2, 3)
                     GROUP BY f.time_key
                 )
                 SELECT 
@@ -453,7 +454,7 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
                     FROM gold.fact_generation_power_hourly f
                     JOIN gold.dim_energy_source s ON f.energy_source_key = s.energy_source_key
                     CROSS JOIN target
-                    WHERE f.date_key = GREATEST(target.date_key, 20261104)
+                    WHERE f.date_key = target.date_key
                       AND (s.source_name LIKE '%mặt trời%' OR s.source_name LIKE '%ĐMT%')
                       AND f.time_key BETWEEN 7 AND 17
                     GROUP BY f.time_key

@@ -48,7 +48,7 @@ WITH period_totals AS (
             ELSE 'Khác'
         END AS source_group,
         SUM(dispatched_power_mw) AS period_mw
-    FROM iceberg.silver.power
+    FROM iceberg.silver.power_daily
     WHERE generation_source NOT LIKE '%thương phẩm%' 
       AND generation_source NOT LIKE '%Quốc gia%'
     GROUP BY 
@@ -75,77 +75,35 @@ SELECT
 FROM period_totals
 GROUP BY date_value, source_group;
 
--- 4. v_gen_hourly: Realistic hourly dispatch generation shaped from daily fact totals
+-- 4. v_gen_hourly: Measured hourly dispatch generation directly from fact_generation_power_hourly
 CREATE OR REPLACE VIEW iceberg.gold.v_gen_hourly AS
-WITH hourly_dispatch_profile (hour_of_day, coal_factor, gas_factor, hydro_factor, solar_factor, wind_factor, other_factor) AS (
-    VALUES
-        ( 0, 1.0025, 0.6016, 0.9243, 0.0000, 1.0615, 1.0000),
-        ( 1, 0.9825, 0.5469, 0.9028, 0.0000, 1.0918, 1.0000),
-        ( 2, 0.9724, 0.5251, 0.8813, 0.0000, 1.1120, 1.0000),
-        ( 3, 0.9724, 0.5251, 0.8706, 0.0000, 1.1120, 1.0000),
-        ( 4, 0.9825, 0.5469, 0.8813, 0.0000, 1.0918, 1.0000),
-        ( 5, 1.0025, 0.6563, 0.9136, 0.0000, 1.0312, 1.0000),
-        ( 6, 1.0125, 0.8751, 0.9673, 0.1193, 0.9604, 1.0000),
-        ( 7, 1.0226, 1.1486, 1.0210, 0.5963, 0.9099, 1.0000),
-        ( 8, 1.0326, 1.2580, 1.0533, 1.3416, 0.8593, 1.0000),
-        ( 9, 1.0025, 1.1486, 0.9673, 2.1863, 0.8290, 1.0000),
-        (10, 0.9323, 0.9845, 0.8598, 2.9317, 0.8088, 1.0000),
-        (11, 0.8622, 0.8204, 0.7846, 3.2298, 0.7885, 1.0000),
-        (12, 0.8220, 0.7439, 0.7525, 3.3292, 0.7887, 1.0000),
-        (13, 0.8521, 0.7876, 0.7631, 3.1304, 0.8088, 1.0000),
-        (14, 0.9223, 0.9298, 0.8276, 2.7826, 0.8492, 1.0000),
-        (15, 1.0025, 1.1486, 0.9673, 2.1366, 0.9099, 1.0000),
-        (16, 1.0526, 1.3674, 1.1178, 1.4410, 0.9705, 1.0000),
-        (17, 1.1028, 1.5861, 1.2682, 0.6758, 1.0716, 1.0000),
-        (18, 1.1429, 1.6955, 1.3757, 0.0994, 1.1929, 1.0000),
-        (19, 1.1228, 1.6190, 1.3435, 0.0000, 1.2131, 1.0000),
-        (20, 1.0927, 1.4768, 1.2897, 0.0000, 1.1929, 1.0000),
-        (21, 1.0627, 1.2580, 1.2038, 0.0000, 1.1626, 1.0000),
-        (22, 1.0326, 0.9845, 1.0748, 0.0000, 1.1120, 1.0000),
-        (23, 1.0125, 0.7657, 0.9888, 0.0000, 1.0716, 1.0000)
-),
-daily_gen AS (
-    SELECT 
-        data_date AS date_value,
-        CASE 
-            WHEN LOWER(energy_source) LIKE '%than%' THEN 'Than'
-            WHEN LOWER(energy_source) LIKE '%khí%' OR LOWER(energy_source) LIKE '%gas%' THEN 'Khí'
-            WHEN LOWER(energy_source) LIKE '%thủy điện%' THEN 'Thủy điện'
-            WHEN LOWER(energy_source) LIKE '%mặt trời%' OR LOWER(energy_source) LIKE '%đmt%' THEN 'Mặt trời'
-            WHEN LOWER(energy_source) LIKE '%gió%' THEN 'Gió'
-            ELSE 'Khác'
-        END AS source_group,
-        SUM(generation_million_kwh * 1000.0) AS generation_mwh
-    FROM iceberg.silver.generation
-    WHERE energy_source NOT LIKE '%thương phẩm%'
-    GROUP BY 
-        data_date,
-        CASE 
-            WHEN LOWER(energy_source) LIKE '%than%' THEN 'Than'
-            WHEN LOWER(energy_source) LIKE '%khí%' OR LOWER(energy_source) LIKE '%gas%' THEN 'Khí'
-            WHEN LOWER(energy_source) LIKE '%thủy điện%' THEN 'Thủy điện'
-            WHEN LOWER(energy_source) LIKE '%mặt trời%' OR LOWER(energy_source) LIKE '%đmt%' THEN 'Mặt trời'
-            WHEN LOWER(energy_source) LIKE '%gió%' THEN 'Gió'
-            ELSE 'Khác'
-        END
-)
 SELECT 
-    dg.date_value,
-    dp.hour_of_day,
-    dg.source_group,
-    ROUND(
-        (dg.generation_mwh / 24.0) * 
-        CASE dg.source_group
-            WHEN 'Than' THEN dp.coal_factor
-            WHEN 'Khí' THEN dp.gas_factor
-            WHEN 'Thủy điện' THEN dp.hydro_factor
-            WHEN 'Mặt trời' THEN dp.solar_factor
-            WHEN 'Gió' THEN dp.wind_factor
-            ELSE dp.other_factor
-        END, 1
-    ) AS generation_mw
-FROM daily_gen dg
-CROSS JOIN hourly_dispatch_profile dp;
+    d.full_date AS date_value,
+    t.hour AS hour_of_day,
+    CASE 
+        WHEN LOWER(s.source_name) LIKE '%than%' THEN 'Than'
+        WHEN LOWER(s.source_name) LIKE '%khí%' THEN 'Khí'
+        WHEN LOWER(s.source_name) LIKE '%thủy điện%' THEN 'Thủy điện'
+        WHEN LOWER(s.source_name) LIKE '%mặt trời%' OR LOWER(s.source_name) LIKE '%đmt%' THEN 'Mặt trời'
+        WHEN LOWER(s.source_name) LIKE '%gió%' THEN 'Gió'
+        ELSE 'Khác'
+    END AS source_group,
+    ROUND(SUM(f.generation_power_mw), 1) AS generation_mw
+FROM iceberg.gold.fact_generation_power_hourly f
+JOIN iceberg.gold.dim_date d ON f.date_key = d.date_key
+JOIN iceberg.gold.dim_time t ON f.time_key = t.time_key
+JOIN iceberg.gold.dim_energy_source s ON f.energy_source_key = s.energy_source_key
+GROUP BY 
+    d.full_date,
+    t.hour,
+    CASE 
+        WHEN LOWER(s.source_name) LIKE '%than%' THEN 'Than'
+        WHEN LOWER(s.source_name) LIKE '%khí%' THEN 'Khí'
+        WHEN LOWER(s.source_name) LIKE '%thủy điện%' THEN 'Thủy điện'
+        WHEN LOWER(s.source_name) LIKE '%mặt trời%' OR LOWER(s.source_name) LIKE '%đmt%' THEN 'Mặt trời'
+        WHEN LOWER(s.source_name) LIKE '%gió%' THEN 'Gió'
+        ELSE 'Khác'
+    END;
 
 -- 5. v_weather_hourly: Regional hourly weather (Nhiệt độ, Mưa, Bức xạ)
 CREATE OR REPLACE VIEW iceberg.gold.v_weather_hourly AS
