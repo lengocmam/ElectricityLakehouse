@@ -80,7 +80,7 @@ def deploy_dashboard_05(base_url=None, user=None, password=None):
         # HÀNG 1: 4 KPIS ĐIỀU ĐỘ NGÀY TỚI (Rows 0-3, Height 4, Width 6 each = 24)
         # ======================================================================
         {
-            "name": "D5-1. Phụ tải đỉnh ngày mai (Pmax) & Giờ cao điểm",
+            "name": "D5-1. Phụ tải đỉnh ngày tới Pmax",
             "desc": "Công suất đỉnh Pmax dự báo bởi S-Mamba (MW), giờ xuất hiện đỉnh và so sánh với Pmax thực tế.",
             "display": "scalar",
             "sql": f"""
@@ -94,7 +94,7 @@ def deploy_dashboard_05(base_url=None, user=None, password=None):
             "col": 0, "row": 0, "size_x": 6, "size_y": 4
         },
         {
-            "name": "D5-2. Sai số trung bình 24h: S-Mamba vs Naive",
+            "name": "D5-2. Sai số trung bình 24h (MAE)",
             "desc": "Sai số tuyệt đối trung bình (MAE) của mô hình S-Mamba trong 24 giờ ngày mai so với kinh nghiệm tuần trước.",
             "display": "scalar",
             "sql": f"""
@@ -108,7 +108,7 @@ def deploy_dashboard_05(base_url=None, user=None, password=None):
             "col": 6, "row": 0, "size_x": 6, "size_y": 4
         },
         {
-            "name": "D5-3. Độ chính xác WAPE (%) Ngày mai",
+            "name": "D5-3. Tỷ lệ sai số ngày tới (WAPE)",
             "desc": "Sai số phần trăm có trọng số WAPE% của S-Mamba trong 24 giờ ngày mai (Chuẩn xuất sắc < 2%).",
             "display": "scalar",
             "sql": f"""
@@ -122,7 +122,7 @@ def deploy_dashboard_05(base_url=None, user=None, password=None):
             "col": 12, "row": 0, "size_x": 6, "size_y": 4
         },
         {
-            "name": "D5-4. Mức Dự phòng Quay Conformal 90%",
+            "name": "D5-4. Dự phòng công suất Conformal 90%",
             "desc": "Bán kính khoảng tin cậy Conformal Prediction 90% (MW) bảo đảm an toàn toán học cho kỹ sư điều độ A0.",
             "display": "scalar",
             "sql": f"""
@@ -141,7 +141,7 @@ def deploy_dashboard_05(base_url=None, user=None, password=None):
         # HÀNG 2: BIỂU ĐỒ TRỌNG TÂM 1 - DỰ BÁO 24 GIỜ (Rows 4-12, Height 9, Width 24)
         # ======================================================================
         {
-            "name": "D5-5. So sánh Dự báo Phụ tải 24 Giờ Ngày Mai: Học máy vs Truyền thống vs Thực tế",
+            "name": "D5-5. Đối chuẩn dự báo phụ tải 24h",
             "desc": "Đường cong 24 giờ: Thực tế EVN vs Dự báo S-Mamba vs S4D vs XGBoost vs Kinh nghiệm Tuần trước (Naive) và Dải tin cậy Conformal 90%.",
             "display": "line",
             "sql": f"""
@@ -182,7 +182,7 @@ def deploy_dashboard_05(base_url=None, user=None, password=None):
         # HÀNG 3: BIỂU ĐỒ TRỌNG TÂM 2 - CƠ CẤU NGUỒN ĐIỆN 24 GIỜ (Rows 13-21, Height 9, Width 24)
         # ======================================================================
         {
-            "name": "D5-6. Cơ cấu Nguồn điện Huy động 24 Giờ Ngày Mai đáp ứng Phụ tải Dự báo",
+            "name": "D5-6. Cơ cấu nguồn huy động ngày tới",
             "desc": "Xếp chồng các nguồn phát: Than (Nền) + Khí (Linh hoạt) + Thủy điện (Phủ đỉnh) + Mặt trời/Gió (Năng lượng tái tạo) khớp với Phụ tải dự báo.",
             "display": "area",
             "sql": f"""
@@ -222,7 +222,7 @@ def deploy_dashboard_05(base_url=None, user=None, password=None):
         # HÀNG 4: HAI BIỂU ĐỒ CHUYÊN SÂU ĐIỀU ĐỘ (Rows 22-29, Height 8, Width 12 each)
         # ======================================================================
         {
-            "name": "D5-7. Đường cong Con vịt (Duck Curve) & Độ dốc Huy động Thủy điện",
+            "name": "D5-7. Đường cong con vịt ngày tới",
             "desc": "So sánh Phụ tải Toàn quốc vs Điện mặt trời vs Phụ tải ròng (Net Load). Thấy rõ độ dốc tăng tải nhanh lúc 16h-19h cần Thủy điện xả bù.",
             "display": "line",
             "sql": f"""
@@ -253,7 +253,7 @@ def deploy_dashboard_05(base_url=None, user=None, password=None):
             "col": 0, "row": 22, "size_x": 12, "size_y": 8
         },
         {
-            "name": "D5-8. Phân bổ Sai số Tuyệt đối 24 Giờ: S-Mamba vs Naive",
+            "name": "D5-8. Phân bổ sai số theo giờ",
             "desc": "Biểu đồ cột so sánh sai số từng giờ |Actual - Pred| giữa S-Mamba (cột xanh thấp) và kinh nghiệm tuần trước (cột đỏ cao).",
             "display": "bar",
             "sql": f"""
@@ -281,7 +281,7 @@ def deploy_dashboard_05(base_url=None, user=None, password=None):
         # HÀNG 5: BẢNG KIỂM TOÁN ĐIỀU ĐỘ CHI TIẾT 24 GIỜ (Rows 30-37, Height 8, Width 24)
         # ======================================================================
         {
-            "name": "D5-9. Bảng Chi tiết Lập Lịch Điều Độ 24 Giờ Ngày Mai",
+            "name": "D5-9. Bảng lập lịch điều độ ngày tới",
             "desc": "Toàn bộ số liệu 24 giờ phục vụ trực ban điều độ: Phụ tải, Dự báo, Lệch, Cơ cấu nguồn phát và Khí tượng.",
             "display": "table",
             "sql": f"""

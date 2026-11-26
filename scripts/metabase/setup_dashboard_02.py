@@ -87,7 +87,7 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
         # 100% Không tính trung bình (NO AVG) - Chỉ dùng SUM, MAX
         # ======================================================================
         {
-            "name": "D2-1. [Cung Thủy Điện 3 Miền] Nước Về & Xả Tuabin Phát Điện (A1 - A2 - A3)",
+            "name": "D2-1. Thủy văn hồ chứa 3 miền",
             "desc": "So sánh tổng lưu lượng nước về hồ và lưu lượng xả qua tổ máy tuabin phát điện sinh công của 3 phân vùng điều độ A1 (Bắc), A2 (Trung & Tây Nguyên), A3 (Nam).",
             "display": "bar",
             "sql": f"""
@@ -125,7 +125,7 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
             "has_date_filter": True
         },
         {
-            "name": "D2-2. [Cung Nắng & Gió 3 Miền] Bức Xạ Tích Lũy & Tốc Độ Gió Cực Đại",
+            "name": "D2-2. Tiềm năng nắng gió 3 miền",
             "desc": "So sánh tổng bức xạ mặt trời tích lũy (MJ/m²) và tốc độ gió cực đại (MAX m/s) giữa 3 miền trong ngày (Không dùng AVG).",
             "display": "row",
             "sql": f"""
@@ -154,7 +154,7 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
             "has_date_filter": True
         },
         {
-            "name": "D2-3. [Cầu Phụ Tải Đỉnh 3 Miền] Công Suất Tiêu Thụ Cực Đại Trong Ngày",
+            "name": "D2-3. Phụ tải đỉnh Pmax 3 miền",
             "desc": "So sánh công suất tiêu thụ điện cực đại (MAX load_mw) trong ngày của 3 miền Bắc - Trung - Nam, làm rõ sự chênh lệch nhu cầu tiêu thụ.",
             "display": "bar",
             "sql": f"""
@@ -182,7 +182,7 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
             "has_date_filter": True
         },
         {
-            "name": "D2-4. [Cơ Cấu Nguồn Tự Nhiên Toàn Quốc] Thủy Điện vs Mặt Trời vs Gió",
+            "name": "D2-4. Cơ cấu nguồn tái tạo tức thời",
             "desc": "Biểu đồ tròn (Donut) so sánh tỷ trọng tổng sản lượng ngày (MWh) giữa 3 nguồn năng lượng tự nhiên theo thứ bậc.",
             "display": "pie",
             "sql": f"""
@@ -216,7 +216,7 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
         # NHỊP 2: 2 BIỂU ĐỒ HERO TRỌNG ĐIỂM (Rows 4-12, Height 9, Width 12)
         # ======================================================================
         {
-            "name": "D2-5. [Hero 1] Tích Nước Hồ Chứa 3 Phân Vùng A1 - A2 - A3",
+            "name": "D2-5. Tích nước hồ chứa 3 miền",
             "desc": "Tỷ lệ tích nước dung tích hữu ích có trọng số (%) và Tổng lưu lượng xả tràn điều tiết của 3 phân vùng điều độ quốc gia A1, A2, A3.",
             "display": "row",
             "sql": f"""
@@ -258,7 +258,7 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
             "has_date_filter": True
         },
         {
-            "name": "D2-6. [Hero 2] Phối Hợp Nắng & Nước 24 Giờ: Bù Trừ Nguồn Tự Nhiên & Phụ Tải",
+            "name": "D2-6. Phối hợp nguồn tái tạo 24h",
             "desc": "Diễn biến công suất phát 24 giờ của Thủy điện, Điện mặt trời, Điện gió và Phụ tải toàn quốc (Tất cả là SUM thực tế, không dùng AVG). Làm rõ quy luật: Nắng gánh trưa, Nước giữ đỉnh tối.",
             "display": "line",
             "sql": f"""
@@ -313,7 +313,7 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
         # NHỊP 3: BẢNG CHỈ HUY HÀNH ĐỘNG DUY NHẤT TRÊN DASHBOARD (Rows 13-20, Height 8)
         # ======================================================================
         {
-            "name": "D2-7. [Bảng Chỉ Huy] Giám Sát & Cảnh Báo An Toàn Hồ Chứa",
+            "name": "D2-7. Giám sát an toàn hồ chứa",
             "desc": "Danh mục hồ chứa cần xử lý 2 đầu rủi ro (Xả tràn, Cận đỉnh đón lũ & Nguy cơ cạn kiệt/sát MN chết). Hướng dẫn gợi ý theo thứ tự ưu tiên: 1. An toàn đập > 2. Quy trình liên hồ > 3. Tối ưu ĐMT.",
             "display": "table",
             "sql": f"""
@@ -408,7 +408,7 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
         # NHỊP 4: 2 BIỂU ĐỒ ĐÀO SÂU CHI TIẾT (Rows 21-29, Height 9, Width 12)
         # ======================================================================
         {
-            "name": "D2-8. Top 10 Hồ Thủy Điện Tiệm Cận Đỉnh Dung Tích & Nguy Cơ Tràn",
+            "name": "D2-8. Top 10 hồ nguy cơ xả tràn",
             "desc": "Biểu đồ thanh ngang trực quan Top 10 hồ chứa có tỷ lệ tích nước dung tích hữu ích cao nhất (%). Cảnh báo ngưỡng an toàn đón lũ.",
             "display": "row",
             "sql": f"""
@@ -432,7 +432,7 @@ def deploy_dashboard_02(base_url=None, user=None, password=None):
             "has_date_filter": True
         },
         {
-            "name": "D2-9. [Hiệu Suất Quang Điện] Bức Xạ Cực Đại vs Công Suất Phát Điện Mặt Trời (7h-17h)",
+            "name": "D2-9. Hiệu suất công suất mặt trời",
             "desc": "Kiểm tra hiệu suất quang điện: Đối chiếu bức xạ mặt trời cực đại (MAX W/m²) với công suất phát thực tế (MW) các khung giờ ban ngày (Không dùng AVG).",
             "display": "bar",
             "sql": f"""

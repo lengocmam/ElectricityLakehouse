@@ -78,7 +78,7 @@ def deploy_dashboard_seasonal(base_url=None, user=None, password=None):
         # HÀNG 1: CẦU PHỤ TẢI & CUNG NẮNG 3 MIỀN BẮC - TRUNG - NAM (12 THÁNG)
         # ======================================================================
         {
-            "name": "S3-1. [Phụ Tải Đỉnh 3 Miền 12 Tháng] Bắc - Trung - Nam",
+            "name": "D3-1. Chu kỳ phụ tải đỉnh 3 miền",
             "desc": "So sánh công suất phụ tải cực đại Pmax (MW) của 3 miền Bắc - Trung - Nam theo 12 tháng. Minh chứng đỉnh phụ tải nắng nóng mùa hè (Tháng 6-8) tại Miền Bắc và đỉnh mùa khô (Tháng 4) tại Miền Nam.",
             "display": "line",
             "sql": f"""
@@ -105,7 +105,7 @@ def deploy_dashboard_seasonal(base_url=None, user=None, password=None):
             "has_year_filter": True
         },
         {
-            "name": "S3-2. [Chu Kỳ Bức Xạ Nắng 3 Miền 12 Tháng] Bắc - Trung - Nam",
+            "name": "D3-2. Chu kỳ bức xạ mặt trời",
             "desc": "So sánh tổng bức xạ mặt trời tích lũy (MJ/m²) của 3 miền Bắc - Trung - Nam theo 12 tháng. Làm rõ: Miền Trung & Nam nắng dồi dào quanh năm, Miền Bắc suy giảm mùa đông xuân do mây mù.",
             "display": "line",
             "sql": f"""
@@ -141,7 +141,7 @@ def deploy_dashboard_seasonal(base_url=None, user=None, password=None):
         # HÀNG 2: THỦY VĂN LỆCH PHA LŨ & CƠ CẤU 4 MÙA
         # ======================================================================
         {
-            "name": "S3-3. [Lệch Pha Mùa Lũ 3 Miền] Lượng Mưa 12 Tháng Bắc - Trung - Nam",
+            "name": "D3-3. Lệch pha mùa lũ 3 miền",
             "desc": "So sánh lượng mưa tích lũy (mm) 3 miền. Minh chứng quy luật địa lý: Miền Bắc đỉnh lũ mùa Hè (T6-T8), Miền Trung đỉnh lũ bão muộn (T9-T11).",
             "display": "bar",
             "sql": f"""
@@ -173,7 +173,7 @@ def deploy_dashboard_seasonal(base_url=None, user=None, password=None):
             "has_year_filter": True
         },
         {
-            "name": "S3-4. [Cơ Cấu Tự Nhiên 4 Mùa] Thủy Điện vs Điện Mặt Trời vs Điện Gió",
+            "name": "D3-4. Cơ cấu nguồn tái tạo 4 mùa",
             "desc": "Sản lượng phát điện (GWh) của 3 nguồn năng lượng tự nhiên theo 4 mùa trong năm. Minh chứng quy luật thiên nhiên: Thủy điện đạt đỉnh Mùa Thu (mùa lũ), Điện mặt trời đạt đỉnh Mùa Hạ (nắng gắt), Điện gió đạt đỉnh Mùa Đông/Xuân (gió mùa Đông Bắc).",
             "display": "bar",
             "sql": f"""
@@ -218,7 +218,7 @@ def deploy_dashboard_seasonal(base_url=None, user=None, password=None):
         # HÀNG 3: BẢN ĐỒ RỦI RO THIÊN TAI & BẢNG KHUYẾN NGHỊ ĐIỀU ĐỘ CHIẾN LƯỢC
         # ======================================================================
         {
-            "name": "S3-5. [Tần Suất Thiên Tai Cực Đoan] Số Ngày Gió Giật & Mưa To Theo Tháng",
+            "name": "D3-5. Tần suất thiên tai cực đoan",
             "desc": "Đếm số ngày có gió giật mạnh (≥15 m/s) và số ngày mưa lớn (≥50 mm) qua 12 tháng. Cảnh báo cao điểm thiên tai bão lũ (Tháng 9-11).",
             "display": "bar",
             "sql": f"""
@@ -244,7 +244,7 @@ def deploy_dashboard_seasonal(base_url=None, user=None, password=None):
             "has_year_filter": True
         },
         {
-            "name": "S3-6. [Bảng Chỉ Huy] Khuyến Nghị Chiến Lược Điều Độ Hệ Thống 4 Mùa",
+            "name": "D3-6. Khuyến nghị điều độ 4 mùa",
             "desc": "Bảng tổng hợp khuyến nghị vận hành và điều độ hệ thống điện - thủy văn chuẩn NSMO/EVN theo 4 mùa trong năm.",
             "display": "table",
             "sql": f"""

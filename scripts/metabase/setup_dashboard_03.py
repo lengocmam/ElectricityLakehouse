@@ -58,7 +58,7 @@ def deploy_dashboard_03(base_url=None, user=None, password=None):
         # NHỊP 1: 4 KPIs DATAOPS THỜI GIAN THỰC (Rows 0-3, Height 4)
         # ----------------------------------------------------------------------
         {
-            "name": "D3-1. Tình Trạng Vận Hành Toàn Bộ DAGs (DAG SLA %)",
+            "name": "D4-1. Tỷ lệ hoàn thành tác vụ (SLA)",
             "desc": "Tỷ lệ DAG hoàn thành thành công theo tiêu chuẩn SLA DataOps.",
             "display": "scalar",
             "sql": """
@@ -76,7 +76,7 @@ def deploy_dashboard_03(base_url=None, user=None, password=None):
             "has_date_filter": True
         },
         {
-            "name": "D3-2. Cảnh Báo & Sự Cố Hệ Thống (Pipeline Alert Status)",
+            "name": "D4-2. Trạng thái cảnh báo pipeline",
             "desc": "Trạng thái cảnh báo và số lượng sự cố phát sinh theo mức độ nghiêm trọng.",
             "display": "scalar",
             "sql": """
@@ -100,7 +100,7 @@ def deploy_dashboard_03(base_url=None, user=None, password=None):
             "has_date_filter": True
         },
         {
-            "name": "D3-3. Tổng Lưu Lượng Dữ Liệu Đọc & Ghi (Total Throughput)",
+            "name": "D4-3. Tổng lưu lượng xử lý dữ liệu",
             "desc": "Tổng khối lượng bản ghi dữ liệu đã được đọc và nạp thành công qua các tầng.",
             "display": "scalar",
             "sql": """
@@ -118,7 +118,7 @@ def deploy_dashboard_03(base_url=None, user=None, password=None):
             "has_date_filter": True
         },
         {
-            "name": "D3-4. Dữ Liệu Bị Loại Trừ / Làm Sạch (Data Quality Rejection)",
+            "name": "D4-4. Tỷ lệ dữ liệu bị cách ly",
             "desc": "Số lượng bản ghi vi phạm kiểm tra chất lượng (Data Quality Rule) bị cách ly.",
             "display": "scalar",
             "sql": """
@@ -140,7 +140,7 @@ def deploy_dashboard_03(base_url=None, user=None, password=None):
         # NHỊP 2: 2 HERO CHARTS - LƯU LƯỢNG DATA & PHÁT HIỆN LỐ THỜI GIAN (Rows 4-13)
         # ----------------------------------------------------------------------
         {
-            "name": "D3-5. [Hero 1] Lưu Lượng Dòng Dữ Liệu: Đọc vs Ghi vs Từ Chối",
+            "name": "D4-5. Cân bằng dòng dữ liệu Bronze - Silver",
             "desc": "So sánh trực quan số dòng đọc, ghi và từ chối theo từng tác vụ Bronze, Silver, Gold.",
             "display": "bar",
             "sql": """
@@ -171,7 +171,7 @@ def deploy_dashboard_03(base_url=None, user=None, password=None):
             "has_date_filter": True
         },
         {
-            "name": "D3-6. [Hero 2] Cảnh Báo Bất Thường: % Lố Thời Lượng Tác Vụ (vs P50 & P75)",
+            "name": "D4-6. Tác vụ vượt ngưỡng thời lượng",
             "desc": "Phát hiện tắc nghẽn: So sánh thời lượng thực tế với Trung vị (P50) và Phân vị P75.",
             "display": "bar",
             "sql": """
@@ -224,7 +224,7 @@ def deploy_dashboard_03(base_url=None, user=None, password=None):
         # NHỊP 3: BẢNG CHỈ HUY SỰ CỐ & VÒNG ĐỜI DAG (Rows 14-23, Height 10)
         # ----------------------------------------------------------------------
         {
-            "name": "D3-7. [Bảng Chỉ Huy Sự Cố] Bảng Quản Lý Sự Cố & Cảnh Báo",
+            "name": "D4-7. Quản lý sự cố DataOps",
             "desc": "Danh mục sự cố thời gian thực: Mã lỗi, Phân loại, DAG, Task, Thông báo Telegram và nội dung lỗi.",
             "display": "table",
             "sql": """
@@ -253,7 +253,7 @@ def deploy_dashboard_03(base_url=None, user=None, password=None):
             "has_date_filter": True
         },
         {
-            "name": "D3-8. Giám Sát Vòng Đời Từng DAG (DAG Lifecycle Audit)",
+            "name": "D4-8. Vòng đời thực thi DAG Airflow",
             "desc": "Kiểm toán vòng đời DAG: Thời lượng chạy, thời điểm bắt đầu/kết thúc và trạng thái hoàn thành.",
             "display": "table",
             "sql": """
@@ -283,7 +283,7 @@ def deploy_dashboard_03(base_url=None, user=None, password=None):
         # NHỊP 4: PHẢ HỆ DÒNG CHẢY DỮ LIỆU & KIỂM TOÁN TÁC VỤ (Rows 24-33, Height 10)
         # ----------------------------------------------------------------------
         {
-            "name": "D3-9. Bản Đồ Phả Hệ Dòng Chảy Dữ Liệu (Data Lineage Map)",
+            "name": "D4-9. Phả hệ dòng chảy dữ liệu",
             "desc": "Minh bạch hóa dòng chảy: External Source -> Bronze -> Silver -> Gold kèm tác vụ Spark/ETL phụ trách.",
             "display": "table",
             "sql": """
@@ -309,7 +309,7 @@ def deploy_dashboard_03(base_url=None, user=None, password=None):
             "has_date_filter": False
         },
         {
-            "name": "D3-10. Bảng Nhật Ký Kiểm Toán Tác Vụ Chi Tiết (Task Audit Matrix)",
+            "name": "D4-10. Bảng đối soát tác vụ pipeline",
             "desc": "Chi tiết từng lần chạy task: Số lần thử lại, thời gian thực thi, cờ bất thường, dòng đọc/ghi/loại trừ.",
             "display": "table",
             "sql": """

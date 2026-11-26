@@ -64,7 +64,7 @@ def deploy_dashboard_01(base_url=None, user=None, password=None):
         # NHỊP 1: MÀN HÌNH ĐẦU - 4 KPIs VẬN HÀNH HỆ THỐNG (Rows 0-3, Height 4, Width 6)
         # ======================================================================
         {
-            "name": "D1-1. Phụ tải đỉnh ngày (Pmax) & Dự phòng công suất",
+            "name": "D1-1. Phụ tải đỉnh Pmax",
             "desc": "Công suất đỉnh Pmax, giờ đỉnh, dự phòng công suất điều khiển được (không tính mặt trời/gió).",
             "display": "scalar",
             "sql": f"""
@@ -96,7 +96,7 @@ def deploy_dashboard_01(base_url=None, user=None, password=None):
             "col": 0, "row": 0, "size_x": 6, "size_y": 4
         },
         {
-            "name": "D1-2. Phụ tải đáy (Pmin) & Biên độ ΔP",
+            "name": "D1-2. Phụ tải đáy Pmin",
             "desc": "Đo độ co giãn phụ tải trong ngày: Pmin, giờ đáy, và biên độ chênh lệch Pmax - Pmin.",
             "display": "scalar",
             "sql": f"""
@@ -117,7 +117,7 @@ def deploy_dashboard_01(base_url=None, user=None, password=None):
             "col": 6, "row": 0, "size_x": 6, "size_y": 4
         },
         {
-            "name": "D1-3. Tốc độ tăng dốc phụ tải ròng chiều tối (Max Ramp)",
+            "name": "D1-3. Độ dốc tải ròng chiều tối",
             "desc": "Áp lực 'cổ vịt': Tốc độ tăng dốc phụ tải ròng lớn nhất trong cửa sổ 3 giờ (14h-20h) khi điện mặt trời tắt.",
             "display": "scalar",
             "sql": f"""
@@ -155,7 +155,7 @@ def deploy_dashboard_01(base_url=None, user=None, password=None):
             "col": 12, "row": 0, "size_x": 6, "size_y": 4
         },
         {
-            "name": "D1-4. Tỷ trọng Năng lượng Tái tạo (Mặt trời + Gió)",
+            "name": "D1-4. Tỷ trọng năng lượng tái tạo",
             "desc": "Mức đóng góp của năng lượng tái tạo: %RE cả ngày và %RE cao nhất theo giờ kèm giờ đạt đỉnh.",
             "display": "scalar",
             "sql": f"""
@@ -187,7 +187,7 @@ def deploy_dashboard_01(base_url=None, user=None, password=None):
         # NHỊP 1: 2 HERO CHARTS CHIẾN LƯỢC (Rows 4-12, Height 9, Width 12 each)
         # ======================================================================
         {
-            "name": "D1-5. [Hero 1] Đường cong con vịt (Duck Curve 24h)",
+            "name": "D1-5. Đường cong con vịt 24h",
             "desc": "Lượng hóa tác động của điện mặt trời: Phụ tải thực tế, Điện mặt trời, Điện gió và Phụ tải ròng (Net Load).",
             "display": "line",
             "sql": f"""
@@ -236,7 +236,7 @@ def deploy_dashboard_01(base_url=None, user=None, password=None):
             "col": 0, "row": 4, "size_x": 12, "size_y": 9
         },
         {
-            "name": "D1-6. [Hero 2] Cân bằng huy động 24 giờ: Ai đáp ứng phụ tải",
+            "name": "D1-6. Cơ cấu nguồn phát 24h",
             "desc": "Cơ cấu huy động nguồn theo giờ đáp ứng phụ tải: Than, Khí, Thủy điện, Mặt trời, Gió, Khác kèm đường Phụ tải & Chênh lệch.",
             "display": "area",
             "sql": f"""
@@ -288,7 +288,7 @@ def deploy_dashboard_01(base_url=None, user=None, password=None):
         # NHỊP 2: CUỘN XUỐNG - CHUYỂN DỊCH THEO MÙA & 3 MIỀN (Rows 13-20, Height 8)
         # ======================================================================
         {
-            "name": "D1-7. Cơ cấu sản lượng theo tháng (12 tháng gần nhất)",
+            "name": "D1-7. Cơ cấu sản lượng 12 tháng",
             "desc": "Chuyển dịch giữa mùa mưa và mùa khô: Tỷ trọng Thủy điện, Than, Khí, Tái tạo 12 tháng qua (tổng hợp trực tiếp từ bảng fact giờ).",
             "display": "bar",
             "sql": f"""
@@ -320,7 +320,7 @@ def deploy_dashboard_01(base_url=None, user=None, password=None):
             "col": 0, "row": 13, "size_x": 10, "size_y": 8
         },
         {
-            "name": "D1-8. Phụ tải 3 miền Bắc - Trung - Nam theo giờ",
+            "name": "D1-8. Phụ tải 24h theo 3 miền",
             "desc": "So sánh hình dạng tiêu thụ và độ lệch pha giờ đỉnh giữa 3 miền Bắc, Trung, Nam.",
             "display": "area",
             "sql": f"""
@@ -348,7 +348,7 @@ def deploy_dashboard_01(base_url=None, user=None, password=None):
         # NHỊP 2: BẢNG KIỂM TOÁN ĐIỀU ĐỘ CHI TIẾT (Rows 21-28, Height 8, Width 24)
         # ======================================================================
         {
-            "name": "D1-9. Bảng kiểm toán điều độ theo loại hình nguồn",
+            "name": "D1-9. Bảng đối soát nguồn phát theo giờ",
             "desc": "Số liệu kiểm toán cuối ngày: Sản lượng, Tỷ trọng, Pmax, Giờ đạt Pmax, Biên độ dao động, Hệ số sử dụng CS, Vai trò và Nhóm phát thải.",
             "display": "table",
             "sql": f"""
