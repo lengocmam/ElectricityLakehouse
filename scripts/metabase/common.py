@@ -63,7 +63,7 @@ def get_metabase_url(cli_url=None):
     candidates = []
     if cli_url:
         candidates.append(cli_url.rstrip("/"))
-    candidates.extend(["http://localhost:3000", "http://metabase:3000", "http://127.0.0.1:3000"])
+    candidates.extend(["http://127.0.0.1:3000", "http://localhost:3000", "http://metabase:3000"])
 
     for url in candidates:
         try:
@@ -140,13 +140,37 @@ def get_or_create_collection(base_url, token, name=DEFAULT_COLLECTION):
 
 
 def get_or_create_dashboard(base_url, token, collection_id, name, description):
-    """Retrieve existing dashboard ID or create a new one."""
+    """Retrieve existing dashboard ID (by exact name or matching scope) or create a new one."""
     req = urllib.request.Request(f"{base_url}/api/dashboard", headers={"X-Metabase-Session": token})
+    dash_num = name[:2] if len(name) >= 2 and name[:2].isdigit() else ""
     with urllib.request.urlopen(req, timeout=10) as resp:
         dashboards = json.loads(resp.read().decode("utf-8"))
         for d in dashboards:
-            if d.get("name") == name and d.get("collection_id") == collection_id:
-                return d["id"]
+            d_name = d.get("name", "")
+            d_col = d.get("collection_id")
+            matched = False
+            if d_name == name and d_col == collection_id:
+                matched = True
+            elif d_col == collection_id and dash_num:
+                if dash_num in ("01", "02", "05") and d_name.startswith(f"{dash_num}."):
+                    matched = True
+                elif dash_num == "03" and ("03. Chu Kỳ" in d_name or "03. Phân Tích Chu Kỳ" in d_name):
+                    matched = True
+                elif dash_num == "04" and ("03. Giám Sát Cảnh Báo" in d_name or "04." in d_name):
+                    matched = True
+
+            if matched:
+                did = d["id"]
+                if d_name != name or d.get("description") != description:
+                    update_d_req = urllib.request.Request(
+                        f"{base_url}/api/dashboard/{did}",
+                        data=json.dumps({"name": name, "description": description}).encode("utf-8"),
+                        headers={"X-Metabase-Session": token, "Content-Type": "application/json"},
+                        method="PUT"
+                    )
+                    urllib.request.urlopen(update_d_req, timeout=10)
+                    print(f"[✓] Updated Dashboard {did}: '{name}'")
+                return did
 
     # Create dashboard
     create_req = urllib.request.Request(
@@ -160,12 +184,36 @@ def get_or_create_dashboard(base_url, token, collection_id, name, description):
         return new_dash["id"]
 
 
+def find_matching_card(cards, collection_id, name):
+    """Find existing card by exact name or by unique card code prefix."""
+    # 1. Exact match
+    for c in cards:
+        if c.get("collection_id") == collection_id and c.get("name") == name:
+            return c
+    # 2. Match by card code prefix (e.g. D1-1, D2-1, D3-1, D4-1, D5-1)
+    if "." in name:
+        code = name.split(".")[0].strip()
+        for c in cards:
+            if c.get("collection_id") != collection_id:
+                continue
+            c_name = c.get("name", "").strip()
+            if c_name.startswith(f"{code}."):
+                return c
+            # Special case for Dashboard 03 (old cards started with S3-)
+            if code.startswith("D3-") and c_name.startswith(f"S3-{code[3:]}."):
+                return c
+            # Special case for Dashboard 04 (old cards started with D3-)
+            if code.startswith("D4-") and c_name.startswith(f"D3-{code[3:]}."):
+                return c
+    return None
+
+
 def upsert_card(base_url, token, collection_id, db_id, name, sql, display, viz=None, tag_def=None, description=None):
     """Create card if not existing, or update query & visualization if already exists."""
     req = urllib.request.Request(f"{base_url}/api/card", headers={"X-Metabase-Session": token})
     with urllib.request.urlopen(req, timeout=60) as resp:
         cards = json.loads(resp.read().decode("utf-8"))
-        existing = next((c for c in cards if c.get("name") == name and c.get("collection_id") == collection_id), None)
+        existing = find_matching_card(cards, collection_id, name)
 
     payload = {
         "name": name,
