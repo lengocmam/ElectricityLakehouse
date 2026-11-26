@@ -197,13 +197,26 @@ def find_matching_card(cards, collection_id, name):
             if c.get("collection_id") != collection_id:
                 continue
             c_name = c.get("name", "").strip()
-            if c_name.startswith(f"{code}."):
-                return c
-            # Special case for Dashboard 03 (old cards started with S3-)
-            if code.startswith("D3-") and c_name.startswith(f"S3-{code[3:]}."):
-                return c
-            # Special case for Dashboard 04 (old cards started with D3-)
-            if code.startswith("D4-") and c_name.startswith(f"D3-{code[3:]}."):
+
+            # Special case for Dashboard 03 (Seasonal): must match S3- or D3- in seasonal cards (ID 58-63)
+            if code.startswith("D3-"):
+                sub_idx = code[3:]
+                if c.get("id") in range(58, 64):
+                    if c_name.startswith(f"S3-{sub_idx}.") or c_name.startswith(f"D3-{sub_idx}."):
+                        return c
+                elif c_name.startswith(f"S3-{sub_idx}."):
+                    return c
+
+            # Special case for Dashboard 04 (DataOps): must match D4- or D3- in DataOps cards (ID 64-73)
+            elif code.startswith("D4-"):
+                sub_idx = code[3:]
+                if c.get("id") in range(64, 74):
+                    if c_name.startswith(f"D4-{sub_idx}.") or c_name.startswith(f"D3-{sub_idx}."):
+                        return c
+                elif c_name.startswith(f"D4-{sub_idx}."):
+                    return c
+
+            elif c_name.startswith(f"{code}."):
                 return c
     return None
 
