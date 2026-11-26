@@ -41,7 +41,7 @@ COMMON_TAG_DEF = {
     }
 }
 
-DASHBOARD_NAME = "05. Điều Độ Ngày Tới: Dự Báo 24 Giờ & Cơ Cấu Nguồn Điện Bằng Học Máy"
+DASHBOARD_NAME = "05. Lập Lịch Điều Độ Ngày Tới & Cảnh Báo Đường Cong Con Vịt"
 DASHBOARD_DESC = (
     "Lập phương thức vận hành ngày tới (Day-Ahead Dispatch D -> D+1): "
     "Chọn ngày hôm nay D, hệ thống tự động tính toán và hiển thị toàn bộ 24 giờ ngày mai D+1. "

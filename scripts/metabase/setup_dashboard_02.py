@@ -41,7 +41,7 @@ from common import (
     COMMON_TAG_DEF,
 )
 
-DASHBOARD_NAME = "02. Năng Lượng Tự Nhiên 3 Miền"
+DASHBOARD_NAME = "02. Khí Tượng & Thủy Văn Năng Lượng Tái Tạo"
 DASHBOARD_DESC = (
     "Trung tâm Giám sát Điều độ Năng lượng Tự nhiên (Thủy điện, Nắng, Gió) theo 3 Trung tâm A1 - A2 - A3 "
     "và Diễn biến Phối hợp Bù trừ 24 Giờ Toàn quốc."

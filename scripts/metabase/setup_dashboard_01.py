@@ -31,7 +31,7 @@ from common import (
     COMMON_TAG_DEF,
 )
 
-DASHBOARD_NAME = "01. Cân Bằng Cung - Cầu & Chuyển Dịch Năng Lượng"
+DASHBOARD_NAME = "01. Giám Sát Cân Đối Cung – Cầu Hệ Thống Điện Quốc Gia"
 DASHBOARD_DESC = (
     "Nhịp vận hành 24 giờ của hệ thống điện: phụ tải được đáp ứng bằng nguồn nào, "
     "và điện mặt trời làm thay đổi hình dạng phụ tải ròng ra sao."

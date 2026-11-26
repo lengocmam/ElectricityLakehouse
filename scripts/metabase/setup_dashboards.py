@@ -43,23 +43,23 @@ def main():
 
     if args.dashboard in ("1", "all"):
         d1_id = deploy_dashboard_01(url, args.user, args.password)
-        dashboards_deployed.append(("01. Cân Bằng Cung - Cầu & Chuyển Dịch Năng Lượng", d1_id))
+        dashboards_deployed.append(("01. Giám Sát Cân Đối Cung – Cầu Hệ Thống Điện Quốc Gia", d1_id))
 
     if args.dashboard in ("2", "all"):
         d2_id = deploy_dashboard_02(url, args.user, args.password)
-        dashboards_deployed.append(("02. Năng Lượng Tự Nhiên 3 Miền", d2_id))
+        dashboards_deployed.append(("02. Khí Tượng & Thủy Văn Năng Lượng Tái Tạo", d2_id))
 
-    if args.dashboard in ("3", "all"):
+    if args.dashboard in ("3", "seasonal", "all"):
         d3_id = deploy_dashboard_seasonal(url, args.user, args.password)
-        dashboards_deployed.append(("03. Chu Kỳ Năng Lượng Theo Mùa", d3_id))
+        dashboards_deployed.append(("03. Phân Tích Chu Kỳ Phụ Tải & Đặc Trưng Mùa Vụ", d3_id))
 
-    if args.dashboard in ("dataops", "all"):
+    if args.dashboard in ("4", "dataops", "all"):
         d_ops_id = deploy_dashboard_03(url, args.user, args.password)
-        dashboards_deployed.append(("04. Giám Sát Vận Hành Pipeline & Chất Lượng Dữ Liệu", d_ops_id))
+        dashboards_deployed.append(("04. Giám Sát Vận Hành Pipeline & Chất Lượng Dữ Liệu DataOps", d_ops_id))
 
     if args.dashboard in ("5", "ml", "all"):
         d5_id = deploy_dashboard_05(url, args.user, args.password)
-        dashboards_deployed.append(("05. Điều Độ Ngày Tới: Dự Báo 24 Giờ & Cơ Cấu Nguồn Điện Bằng Học Máy", d5_id))
+        dashboards_deployed.append(("05. Lập Lịch Điều Độ Ngày Tới & Cảnh Báo Đường Cong Con Vịt", d5_id))
 
     print("\n" + "#"*75)
     print("SUMMARY: ALL REQUESTED DASHBOARDS READY ON METABASE!")

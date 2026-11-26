@@ -32,7 +32,7 @@ from common import (
     COMMON_TAG_DEF,
 )
 
-DASHBOARD_NAME = "03. Giám Sát Cảnh Báo Vận Hành Pipeline & Chất Lượng Dữ Liệu Lakehouse"
+DASHBOARD_NAME = "04. Giám Sát Vận Hành Pipeline & Chất Lượng Dữ Liệu DataOps"
 DASHBOARD_DESC = (
     "Trung tâm Điều hành Dữ liệu (DataOps Center): Giám sát SLA vòng đời DAGs, cảnh báo sự cố thời gian thực, "
     "phát hiện bất thường thời lượng (% lố vs Trung vị & P75), lưu lượng Đọc/Ghi/Loại trừ và Phả hệ Lineage."

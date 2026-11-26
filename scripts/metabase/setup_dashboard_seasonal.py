@@ -38,7 +38,7 @@ from common import (
     upsert_card,
 )
 
-DASHBOARD_NAME = "03. Chu Kỳ Năng Lượng Theo Mùa"
+DASHBOARD_NAME = "03. Phân Tích Chu Kỳ Phụ Tải & Đặc Trưng Mùa Vụ"
 DASHBOARD_DESC = (
     "Trung tâm Phân tích Chiến lược Chu kỳ Mùa & Khí hậu: Đối chiếu quy luật 12 tháng và 4 mùa (Xuân, Hạ, Thu, Đông) "
     "của Thủy điện, Nắng, Gió và Phụ tải 3 Miền Bắc - Trung - Nam; minh chứng tính cấp thiết của đường dây 500kV truyền tải bù trừ liên miền."
